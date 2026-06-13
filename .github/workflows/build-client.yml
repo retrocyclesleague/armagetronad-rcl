@@ -1,0 +1,91 @@
+name: build-client
+
+on:
+  push:
+    branches: [hack-0.2.8-sty+ct+ap, "rcl/**"]
+    tags: ["v0.2.9-sty+ct+ap+rcl.*"]
+  pull_request:
+    branches: [hack-0.2.8-sty+ct+ap, "rcl/**"]
+  workflow_dispatch:
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build macOS client
+        run: bash build-macos.sh
+
+      - name: Smoke client
+        env:
+          CLIENT_BIN: src/armagetronad_main
+        run: bash scripts/smoke-client.sh
+
+      - name: Package macOS tarball
+        run: |
+          VERSION="$(tr -d '\n' < major_version)"
+          bash scripts/package-client.sh \
+            --binary src/armagetronad_main \
+            --platform macos-universal \
+            --version "$VERSION" \
+            --out-dir dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: client-macos-universal
+          path: dist/Retrocycles-RCL-*.tar.gz*
+
+  build-linux:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            autoconf automake bison g++ libgl1-mesa-dev libglew-dev libpng-dev \
+            libsdl-image1.2-dev libsdl-mixer1.2-dev libsdl1.2-dev libtool \
+            libxml2-dev libzthread-dev make pkg-config python3 wget
+
+      - name: Build Linux client
+        run: bash scripts/build-linux-client.sh
+
+      - name: Smoke client
+        run: bash scripts/smoke-client.sh
+
+      - name: Package Linux tarball
+        run: |
+          VERSION="$(tr -d '\n' < major_version)"
+          bash scripts/package-client.sh \
+            --binary build-client/src/armagetronad_main \
+            --platform linux-x86_64 \
+            --version "$VERSION" \
+            --out-dir dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: client-linux-x86_64
+          path: dist/Retrocycles-RCL-*.tar.gz*
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v0.2.9-sty+ct+ap+rcl.')
+    needs: [build-macos, build-linux]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create prerelease
+        uses: softprops/action-gh-release@v2
+        with:
+          prerelease: true
+          generate_release_notes: true
+          files: artifacts/**

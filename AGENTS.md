@@ -39,6 +39,19 @@ cd ..
 bash scripts/smoke-dedicated.sh
 ```
 
+## Client beta (player builds)
+
+See [docs/CLIENT_BETA.md](docs/CLIENT_BETA.md). CI: `.github/workflows/build-client.yml`.
+
+```bash
+# Linux client
+bash scripts/build-linux-client.sh && bash scripts/smoke-client.sh
+
+# macOS client
+bash build-macos.sh
+CLIENT_BIN=src/armagetronad_main bash scripts/smoke-client.sh
+```
+
 Developer flags (`README-DEVELOPER`): `DEBUGLEVEL=3`, `CODELEVEL=2` on configure.
 
 ## Key directories

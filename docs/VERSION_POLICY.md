@@ -24,4 +24,5 @@
 
 ## Changelog
 
+- **rcl.1** — Client beta program: CI client matrix (`build-client.yml`), Linux/macOS packaging scripts, smoke checklist, Linear project + manifest template. Team opt-in; Steam remains default.
 - **rcl.0** — First tagged RCL baseline: FORCE_TURN, FORCE_BRAKE, AI_THINK, PING_CHARITY_MIN=100, agent dev env.
