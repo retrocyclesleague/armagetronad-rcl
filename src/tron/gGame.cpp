@@ -6356,3 +6356,55 @@ static void sg_reportsClear(std::istream &s)
 }
 static tConfItemFunc sg_reportsClearConf("CLEAR_REPORTS", &sg_reportsClear);
 static tAccessLevelSetter sg_reportsClearConfLevel(sg_reportsClearConf, tAccessLevel_Owner);
+
+// FORCE_TURN <player> <direction>
+// Directly turns a player's cycle. direction: -1 = left, 1 = right.
+// Enables external AI scripts to control cycles via SPAWN_SCRIPT.
+static void sg_ForceTurn(std::istream &s)
+{
+    if ( se_NeedsServer( "FORCE_TURN", s, false ) )
+        return;
+
+    ePlayerNetID * p = ePlayerNetID::ReadPlayer( s );
+    if ( !p || !p->Object() || !p->Object()->Alive() )
+        return;
+
+    int dir = 0;
+    s >> dir;
+
+    if ( dir != 1 && dir != -1 )
+        return;
+
+    gCycle * cycle = dynamic_cast<gCycle *>( p->Object() );
+    if ( cycle )
+    {
+        cycle->Turn( dir );
+    }
+}
+
+static tConfItemFunc sg_forceTurnConf("FORCE_TURN", &sg_ForceTurn);
+static tAccessLevelSetter sg_forceTurnConfLevel(sg_forceTurnConf, tAccessLevel_Moderator);
+
+// FORCE_BRAKE <player> <0|1>
+// Sets braking state for a player's cycle. 0 = off, 1 = on.
+static void sg_ForceBrake(std::istream &s)
+{
+    if ( se_NeedsServer( "FORCE_BRAKE", s, false ) )
+        return;
+
+    ePlayerNetID * p = ePlayerNetID::ReadPlayer( s );
+    if ( !p || !p->Object() || !p->Object()->Alive() )
+        return;
+
+    int braking = 0;
+    s >> braking;
+
+    gCycle * cycle = dynamic_cast<gCycle *>( p->Object() );
+    if ( cycle )
+    {
+        cycle->SetBraking( braking ? 1 : 0 );
+    }
+}
+
+static tConfItemFunc sg_forceBrakeConf("FORCE_BRAKE", &sg_ForceBrake);
+static tAccessLevelSetter sg_forceBrakeConfLevel(sg_forceBrakeConf, tAccessLevel_Moderator);
