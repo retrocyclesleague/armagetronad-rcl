@@ -18,7 +18,7 @@ mkdir -p build
 if ! test -f build/Makefile; then
   (
     cd build
-    ../configure --disable-glout DEBUGLEVEL=3 CODELEVEL=2
+    ../configure --prefix=/app/server --disable-glout DEBUGLEVEL=3 CODELEVEL=2
   )
 fi
 
