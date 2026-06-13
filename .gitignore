@@ -119,3 +119,5 @@ src/nTrueVersion.h
 .changetag
 fingerprint
 wget-log*
+/_deps/
+/_inst/
