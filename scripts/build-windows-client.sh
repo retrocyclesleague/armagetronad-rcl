@@ -30,6 +30,8 @@ build_zthread() {
   tar -xzf ZThread-2.3.2.tar.gz
   (
     cd ZThread-2.3.2
+    libtoolize --copy --force
+    autoreconf -fi
     ./configure --prefix="${DEPS}" --enable-shared=no
     make -j"${JOBS}"
     make install
