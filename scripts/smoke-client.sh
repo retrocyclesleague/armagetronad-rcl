@@ -32,8 +32,20 @@ fi
 
 echo "warning: $MAJOR not found via strings; checking binary executes..." >&2
 set +e
-timeout 3 "$BIN" --help > /tmp/rcl-client-smoke.log 2>&1
-status=$?
+if command -v timeout >/dev/null 2>&1; then
+  timeout 3 "$BIN" --help > /tmp/rcl-client-smoke.log 2>&1
+  status=$?
+elif command -v gtimeout >/dev/null 2>&1; then
+  gtimeout 3 "$BIN" --help > /tmp/rcl-client-smoke.log 2>&1
+  status=$?
+else
+  "$BIN" --help > /tmp/rcl-client-smoke.log 2>&1 &
+  pid=$!
+  sleep 3
+  kill "$pid" 2>/dev/null || true
+  wait "$pid" 2>/dev/null
+  status=$?
+fi
 set -e
 head -10 /tmp/rcl-client-smoke.log || true
 

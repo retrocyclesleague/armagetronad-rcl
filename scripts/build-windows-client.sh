@@ -30,7 +30,17 @@ build_zthread() {
   tar -xzf ZThread-2.3.2.tar.gz
   (
     cd ZThread-2.3.2
+    # ZThread 2.3.2 ships ancient automake macros; strip the ones MSYS2 no longer ships.
+    sed -i \
+      -e 's/^AM_ACLOCAL_INCLUDE/# AM_ACLOCAL_INCLUDE/' \
+      -e 's/^AM_DETECT_PTHREAD/# AM_DETECT_PTHREAD/' \
+      -e 's/^AM_WITH_DOXYGEN/# AM_WITH_DOXYGEN/' \
+      -e 's/^AM_ENABLE_ATOMIC_LINUX/# AM_ENABLE_ATOMIC_LINUX/' \
+      -e 's/^AM_ENABLE_ATOMIC_GCC/# AM_ENABLE_ATOMIC_GCC/' \
+      -e 's/^AM_DETECT_FTIME/# AM_DETECT_FTIME/' \
+      configure.ac
     libtoolize --copy --force
+    autoreconf -fi
     ./configure --prefix="${DEPS}" --enable-shared=no
     make -j"${JOBS}"
     make install
