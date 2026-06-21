@@ -23,7 +23,16 @@ while test $# -gt 0; do
 done
 
 test -n "$BINARY" && test -n "$PLATFORM" || usage
-test -x "$BINARY" || { echo "error: binary not executable: $BINARY" >&2; exit 1; }
+if test ! -f "$BINARY"; then
+  echo "error: binary not found: $BINARY" >&2
+  exit 1
+fi
+if test -x "$BINARY"; then
+  :
+elif test "${BINARY##*.}" != exe; then
+  echo "error: binary not executable: $BINARY" >&2
+  exit 1
+fi
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 if test -z "$VERSION"; then
@@ -35,15 +44,31 @@ trap 'rm -rf "$STAGE"' EXIT
 
 PKG="Retrocycles-RCL-${VERSION}-${PLATFORM}"
 mkdir -p "${STAGE}/${PKG}/bin"
-cp "$BINARY" "${STAGE}/${PKG}/bin/armagetronad"
-chmod +x "${STAGE}/${PKG}/bin/armagetronad"
+
+EXE_NAME="armagetronad"
+if test "${BINARY##*.}" = exe || test "${PLATFORM}" = windows-x86_64; then
+  EXE_NAME="armagetronad.exe"
+fi
+
+cp "$BINARY" "${STAGE}/${PKG}/bin/${EXE_NAME}"
+if test "${EXE_NAME}" != "armagetronad.exe"; then
+  chmod +x "${STAGE}/${PKG}/bin/${EXE_NAME}"
+fi
+
+if test "${PLATFORM}" = windows-x86_64; then
+  RUN_LINE="  2. Run: bin\\armagetronad.exe (or double-click after extracting)"
+  EXAMPLE_DIR="C:\\Retrocycles-RCL"
+else
+  RUN_LINE="  2. Run: ./bin/armagetronad"
+  EXAMPLE_DIR="~/Retrocycles-RCL"
+fi
 
 cat > "${STAGE}/${PKG}/README.txt" <<EOF
 Retrocycles RCL client beta — ${VERSION} (${PLATFORM})
 
 Install (side-by-side with Steam Retrocycles):
-  1. Extract this tarball anywhere (e.g. ~/Retrocycles-RCL)
-  2. Run: ./bin/armagetronad
+  1. Extract this archive anywhere (e.g. ${EXAMPLE_DIR})
+${RUN_LINE}
   3. Verify About shows ${VERSION}
 
 Smoke checklist + issue tracker:

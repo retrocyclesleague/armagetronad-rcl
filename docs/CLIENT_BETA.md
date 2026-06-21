@@ -15,6 +15,7 @@ Workflow: `.github/workflows/build-client.yml`
 
 - **macOS** — `build-macos.sh` → `Retrocycles-RCL-{version}-macos-universal.tar.gz`
 - **Linux** — `scripts/build-linux-client.sh` → `Retrocycles-RCL-{version}-linux-x86_64.tar.gz`
+- **Windows** — `scripts/build-windows-client.sh` (MSYS2 MINGW64) → `Retrocycles-RCL-{version}-windows-x86_64.tar.gz`
 - Tag push `v0.2.9-sty+ct+ap+rcl.*` → GitHub Release (prerelease)
 
 Manual dispatch: Actions → **build-client** → Run workflow.
@@ -56,6 +57,10 @@ Example shape (`resources/client-beta/manifest.example.json`):
     "linux-x86_64": {
       "url": "https://resource.retrocyclesleague.com/rcl/client/beta/Retrocycles-RCL-0.2.9-sty+ct+ap+rcl.1-linux-x86_64.tar.gz",
       "sha256": "..."
+    },
+    "windows-x86_64": {
+      "url": "https://resource.retrocyclesleague.com/rcl/client/beta/Retrocycles-RCL-0.2.9-sty+ct+ap+rcl.1-windows-x86_64.tar.gz",
+      "sha256": "..."
     }
   }
 }
@@ -74,6 +79,11 @@ Post results in Discord `#rcl-client-dev` with build ID (`rcl.N`):
 5. Alt-tab + Discord stream — no focus/GL regression
 6. Server browser — RCL gradient names visible
 7. Map loads from `resource.retrocyclesleague.com`
+8. Disconnect → Internet Play: no hour-long "Master servers do not answer" freeze (RCL master first; timeout is console-only)
+
+## Known client pain: master list after DC
+
+Stock Armagetron blocks the UI refreshing master servers over UDP after a disconnect. RCL beta fixes this — see `rcl-dashboard/docs/player/CLIENT_SERVER_BROWSER.md`. Until players are on RCL beta: **Direct Connect** or **favorites**.
 
 ## Filing bugs (Linear)
 
