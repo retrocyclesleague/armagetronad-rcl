@@ -8,7 +8,7 @@ DEPS="${ROOT}/_deps-win"
 JOBS="${NUMBER_OF_PROCESSORS:-4}"
 MINGW_PREFIX="${MINGW_PREFIX:-/mingw64}"
 
-export PATH="${MINGW_PREFIX}/bin:${PATH}"
+export PATH="${MINGW_PREFIX}/bin:${DEPS}/bin:${PATH}"
 export PKG_CONFIG_PATH="${DEPS}/lib/pkgconfig:${MINGW_PREFIX}/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
 export CPPFLAGS="-I${DEPS}/include ${CPPFLAGS:-}"
 export LDFLAGS="-L${DEPS}/lib ${LDFLAGS:-}"
@@ -31,7 +31,6 @@ build_zthread() {
   (
     cd ZThread-2.3.2
     libtoolize --copy --force
-    autoreconf -fi
     ./configure --prefix="${DEPS}" --enable-shared=no
     make -j"${JOBS}"
     make install
@@ -53,6 +52,7 @@ if ! test -f "${BUILD}/Makefile"; then
     cd "${BUILD}"
     ../configure \
       --prefix="${BUILD}/install" \
+      --with-zthread-prefix="${DEPS}" \
       --disable-restoreold \
       --enable-automakedefaults \
       --disable-useradd \
