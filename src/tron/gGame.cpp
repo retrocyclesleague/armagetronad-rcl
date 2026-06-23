@@ -2633,13 +2633,13 @@ void net_options(){
     uMenuItemInt out_rate
     (&net_menu,"$network_opts_outrate_text",
      "$network_opts_outrate_help",
-     sn_maxRateOut,2,32);
+     sn_maxRateOut,2,16384);
 
 
     uMenuItemInt in_rate
     (&net_menu,"$network_opts_inrate_text",
      "$network_opts_inrate_help",
-     sn_maxRateIn,3,64);
+     sn_maxRateIn,3,16384);
 
 
     uMenuItemToggle po2

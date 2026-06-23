@@ -1237,7 +1237,7 @@ ePlayer::ePlayer()
 
     confname.Clear();
     confname << "START_FOV_"<< id+1;
-    startFOV=90;
+    startFOV=85;
     StoreConfitem(tNEW(tConfItem<int>) (confname,
                                         "$start_fov_help",
                                         startFOV));

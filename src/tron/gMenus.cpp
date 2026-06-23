@@ -41,6 +41,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "gHud.h"
 #include "tRecorder.h"
 #include "rSysdep.h"
+#include "rSDL.h"
+#include "tConfiguration.h"
 
 #include <sstream>
 #include <set>
@@ -703,6 +705,33 @@ uMenuItemToggle hud2
 
 static tConfItem<bool> WRAP("WRAP_MENU",uMenu::wrap);
 
+static bool sg_TextHasLineBreak( char const * text )
+{
+    if ( !text )
+        return false;
+    for ( int i = 0; text[i]; ++i )
+        if ( text[i] == '\n' || text[i] == '\r' )
+            return true;
+    return false;
+}
+
+static void sg_ExecuteConsoleText( tString const & text )
+{
+    con << tColoredString::ColorString(.5,.5,1) << " > " << text << '\n';
+
+    tCurrentAccessLevel level( tAccessLevel_Owner, true );
+    std::stringstream s( static_cast<char const *>( text ) );
+    tConfItemBase::LoadAll( s, false );
+}
+
+static bool sg_ConsolePasteKey( SDL_Event const & e )
+{
+    if ( e.type != SDL_EVENT_KEY_DOWN || e.key.key != SDLK_V )
+        return false;
+    SDL_Keymod mod = e.key.mod;
+    return ( mod & SDL_KMOD_CTRL ) || ( mod & SDL_KMOD_GUI );
+}
+
 class gMemuItemConsole: uMenuItemStringWithHistory{
 public:
     gMemuItemConsole(uMenu *M,tString &c):
@@ -713,6 +742,29 @@ public:
     //virtual void Render(REAL x,REAL y,REAL alpha=1,bool selected=0);
 
     virtual bool Event(SDL_Event &e){
+        if ( e.type == SDL_EVENT_TEXT_INPUT && sg_TextHasLineBreak( e.text.text ) )
+        {
+            sg_ExecuteConsoleText( tString( e.text.text ) );
+            MyMenu()->Exit();
+            return true;
+        }
+
+        if ( sg_ConsolePasteKey( e ) )
+        {
+            char * clip = SDL_GetClipboardText();
+            if ( clip )
+            {
+                if ( sg_TextHasLineBreak( clip ) )
+                {
+                    sg_ExecuteConsoleText( tString( clip ) );
+                    SDL_free( clip );
+                    MyMenu()->Exit();
+                    return true;
+                }
+                SDL_free( clip );
+            }
+        }
+
         if (e.type==SDL_EVENT_KEY_DOWN &&
                 (e.key.key==SDLK_KP_ENTER || e.key.key==SDLK_RETURN)){
 
@@ -721,7 +773,7 @@ public:
             // direct commands are executed at owner level
             tCurrentAccessLevel level( tAccessLevel_Owner, true );
 
-            // pass the console command to the configuration system
+            // pass the console command to the configuration system (line by line)
             std::stringstream s(&((*content)[0]));
             tConfItemBase::LoadAll( s, false );
 

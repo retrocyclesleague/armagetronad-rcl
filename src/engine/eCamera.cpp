@@ -248,8 +248,8 @@ static tSettingItem<REAL> s_smZ("CAMERA_SMART_START_Z", s_startSmartZ);
 static tSettingItem<REAL> s_frZ("CAMERA_FREE_START_Z", s_startFreeZ);
 
 // custom camera displacement
-static REAL s_customBack = 30, s_customRise = 20, s_customBackSpeed = 0, s_customRiseSpeed = 0 , s_customPitch = -.7, s_customZoom = 0.5, s_customTurnSpeed=40, s_customTurnSpeed180 = 2;
-static REAL s_glanceBack = 30, s_glanceRise = 20, s_glanceBackSpeed = 0, s_glanceRiseSpeed = 0 , s_glancePitch = -.7;
+static REAL s_customBack = 20, s_customRise = 19.5, s_customBackSpeed = 0, s_customRiseSpeed = 0 , s_customPitch = -.75, s_customZoom = 0.5, s_customTurnSpeed=40, s_customTurnSpeed180 = 2;
+static REAL s_glanceBack = 20, s_glanceRise = 19.5, s_glanceBackSpeed = 0, s_glanceRiseSpeed = 0 , s_glancePitch = -.75;
 static REAL s_serverCustomBack = 30, s_serverCustomRise = 20, s_serverCustomBackSpeed = 0, s_serverCustomRiseSpeed = 0, s_serverCustomPitch = -.7, s_serverCustomTurnSpeed=-1, s_serverCustomTurnSpeed180 = 2;
 static REAL s_serverGlanceBack = 30, s_serverGlanceRise = 20, s_serverGlanceBackSpeed = 0, s_serverGlanceRiseSpeed = 0, s_serverGlancePitch = -.7;
 

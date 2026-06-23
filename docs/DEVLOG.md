@@ -1,5 +1,14 @@
 # Dev log
 
+## 2026-06-22 — Console multiline paste
+
+- Pasting config with newlines into the in-game console (Cmd/Ctrl+V) now runs each line via `LoadAll` instead of stripping line breaks.
+
+## 2026-06-22 — RCL default configs
+
+- Client defaults in `config/settings_client.cfg`: zone height/segments/alpha, custom/glance camera, FOV 85, network rates 16384.
+- New `config/keys_rcl.cfg` (turn left S/D/F, turn right J/K/L) as first-setup default; C++ fallbacks aligned in `gZone.cpp`, `eCamera.cpp`, `ePlayer.cpp`, `nNetwork.cpp`.
+
 ## 2026-06-22 — Tom11w SDL3 integrated into RCL macOS build
 
 - Branch `macos-sdl3`: Tom11w `macos0.2.9.3.0` render/input/SDL3 stack merged into RCL fork; `./build-macos.sh` now drives Xcode (SDL3 frameworks via `MacOS/setup_fat_libs.sh`).

@@ -177,13 +177,14 @@ void sg_StartupPlayerMenu()
     net.NewChoice( "$first_setup_net_isdn", "$first_setup_net_isdn_help", gISDN );
     net.NewChoice( "$first_setup_net_dsl", "$first_setup_net_dsl_help", gDSL );
 
-    tString keyboardTemplate("keys_cursor.cfg");
+    tString keyboardTemplate("keys_rcl.cfg");
     uMenuItemSelection<tString> k(&firstSetup, "$first_setup_keys", "$first_setup_keys_help", keyboardTemplate );
     if ( !st_FirstUse )
     {
         k.NewChoice( "$first_setup_leave", "$first_setup_leave_help", tString("") );
         keyboardTemplate="";
     }
+    k.NewChoice( "$first_setup_keys_rcl", "$first_setup_keys_rcl_help", tString("keys_rcl.cfg") );
     k.NewChoice( "$first_setup_keys_cursor", "$first_setup_keys_cursor_help", tString("keys_cursor.cfg") );
     k.NewChoice( "$first_setup_keys_wasd", "$first_setup_keys_wasd_help", tString("keys_wasd.cfg") );
     k.NewChoice( "$first_setup_keys_zqsd", "$first_setup_keys_zqsd_help", tString("keys_zqsd.cfg") );
@@ -244,8 +245,8 @@ void sg_StartupPlayerMenu()
         sn_maxRateOut = 8;
         break;
     case gDSL:
-        sn_maxRateIn  = 64;
-        sn_maxRateOut = 16;
+        sn_maxRateIn  = 16384;
+        sn_maxRateOut = 16384;
         break;
     case gLeave:
         break;
