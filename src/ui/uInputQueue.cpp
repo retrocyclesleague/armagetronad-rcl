@@ -104,8 +104,9 @@ bool su_StoreSDLEvent(const SDL_Event &tEvent){
 
 #ifndef DEDICATED
 // read and write operators for keysyms
-tRECORDING_ENUM( SDLKey );
-tRECORDING_ENUM( SDLMod );
+tRECORDING_ENUM( SDL_Keycode );
+tRECORDING_ENUM( SDL_Keymod );
+tRECORDING_ENUM( SDL_Scancode );
 #endif
 
 static char const * recordingSection = "INPUT";
@@ -117,7 +118,7 @@ public:
 #ifndef DEDICATED
     static void ArchiveKey( Archiver & archive, SDL_KeyboardEvent & key )
     {
-        archive.Archive(key.state).Archive(key.keysym.scancode).Archive(key.keysym.sym).Archive(key.keysym.mod).Archive(key.keysym.unicode);
+        archive.Archive(key.down).Archive(key.scancode).Archive(key.key).Archive(key.mod);
     }
 #endif
 
@@ -133,36 +134,44 @@ public:
                 return false;
 
             // write or read data
-            archive.Archive(time).Archive(event.type);
+            // SDL3: SDL_EventType is an enum, not Uint32 — proxy through Uint32 for stream I/O
+            {
+                Uint32 evtType = static_cast<Uint32>(event.type);
+                archive.Archive(time).Archive(evtType);
+                event.type = static_cast<SDL_EventType>(evtType);
+            }
             switch ( event.type )
             {
-            case SDL_ACTIVEEVENT:
+            case SDL_EVENT_WINDOW_FOCUS_GAINED:
+            case SDL_EVENT_WINDOW_FOCUS_LOST:
+            case SDL_EVENT_WINDOW_RESIZED:
             {
-                SDL_ActiveEvent & active = event.active;
-
-                archive.Archive(active.gain).Archive(active.state);
+                SDL_WindowEvent & wevt = event.window;
+                Uint32 wtype = static_cast<Uint32>(wevt.type);
+                archive.Archive(wtype).Archive(wevt.data1);
+                wevt.type = static_cast<SDL_EventType>(wtype);
             }
             break;
-            case SDL_KEYDOWN:
-            case SDL_KEYUP:
+            case SDL_EVENT_KEY_DOWN:
+            case SDL_EVENT_KEY_UP:
             {
                 SDL_KeyboardEvent & key = event.key;
                 ArchiveKey( archive, key );
             }
             break;
-            case SDL_MOUSEMOTION:
+            case SDL_EVENT_MOUSE_MOTION:
             {
                 SDL_MouseMotionEvent & motion = event.motion;
 
                 archive.Archive(motion.state).Archive(motion.x).Archive(motion.y).Archive(motion.xrel).Archive(motion.yrel);
             }
             break;
-            case SDL_MOUSEBUTTONUP:
-            case SDL_MOUSEBUTTONDOWN:
+            case SDL_EVENT_MOUSE_BUTTON_UP:
+            case SDL_EVENT_MOUSE_BUTTON_DOWN:
             {
                 SDL_MouseButtonEvent & button = event.button;
 
-                archive.Archive(button.button).Archive(button.state).Archive(button.x).Archive(button.y);
+                archive.Archive(button.button).Archive(button.down).Archive(button.x).Archive(button.y);
             }
             break;
             default:
@@ -187,7 +196,7 @@ void EventArchiver< tRecordingBlock >::ArchiveKey( tRecordingBlock & archive, SD
     SDL_KeyboardEvent key = orig;
     if ( uInputScrambler::Scrambled() )
     {
-        switch( key.keysym.sym )
+        switch( key.key )
         {
         case SDLK_ESCAPE:
         case SDLK_SPACE:
@@ -201,14 +210,13 @@ void EventArchiver< tRecordingBlock >::ArchiveKey( tRecordingBlock & archive, SD
         case SDLK_DELETE:
             break;
         default:
-            key.keysym.mod = KMOD_NONE;
-            key.keysym.sym = SDLK_x;
-            key.keysym.scancode = 0;
-            key.keysym.unicode = '*';
+            key.mod = SDL_KMOD_NONE;
+            key.key = SDLK_X;
+            key.scancode = SDL_SCANCODE_UNKNOWN;
         }
     }
 
-    archive.Archive(key.state).Archive(key.keysym.scancode).Archive(key.keysym.sym).Archive(key.keysym.mod).Archive(key.keysym.unicode);
+    archive.Archive(key.down).Archive(key.scancode).Archive(key.key).Archive(key.mod);
 }
 #endif
 
@@ -270,7 +278,6 @@ bool su_GetSDLInput(SDL_Event &tEvent,REAL &time){
     if ( !EventArchiver< tPlaybackBlock >::Archive( tEvent, time, ret ) )
     {
         // get real event
-        sr_LockSDL();
         input_get=true;
         if (current_out!=currentIn){
             time=times[current_out];
@@ -287,7 +294,6 @@ bool su_GetSDLInput(SDL_Event &tEvent,REAL &time){
                 false;
 #endif
         }
-        sr_UnlockSDL();
         input_get=false;
     }
 
@@ -300,33 +306,27 @@ bool su_GetSDLInput(SDL_Event &tEvent,REAL &time){
 #ifndef DEDICATED
     // filter bogus events. Some keys cause key events with wrong keysyms.
     static unsigned short blockedScancode = 0xffff;
-    static SDLKey blockedKeysym = SDLK_LAST;
+    static SDL_Keycode blockedKeysym = SDLK_UNKNOWN;
 
-    if( tEvent.type == SDL_KEYDOWN )
+    if( tEvent.type == SDL_EVENT_KEY_DOWN )
     {
-        // you can spot them by zero unicode; control keys are allowed to have that,
-        // but not letter and number and sign keys
-        if( tEvent.key.keysym.unicode == 0 )
+        // you can spot them by zero text; control keys are allowed to have that,
+        // but not letter and number and sign keys - SDL2: simplified check
+        if ( tEvent.key.key >= SDLK_ESCAPE && 
+                  tEvent.key.key <= SDLK_Z )
         {
-            if ( tEvent.key.keysym.sym >= SDLK_ESCAPE && 
-                 tEvent.key.keysym.sym <= SDLK_z )
-            {
-                ret = false;
-
-                blockedScancode = tEvent.key.keysym.scancode;
-                blockedKeysym = tEvent.key.keysym.sym;
-            }
+            // SDL2: removed unicode-based bogus event filter
         }
     }
-    else if ( tEvent.type == SDL_KEYUP )
+    else if ( tEvent.type == SDL_EVENT_KEY_UP )
     {
-        if( blockedScancode == tEvent.key.keysym.scancode && 
-            blockedKeysym == tEvent.key.keysym.sym )
+        if( blockedScancode == tEvent.key.scancode && 
+            blockedKeysym == tEvent.key.key )
         {
             ret = false;
 
             blockedScancode = 0xffff;
-            blockedKeysym = SDLK_LAST;
+            blockedKeysym = SDLK_UNKNOWN;
         }
     }
 #endif

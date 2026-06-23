@@ -20,7 +20,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-
+  
 ***************************************************************************
 
 */
@@ -104,13 +104,12 @@ public:
             if (keymap[keysym]){
 
                 if (!first)
-                    s << "KEYBOARD ";
+                    s << "\nKEYBOARD\t";
                 else
                     first=0;
 
-                s << keysym << " ";
+                s << keysym << '\t';
                 keymap[keysym]->Write(s);
-                s << "\n";
             }
         }
         if (first)
@@ -122,7 +121,7 @@ public:
         tString in;
         int keysym;
         s >> keysym;
-        if (keysym>=0){
+        if (keysym>=0 && keysym < SDLK_NEWLAST){
             tASSERT(keysym < SDLK_NEWLAST);
             s >> in;
             if (uBindPlayer::IsKeyWord(in))
@@ -141,7 +140,7 @@ public:
         while(c!='\n' && s.good() && !s.eof()) c=s.get();
     }
 
-    virtual void FetchVal(tString &val){};
+    virtual void FetchVal(tString &val){}
 };
 
 // we need just one
@@ -204,6 +203,9 @@ bool uActionGlobal::operator==(const uActionGlobal &x){
     return x.globalID == globalID;}
 
 bool uActionGlobal::IsBreakingGlobalBind(int sym){
+    if ( sym < 0 || sym >= SDLK_NEWLAST )
+        return false;
+
     if (!keymap[sym])
         return false;
     uAction *act=keymap[sym]->act;
@@ -252,7 +254,7 @@ uBind::uBind(std::istream &s): lastValue_(0), delayedValue_(0), lastSym_(-1), la
 }
 
 void uBind::Write(std::ostream &s){
-    s << act->internalName << " ";
+    s << act->internalName << '\t';
 }
 
 bool GlobalAct(uAction *act,REAL x){
@@ -344,11 +346,45 @@ int uPlayerPrototype::Num(){return nextid;}
 //  Menuitem for input selection
 // *****************************************************
 
+namespace
+{
+static int const su_scancodeBase = 2048;
+
+static bool su_IsScancodeIndex( int sym )
+{
+    return sym >= su_scancodeBase && sym < su_scancodeBase + SDL_SCANCODE_COUNT;
+}
+
+static int su_KeyIndex( SDL_KeyboardEvent const & key )
+{
+    if ( key.key >= 0 && key.key < SDLK_NEWLAST )
+    {
+        return key.key;
+    }
+
+    if ( key.scancode > SDL_SCANCODE_UNKNOWN )
+    {
+        int const mapped = su_scancodeBase + static_cast< int >( key.scancode );
+        if ( mapped >= 0 && mapped < SDLK_NEWLAST )
+        {
+            return mapped;
+        }
+    }
+
+    return -1;
+}
+}
+
 static char const * keyname(int sym){
 #ifndef DEDICATED
-    if (sym<=SDLK_LAST)
-        return SDL_GetKeyName(static_cast<SDLKey>(sym));
-    else switch (sym){
+    if ( su_IsScancodeIndex( sym ) )
+    {
+        char const * name = SDL_GetScancodeName( static_cast< SDL_Scancode >( sym - su_scancodeBase ) );
+        if ( name && name[0] )
+            return name;
+    }
+
+    switch (sym){
         case SDLK_MOUSE_X_PLUS: return "Mouse right";
         case SDLK_MOUSE_X_MINUS: return "Mouse left";
         case SDLK_MOUSE_Y_PLUS: return "Mouse up";
@@ -362,6 +398,7 @@ static char const * keyname(int sym){
         case SDLK_MOUSE_BUTTON_5: return "Mousebutton 5";
         case SDLK_MOUSE_BUTTON_6: return "Mousebutton 6";
         case SDLK_MOUSE_BUTTON_7: return "Mousebutton 7";
+        default: return SDL_GetKeyName(static_cast<SDL_Keycode>(sym));
         }
 #endif
     return "";
@@ -422,7 +459,7 @@ public:
     virtual bool Event(SDL_Event &e){
         int sym=-1;
         switch (e.type){
-        case SDL_MOUSEMOTION:
+        case SDL_EVENT_MOUSE_MOTION:
             if(active){
                 REAL xrel=e.motion.xrel;
                 REAL yrel=-e.motion.yrel;
@@ -446,7 +483,7 @@ public:
             }
 
             break;
-        case SDL_MOUSEBUTTONDOWN:
+        case SDL_EVENT_MOUSE_BUTTON_DOWN:
             if(active){
                 int button=e.button.button;
                 if (button<=MOUSE_BUTTONS)
@@ -456,10 +493,26 @@ public:
             }
             break;
 
-        case SDL_KEYDOWN:{
-                SDL_keysym &c=e.key.keysym;
+        case SDL_EVENT_MOUSE_WHEEL:
+            if ( active )
+            {
+                int y = e.wheel.y;
+                if ( e.wheel.direction == SDL_MOUSEWHEEL_FLIPPED )
+                    y = -y;
+
+                if ( y > 0 )
+                    sym = SDLK_MOUSE_Z_PLUS;
+                else if ( y < 0 )
+                    sym = SDLK_MOUSE_Z_MINUS;
+
+                if ( sym > 0 )
+                    active = 0;
+            }
+            break;
+
+        case SDL_EVENT_KEY_DOWN:{
                 if(!active){
-                    if (c.sym==SDLK_DELETE || c.sym==SDLK_BACKSPACE)
+                    if (e.key.key==SDLK_DELETE || e.key.key==SDLK_BACKSPACE)
                     {
                         for(int keysym=SDLK_NEWLAST-1;keysym>=0;keysym--)
                             if(keymap[keysym] &&
@@ -474,8 +527,8 @@ public:
 
                 active=0;
 
-                if (c.sym!=SDLK_ESCAPE)
-                    sym=c.sym;
+                if (e.key.key!=SDLK_ESCAPE)
+                    sym=su_KeyIndex(e.key);
                 else
                     return true;
             }
@@ -620,7 +673,7 @@ bool su_HandleEvent(SDL_Event &e, bool delayed ){
 
 
     switch (e.type){
-    case SDL_MOUSEMOTION:
+    case SDL_EVENT_MOUSE_MOTION:
         if ( !su_mouseGrab ||
                 e.motion.x!=sr_screenWidth/2 || e.motion.x!=sr_screenHeight/2)
         {
@@ -641,33 +694,59 @@ bool su_HandleEvent(SDL_Event &e, bool delayed ){
         return true; // no fuss: allways pretend to have handled this.
         break;
 
-    case SDL_MOUSEBUTTONDOWN:
-    case SDL_MOUSEBUTTONUP:{
+    case SDL_EVENT_MOUSE_BUTTON_DOWN:
+    case SDL_EVENT_MOUSE_BUTTON_UP:{
             int button=e.button.button;
             if (button<=MOUSE_BUTTONS){
                 sym=SDLK_MOUSE_BUTTON_1+button-1;
             }
         }
-        if (e.type==SDL_MOUSEBUTTONDOWN)
+        if (e.type==SDL_EVENT_MOUSE_BUTTON_DOWN)
             pm=1;
         else
             pm=-1;
         break;
 
-    case SDL_KEYDOWN:
-        sym=e.key.keysym.sym;
+    case SDL_EVENT_MOUSE_WHEEL:
+    {
+        int y = e.wheel.y;
+        if ( e.wheel.direction == SDL_MOUSEWHEEL_FLIPPED )
+            y = -y;
+
+        if ( y > 0 )
+            sym = SDLK_MOUSE_Z_PLUS;
+        else if ( y < 0 )
+            sym = SDLK_MOUSE_Z_MINUS;
+
+        if ( sym >= 0 && sym < SDLK_NEWLAST && keymap[sym] && keymap[sym]->act )
+        {
+            keymap[sym]->Activate(1, delayed);
+            keymap[sym]->Activate(-1, delayed);
+            pressed[sym] = false;
+            return true;
+        }
+
+        return false;
+    }
+
+    case SDL_EVENT_KEY_DOWN:
+        // Ignore auto-repeat key-downs during gameplay: an action should fire
+        // once per physical press. (SDL2 replacement for SDL_EnableKeyRepeat(0,0).)
+        if ( e.key.repeat )
+            return true;
+        sym=su_KeyIndex(e.key);
         pm=1;
         break;
 
-    case SDL_KEYUP:
-        sym=e.key.keysym.sym;
+    case SDL_EVENT_KEY_UP:
+        sym=su_KeyIndex(e.key);
         pm=-1;
         break;
 
     default:
         break;
     }
-    if (sym>=0 && keymap[sym]){
+    if (sym>=0 && sym<SDLK_NEWLAST && keymap[sym] && keymap[sym]->act){
         REAL realpm=pm;
         if (keymap[sym]->act->type==uAction::uINPUT_ANALOG)
             pm*=ts*key_sensitivity;
@@ -678,7 +757,7 @@ bool su_HandleEvent(SDL_Event &e, bool delayed ){
 
     }
     else
-#endif
+#endif  
         return false;
 }
 
@@ -760,7 +839,7 @@ bool uBindPlayer::CheckPlayer(int p){
 }
 
 void uBindPlayer::Write(std::ostream &s){
-    s << Player_keyword << " ";
+    s << Player_keyword << '\t';
     uBind::Write(s);
     s << ePlayer;
 }
@@ -781,7 +860,7 @@ bool uBindPlayer::DoActivate(REAL x){
     {
         act->GetTooltip()->Count(ePlayer);
     }
-
+    
     return ret;
 }
 
@@ -867,7 +946,7 @@ uActionTooltip::~uActionTooltip()
 {
     if( action_.tooltip_ == this )
         action_.tooltip_ = NULL;
-
+        
 }
 
 bool uActionTooltip::Help( int player )
@@ -896,9 +975,9 @@ bool uActionTooltip::Help( int player )
         {
             continue;
         }
-
+        
         int activationsLeft = tooltip->activationsLeft_[player];
-        if( activationsLeft > 0 &&
+        if( activationsLeft > 0 && 
             ( !mostWanted || mostWanted->activationsLeft_[player] < activationsLeft ) )
         {
             mostWanted = tooltip;

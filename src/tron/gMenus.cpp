@@ -20,7 +20,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-
+  
 ***************************************************************************
 
 */
@@ -44,6 +44,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include <sstream>
 #include <set>
+#include <array>
+#include <memory>
 
 static tConfItem<int>   tm0("TEXTURE_MODE_0",rTextureGroups::TextureMode[0]);
 static tConfItem<int>   tm1("TEXTURE_MODE_1",rTextureGroups::TextureMode[1]);
@@ -178,8 +180,10 @@ static tConfItem<bool> chl("HEADLIGHT",headlights);
 #endif
 
 #ifndef SDL_OPENGL
+#ifndef __APPLE__
 #ifndef DIRTY
 #define DIRTY
+#endif
 #endif
 #endif
 
@@ -218,55 +222,35 @@ public:
              res)
     {
 #ifndef DEDICATED
-        // fetch valid screen modes from SDL
-        SDL_Rect **modes;
-        modes=SDL_ListModes(NULL, SDL_FULLSCREEN|SDL_OPENGL);
-
-        // Check is there are any modes available
-        int i;
-        if(modes == 0 || modes == (SDL_Rect **)-1)
+        // SDL3: fetch valid screen modes from all displays
+        int numDisplays = 0;
+        SDL_DisplayID *displays = SDL_GetDisplays( &numDisplays );
+        for ( int di = 0; di < numDisplays; ++di )
         {
-            // add all fixed resolutions
-            for ( i = ArmageTron_Custom; i>=0; --i )
+            int modeCount = 0;
+            SDL_DisplayMode **modes = SDL_GetFullscreenDisplayModes( displays[di], &modeCount );
+            for ( int mi = 0; mi < modeCount; ++mi )
+            {
+                if ( modes[mi]->w > 0 && modes[mi]->h > 0 )
+                    NewChoice( rScreenSize( modes[mi]->w, modes[mi]->h ) );
+            }
+            SDL_free( modes );
+        }
+        SDL_free( displays );
+
+        // add custom resolution
+        NewChoice( ArmageTron_Custom );
+
+        // add desktop resolution
+        if ( sr_DesktopScreensizeSupported() )
+            NewChoice( ArmageTron_Desktop );
+
+        // optionally add old fixed presets
+        if ( addFixed )
+        {
+            for ( int i = ArmageTron_Custom; i>=0; --i )
             {
                 NewChoice( rResolution(i) );
-            }
-        }
-        else
-        {
-            // add custom resolution
-            NewChoice( ArmageTron_Custom );
-
-            // add desktop resolution
-            if ( sr_DesktopScreensizeSupported() && !addFixed )
-                NewChoice( ArmageTron_Desktop );
-
-            // the maximal allowed screen size
-            rScreenSize maxSize(0,0);
-
-            // fill in available modes (avoid duplicates)
-            for(i=0;modes[i];++i)
-            {
-                // add mode (if it's new)
-                rScreenSize size(modes[i]->w, modes[i]->h);
-                NewChoice( size );
-                if ( maxSize.width < size.width )
-                    maxSize.width = size.width;
-                if ( maxSize.height < size.height )
-                    maxSize.height = size.height;
-            }
-
-            // add fixed resolutions (as window sizes)
-            if ( addFixed )
-            {
-                for ( i = ArmageTron_Custom; i>=ArmageTron_Min; --i )
-                {
-                    rScreenSize size( static_cast< rResolution >(i) );
-
-                    // only add those that fit the maximal resolution
-                    if ( maxSize.height >= size.height && maxSize.width >= size.width )
-                        NewChoice( size );
-                }
             }
         }
 
@@ -310,17 +294,45 @@ static void sg_ScreenModeMenu()
      "$screen_check_errors_help",
      currentScreensetting.checkErrors);
 
+    // frame rate limit
+    std::unique_ptr<uMenuItem> zfm_t;
+    {
+        // list of hand-picked MAX_FPS values
+        std::array<int, 17> pickableLimits{0, 20, 30, 40, 60, 80, 100, 120, 180, 240, 300, 360, 480, 600, 720, 900, 1200};
+        bool pickable = false;
+        for (auto const limit : pickableLimits)
+        {
+            if (limit == sr_maxFPS)
+                pickable = true;
+        }
 
-#ifdef SDL_OPENGL
-#ifdef DIRTY
-    uMenuItemToggle sdl_t
-    (&screen_menu_mode,
-     "$screen_use_sdl_text",
-     "$screen_use_sdl_help",
-     currentScreensetting.useSDL);
-#endif // dirty
+        if (pickable)
+        {
+            // current value is in pickable list. create selection menu item
+            auto zmf_t_p = new uMenuItemSelection<int>(&screen_menu_mode,
+                                                       "$screen_max_fps_text",
+                                                       "$max_fps_help",
+                                                       sr_maxFPS);
+            zfm_t.reset(zmf_t_p);
 
-#if SDL_VERSION_ATLEAST(1, 2, 10)
+            zmf_t_p->NewChoice("$screen_max_fps_off_text", "$screen_max_fps_off_help", 0);
+            for (auto const limit : pickableLimits)
+            {
+                if (!limit)
+                    continue;
+                std::stringstream s;
+                s << limit;
+                zmf_t_p->NewChoice(s.str().c_str(), "", limit);
+            }
+        }
+        else
+        {
+            // fallback to ranged item
+            zfm_t.reset(new uMenuItemInt(&screen_menu_mode, "$screen_max_fps_text", "$max_fps_help", sr_maxFPS, 0, 9990, 10));
+        }
+    }
+
+    // SDL2 always uses the SDL window/GL path, so the old "use SDL" toggle is gone.
     uMenuItemSelection<rVSync> zvs_t
     (&screen_menu_mode,
      "$screen_vsync_text",
@@ -333,8 +345,6 @@ static void sg_ScreenModeMenu()
 #ifdef HAVE_GLEW
     uSelectEntry<rVSync> zvs_blur(zvs_t,"$screen_vsync_motionblur_text","$screen_vsync_motionblur_help",ArmageTron_VSync_MotionBlur);
 #endif // HAVE_GLEW
-#endif // SDL_GL_SWAP_CONTROL
-#endif // SDL_OPENGL
 
     uMenuItemToggle gm(
         &screen_menu_mode,
@@ -501,11 +511,6 @@ void sg_ConfigMenu()
 
     uMenuItemFunction scc(&menu, "$config_save_changed_text", "$config_save_changed_help", &tConfItemBase::WriteChangedToFile);
 
-    /*
-    uMenuItemFunction suc(&menu, "$config_user_save_text", "$config_user_save_help", &st_SaveConfig);
-    uMenuItemFunction luc(&menu, "$config_user_load_text", "$config_user_load_help", &st_LoadUserConfig);
-    */
-
     menu.Enter();
 }
 
@@ -624,12 +629,10 @@ static tConfItem<REAL> sgy("SPEED_GAUGE_LOCY",subby_SpeedGaugeLocY);
 static tConfItem<REAL> bgs("BRAKE_GAUGE_SIZE",subby_BrakeGaugeSize);
 static tConfItem<REAL> bgx("BRAKE_GAUGE_LOCX",subby_BrakeGaugeLocX);
 static tConfItem<REAL> bgy("BRAKE_GAUGE_LOCY",subby_BrakeGaugeLocY);
-static tConfItem<bool> bgc("BRAKE_GAUGE_COLOR",subby_BrakeMeterColorChange);
 
 static tConfItem<REAL> rgs("RUBBER_GAUGE_SIZE",subby_RubberGaugeSize);
 static tConfItem<REAL> rgx("RUBBER_GAUGE_LOCX",subby_RubberGaugeLocX);
 static tConfItem<REAL> rgy("RUBBER_GAUGE_LOCY",subby_RubberGaugeLocY);
-static tConfItem<bool> rgc("RUBBER_GAUGE_COLOR",subby_RubberMeterColorChange);
 
 static tConfItem<bool> showh("SHOW_HUD",subby_ShowHUD);
 static tConfItem<bool> showf("SHOW_FASTEST",subby_ShowSpeedFastest);
@@ -641,7 +644,6 @@ static tConfItem<bool> showbm("SHOW_BRAKE",subby_ShowBrakeMeter);
 static tConfItem<bool> showrm("SHOW_RUBBER",subby_ShowRubberMeter);
 static tConfItem<bool> showtim("SHOW_TIME",showTime);
 static tConfItem<bool> show24("SHOW_TIME_24",show24hour);
-static tConfItem<bool> showpos("SHOW_POSITION",showPosition);
 
 static tConfItem<REAL> scorex("SCORE_LOCX",subby_ScoreLocX);
 static tConfItem<REAL> scorey("SCORE_LOCY",subby_ScoreLocY);
@@ -658,10 +660,6 @@ static tConfItem<REAL> aes("ALIVE_SIZE",subby_AlivePeopleSize);
 static tConfItem<REAL> px("PING_LOCX",subby_PingLocX);
 static tConfItem<REAL> py("PING_LOCY",subby_PingLocY);
 static tConfItem<REAL> ps("PING_SIZE",subby_PingSize);
-
-static tConfItem<REAL> positionx("POSITION_LOCX",subby_CoordLocX);
-static tConfItem<REAL> positiony("POSITION_LOCY",subby_CoordLoxY);
-static tConfItem<REAL> positions("POSITION_SIZE",subby_CoordSize);
 
 uMenuItemToggle hud3
 (&hud_prefs,"$pref_showfastest_text",
@@ -705,55 +703,6 @@ uMenuItemToggle hud2
 
 static tConfItem<bool> WRAP("WRAP_MENU",uMenu::wrap);
 
-static void ConTabCompletition(tString &strString, int &curserPos, bool changeLast)
-{
-    static tString oldString;
-    static int cfgPos;
-    static int lastPos;
-    if(changeLast)
-    {
-        strString = oldString;
-        cfgPos++;
-        curserPos = lastPos;
-    }
-    else
-    {
-        oldString = strString;
-        lastPos = curserPos;
-        cfgPos = 0;
-    }
-
-    tArray<tString> msgsExt = strString.Split(" ");
-    tString newString;
-    int cusPos = 0;
-
-    for(int i = 0; i < msgsExt.Len(); i++)
-    {
-        tString word = msgsExt[i];
-
-        cusPos += word.Len() - 1;
-
-        if (cusPos == curserPos)
-        {
-            tString found_command = tConfItemBase::FindConfigItem(word.Filter(),cfgPos);
-            if (found_command != "")
-                word = found_command + " ";
-            else
-                cfgPos = -1;
-        }
-
-        cusPos++;
-
-        if ((i + 1) == msgsExt.Len())
-            newString << word;
-        else
-            newString << word << " ";
-    }
-
-    strString = newString;
-    curserPos = newString.Len();
-}
-
 class gMemuItemConsole: uMenuItemStringWithHistory{
 public:
     gMemuItemConsole(uMenu *M,tString &c):
@@ -764,8 +713,8 @@ public:
     //virtual void Render(REAL x,REAL y,REAL alpha=1,bool selected=0);
 
     virtual bool Event(SDL_Event &e){
-        if (e.type==SDL_KEYDOWN &&
-                (e.key.keysym.sym==SDLK_KP_ENTER || e.key.keysym.sym==SDLK_RETURN)){
+        if (e.type==SDL_EVENT_KEY_DOWN &&
+                (e.key.key==SDLK_KP_ENTER || e.key.key==SDLK_RETURN)){
 
             con << tColoredString::ColorString(.5,.5,1) << " > " << *content << '\n';
 
@@ -779,25 +728,8 @@ public:
             MyMenu()->Exit();
             return true;
         }
-        else if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_TAB)
-        {
-            if ((*content != "") && se_tabCompletion)
-            {
-                tString strString;
-                strString << *content;
-                
-                static tString lastContent;
-                bool changeLast = (lastContent == strString);
-
-                ConTabCompletition(strString, cursorPos, changeLast);
-                *content = strString;
-                
-                lastContent = strString;
-            }
-            return true;
-        }
-        else if (e.type==SDL_KEYDOWN &&
-                 uActionGlobal::IsBreakingGlobalBind(e.key.keysym.sym))
+        else if (e.type==SDL_EVENT_KEY_DOWN &&
+                 uActionGlobal::IsBreakingGlobalBind(e.key.key))
             return su_HandleEvent(e, true);
         else
             return uMenuItemStringWithHistory::Event(e);
@@ -806,7 +738,7 @@ public:
 
 void do_con(){
     su_ClearKeys();
-
+        
     se_ChatState( ePlayerNetID::ChatFlags_Console, true );
     sr_con.SetHeight(20,false);
     se_SetShowScoresAuto(false);
@@ -1161,12 +1093,10 @@ void sg_PlayerMenu(int Player){
     cam_s.NewChoice("$player_camera_initial_ext_text","$player_camera_initial_ext_help",CAMERA_FOLLOW);
     cam_s.NewChoice("$player_camera_initial_free_text","$player_camera_initial_free_help",CAMERA_FREE);
 
-    uMenuItemString tn(&playerMenu,
-                      "$player_teamname_text",
-                      "$player_teamname_help",
-                      p->teamname, 16);
-
-    uMenuItemColorLine n(&playerMenu, p->name, 16);
+    uMenuItemString n(&playerMenu,
+                      "$player_name_text",
+                      "$player_name_help",
+                      p->name, 16);
 
     playerMenu.Enter();
 
@@ -1303,10 +1233,46 @@ static bool toggle_fullscreen_func( REAL x )
 #endif
 
     // only do anything if the application is active (work around odd bug)
-    if ( x > 0 && ( SDL_GetAppState() & SDL_APPACTIVE ) )
+    // SDL2: SDL_GetAppState is deprecated, always assume active
+    if ( x > 0 )
     {
-        currentScreensetting.fullscreen = !currentScreensetting.fullscreen;
-        sr_ReinitDisplay();
+        bool const targetFullscreen = !currentScreensetting.fullscreen;
+
+        // ponytail: avoid full display reinit on toggle; SDL2 can switch mode in place
+        bool switchedInPlace = false;
+        if ( sr_window )
+        {
+            if ( SDL_SetWindowFullscreen( sr_window, targetFullscreen ) )
+            {
+                currentScreensetting.fullscreen = targetFullscreen;
+                lastSuccess.fullscreen = targetFullscreen;
+
+                int windowW = 0;
+                int windowH = 0;
+                int drawableW = 0;
+                int drawableH = 0;
+                SDL_GetWindowSize( sr_window, &windowW, &windowH );
+                SDL_GetWindowSizeInPixels( sr_window, &drawableW, &drawableH );
+
+                // ponytail: viewport follows actual drawable size after mode switch
+                sr_screenWidth = drawableW > 0 ? drawableW : windowW;
+                sr_screenHeight = drawableH > 0 ? drawableH : windowH;
+
+                if ( targetFullscreen ) SDL_HideCursor(); else SDL_ShowCursor();
+                if ( sr_glcontext )
+                {
+                    SDL_GL_MakeCurrent( sr_window, sr_glcontext );
+                }
+                sr_ResetRenderState( true );
+                switchedInPlace = true;
+            }
+        }
+
+        if ( !switchedInPlace )
+        {
+            currentScreensetting.fullscreen = targetFullscreen;
+            sr_ReinitDisplay();
+        }
     }
 #endif
 

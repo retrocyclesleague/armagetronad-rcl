@@ -80,7 +80,7 @@ libengine_a_SOURCES=engine/eAdvWall.cpp engine/eAdvWall.h engine/eAuthentication
 	engine/eAuthentication.h engine/eAxis.cpp	engine/eAxis.h engine/eCamera.cpp engine/eCamera.h\
 	engine/eCoord.h engine/eDebugLine.cpp engine/eDebugLine.h engine/eDisplay.cpp engine/eFloor.cpp\
 	engine/eFloor.h \
-	engine/eKrawall.cpp engine/eKrawall.h engine/eNetGameObject.cpp engine/eNetGameObject.h\
+	engine/eNetGameObject.cpp engine/eNetGameObject.h\
 	engine/ePath.cpp engine/ePath.h engine/ePlayer.cpp engine/ePlayer.h engine/eSensor.cpp\
 	engine/eSensor.h engine/eSound.cpp engine/eSound.h engine/eTeam.cpp engine/eTeam.h engine/eTess2.h\
 	engine/eTimer.cpp engine/eTimer.h engine/eVoter.cpp engine/eVoter.h engine/eWall.cpp engine/eWall.h\

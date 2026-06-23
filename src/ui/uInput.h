@@ -20,7 +20,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-
+  
 ***************************************************************************
 
 */
@@ -104,7 +104,7 @@ public:
     uActionTooltip( uAction & action, int numHelp, VETOFUNC * veto = NULL );
     ~uActionTooltip();
 
-    //! presents help to the specified player, starting counting at 1.
+    //! presents help to the specified player, starting counting at 1. 
     //! player = 0 helps on global actions. Returns true if help was given.
     static bool Help( int player = 0 );
 
@@ -117,7 +117,7 @@ public:
 private:
     virtual void WriteVal(std::ostream & s );
     virtual void ReadVal(std::istream & s );
-    virtual void FetchVal(tString &val){};
+    virtual void FetchVal(tString &val){}
 
     //! counts how many activations are required to make the tip go away
     int activationsLeft_[uMAX_PLAYERS+1];
@@ -212,20 +212,20 @@ public:
 };
 
 // extra binds for mouse (and joystick, as soon as SDL supports it) movement:
-#define SDLK_MOUSE_X_PLUS   (SDLK_LAST+1)
-#define SDLK_MOUSE_X_MINUS  (SDLK_LAST+2)
-#define SDLK_MOUSE_Y_PLUS   (SDLK_LAST+3)
-#define SDLK_MOUSE_Y_MINUS  (SDLK_LAST+4)
-#define SDLK_MOUSE_Z_PLUS   (SDLK_LAST+5)
-#define SDLK_MOUSE_Z_MINUS  (SDLK_LAST+6)
-#define SDLK_MOUSE_BUTTON_1 (SDLK_LAST+7)
-#define SDLK_MOUSE_BUTTON_2 (SDLK_LAST+8)
-#define SDLK_MOUSE_BUTTON_3 (SDLK_LAST+9)
-#define SDLK_MOUSE_BUTTON_4 (SDLK_LAST+10)
-#define SDLK_MOUSE_BUTTON_5 (SDLK_LAST+11)
-#define SDLK_MOUSE_BUTTON_6 (SDLK_LAST+12)
-#define SDLK_MOUSE_BUTTON_7 (SDLK_LAST+13)
-#define SDLK_NEWLAST        (SDLK_LAST+14)
+#define SDLK_MOUSE_X_PLUS   (SDLK_UNKNOWN+1)
+#define SDLK_MOUSE_X_MINUS  (SDLK_UNKNOWN+2)
+#define SDLK_MOUSE_Y_PLUS   (SDLK_UNKNOWN+3)
+#define SDLK_MOUSE_Y_MINUS  (SDLK_UNKNOWN+4)
+#define SDLK_MOUSE_Z_PLUS   (SDLK_UNKNOWN+5)
+#define SDLK_MOUSE_Z_MINUS  (SDLK_UNKNOWN+6)
+#define SDLK_MOUSE_BUTTON_1 (SDLK_UNKNOWN+7)
+#define SDLK_MOUSE_BUTTON_2 (SDLK_UNKNOWN+8)
+#define SDLK_MOUSE_BUTTON_3 (SDLK_UNKNOWN+9)
+#define SDLK_MOUSE_BUTTON_4 (SDLK_UNKNOWN+10)
+#define SDLK_MOUSE_BUTTON_5 (SDLK_UNKNOWN+11)
+#define SDLK_MOUSE_BUTTON_6 (SDLK_UNKNOWN+12)
+#define SDLK_MOUSE_BUTTON_7 (SDLK_UNKNOWN+13)
+#define SDLK_NEWLAST        (SDLK_UNKNOWN+4096)  // ponytail: increased for SDL2 keycode range
 #define MOUSE_BUTTONS 7
 
 // one key_action for every keysym

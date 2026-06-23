@@ -1,0 +1,36 @@
+---
+description: Armagetron cleanup priorities — what to delete vs keep
+alwaysApply: true
+---
+
+# Armagetron cleanup
+
+## Keep (coupled to live multiplayer)
+
+- `src/network/` server browser, master queries, game protocol
+- Dedicated server build path (`--enable-dedicated`) unless explicitly removing server support
+- Map XML parsing (`gParser.cpp` + libxml2)
+
+## Safe to remove or gate
+
+- Root `.cbp` CodeBlocks projects (autotools/docker supersede them)
+- Orphan `leftover.cpp`, `prototype.cpp` if unused
+- Krawall/ZThread when `--disable-armathentication` (macOS default in `build-macos.sh`)
+- Docker deploy targets not in use (PPA matrix, Flatpak, itch, etc.)
+- `accustomdir.m4` install machinery for dev-only macOS builds
+
+## Dependency ladder (prefer top)
+
+1. Homebrew system packages (`sdl12-compat`, `libpng`, `libxml2` after nanohttp removal)
+2. `_deps/` only for what Homebrew cannot ship (SDL_image 1.2 on macOS)
+3. Do not add SDL2 until a deliberate migration — engine is SDL 1.2 throughout `src/render/`
+
+## macOS dev canonical path
+
+`./build-macos.sh` → `src/armagetronad_main` → `make run`. Align `configure_for_bundle.sh` with same flags.
+
+## When simplifying
+
+- Prefer `#ifdef` removal via configure gates over deleting protocol code
+- One subsystem per PR; verify `make -C src` after each change
+- Update `docs/DEVLOG.md` briefly after each change

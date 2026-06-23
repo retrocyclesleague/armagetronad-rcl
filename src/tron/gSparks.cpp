@@ -110,11 +110,6 @@ void gSpark::Kill(){createTime=lastTime-100000;}
 void gSpark::Render(const eCamera *cam){
     glBlendFunc(GL_SRC_ALPHA,GL_ONE);
 
-    //glMatrixMode(GL_MODELVIEW);
-    //glPushMatrix();
-    //glLoadIdentity();
-
-    //glDisable(GL_TEXTURE);
     glDisable(GL_TEXTURE_2D);
 
     BeginLines();
@@ -161,8 +156,6 @@ void gSpark::Render(const eCamera *cam){
     }
     RenderEnd();
     glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
-
-    //glPopMatrix();
 
 }
 

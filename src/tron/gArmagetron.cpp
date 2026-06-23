@@ -39,6 +39,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "uInputQueue.h"
 //#include "eTess.h"
 #include "rTexture.h"
+#ifndef DEDICATED
+#include <SDL3_image/SDL_image.h>
+#endif
 #include "tConfiguration.h"
 #include "tRandom.h"
 #include "tRecorder.h"
@@ -62,6 +65,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #ifndef DEDICATED
 #include "rRender.h"
 #include "rSDL.h"
+#include <SDL3/SDL_main.h>
+#else
+#define SDL_main main
 #endif
 
 // data structure for command line parsing
@@ -96,11 +102,6 @@ private:
         {
             windowed_=true;
         }
-        else if ( parser.GetSwitch( "--exportallcfg" ) )
-        {
-            tConfItemBase::ExportAll();
-            exit(0);
-        }
 #ifdef WIN32
         else if ( parser.GetSwitch( "+directx") )
         {
@@ -129,7 +130,6 @@ private:
         << "                               initialisation under MS Windows\n\n";
         s << "\n\nYes, I know this looks ugly. Sorry about that.\n";
 #endif
-        s << "--exportallcfg               : print all configs and settings that can be saved to standard output\n";
 #endif
     }
 };
@@ -159,9 +159,9 @@ void sg_StartupPlayerMenu()
 {
     uMenu firstSetup("$first_setup", false);
     firstSetup.SetBot(-.2);
-
+    
     uMenuItemExit e2(&firstSetup, "$menuitem_accept", "$menuitem_accept_help");
-
+    
     ePlayer * player = ePlayer::PlayerConfig(0);
     tASSERT( player );
 
@@ -196,7 +196,7 @@ void sg_StartupPlayerMenu()
     uMenuItemSelection<tColor> c(&firstSetup,
                                  "$first_setup_color",
                                  "$first_setup_color_help",
-                                 color);
+                                 color);   
 
     if ( !st_FirstUse )
     {
@@ -214,7 +214,7 @@ void sg_StartupPlayerMenu()
     c.NewChoice( "$first_setup_color_cyan", "", tColor(0,1,1) );
     c.NewChoice( "$first_setup_color_white", "", tColor(1,1,1) );
     c.NewChoice( "$first_setup_color_dark", "", tColor(0,0,0) );
-
+    
     if ( st_FirstUse )
     {
         for(int i=tRandomizer::GetInstance().Get(4); i>=0; --i)
@@ -227,9 +227,9 @@ void sg_StartupPlayerMenu()
                       "$player_name_text",
                       "$player_name_help",
                       player->name, 16);
-
+    
     uMenuItemExit e(&firstSetup, "$menuitem_accept", "$menuitem_accept_help");
-
+    
     firstSetup.Enter();
 
     // apply network rates
@@ -330,7 +330,7 @@ static void welcome(){
             timeout = tSysTimeFloat() + 6;
 
             uInputProcessGuard inputProcessGuard;
-            while ((!su_GetSDLInput(tEvent) || tEvent.type!=SDL_KEYDOWN) &&
+            while ((!su_GetSDLInput(tEvent) || tEvent.type!=SDL_EVENT_KEY_DOWN) &&
                     tSysTimeFloat() < timeout)
             {
                 if ( sr_glOut )
@@ -421,18 +421,18 @@ void cleanup(eGrid *grid){
           if (playerConfig[i])
           destroy(playerConfig[i]->cam);
           }
-
-
+          
+          
           gNetPlayerWall::Clear();
 
           eFace::Clear();
           eEdge::Clear();
           ePoint::Clear();
-
+          
           eFace::Clear();
           eEdge::Clear();
           ePoint::Clear();
-
+          
           eGameObject::DeleteAll();
 
 
@@ -468,7 +468,7 @@ static void sg_DelayedActivation()
     Activate( sg_active );
 }
 
-int filter(const SDL_Event *tEvent){
+int filter(void *userdata, SDL_Event *tEvent){
     // recursion avoidance
     static bool recursion = false;
     if ( !recursion )
@@ -494,11 +494,11 @@ int filter(const SDL_Event *tEvent){
         RecursionGuard guard( recursion );
 
         // boss key or OS X quit command
-        if ((tEvent->type==SDL_KEYDOWN && tEvent->key.keysym.sym==27 &&
-                tEvent->key.keysym.mod & KMOD_SHIFT) ||
-                (tEvent->type==SDL_KEYDOWN && tEvent->key.keysym.sym==113 &&
-                 tEvent->key.keysym.mod & KMOD_META) ||
-                (tEvent->type==SDL_QUIT)){
+        if ((tEvent->type==SDL_EVENT_KEY_DOWN && tEvent->key.key==27 &&
+                tEvent->key.mod & SDL_KMOD_SHIFT) ||
+                (tEvent->type==SDL_EVENT_KEY_DOWN && tEvent->key.key==113 &&
+                 tEvent->key.mod & SDL_KMOD_GUI) ||
+                (tEvent->type==SDL_EVENT_QUIT)){
             // sn_SetNetState(nSTANDALONE);
             // sn_Receive();
 
@@ -510,66 +510,49 @@ int filter(const SDL_Event *tEvent){
             return false;
         }
 
-        if (tEvent->type==SDL_MOUSEMOTION)
+        if (tEvent->type==SDL_EVENT_MOUSE_MOTION)
             if (tEvent->motion.x==sr_screenWidth/2 && tEvent->motion.y==sr_screenHeight/2)
                 return 0;
         if (su_mouseGrab &&
-                tEvent->type!=SDL_MOUSEBUTTONDOWN &&
-                tEvent->type!=SDL_MOUSEBUTTONUP &&
+                tEvent->type!=SDL_EVENT_MOUSE_BUTTON_DOWN &&
+                tEvent->type!=SDL_EVENT_MOUSE_BUTTON_UP &&
                 ((tEvent->motion.x>=sr_screenWidth-10  || tEvent->motion.x<=10) ||
                  (tEvent->motion.y>=sr_screenHeight-10 || tEvent->motion.y<=10)))
-            SDL_WarpMouse(sr_screenWidth/2,sr_screenHeight/2);
+            SDL_WarpMouseInWindow(sr_window, sr_screenWidth/2, sr_screenHeight/2);
 
-
-        if(tEvent->type==SDL_VIDEORESIZE && !currentScreensetting.fullscreen)
+        // SDL3: window events are promoted to top-level event types
+        if (tEvent->type == SDL_EVENT_WINDOW_FOCUS_GAINED ||
+            tEvent->type == SDL_EVENT_WINDOW_FOCUS_LOST)
         {
-            st_ToDo(rCallbackBeforeScreenModeChange::Exec);
-            sr_screenWidth = tEvent->resize.w;
-            sr_screenHeight = tEvent->resize.h;
-
-            // Alright, SDL1 requires setting the video mode after a resize
-            // color depth seems to be ignored, but we'll specify it anyway
-            sr_screen = SDL_SetVideoMode(
-                sr_screenWidth, sr_screenHeight, 
-                (currentScreensetting.colorDepth)?24:16, 
-                ((currentScreensetting.useSDL)?SDL_OPENGL:(SDL_DOUBLEBUF|SDL_SWSURFACE)) | SDL_RESIZABLE
-            );
-            if(sr_screen == NULL) 
+            sg_active = (tEvent->type == SDL_EVENT_WINDOW_FOCUS_GAINED);
+            st_ToDo(sg_DelayedActivation);
+            if (tEvent->type == SDL_EVENT_WINDOW_FOCUS_GAINED)
             {
-                // if it does fail we'll just disable resizing...
-                // TODO
-                sr_ReinitDisplay();
-            }
-            st_ToDo(rCallbackAfterScreenModeChange::Exec);
-        }
-
-        // fetch alt-tab
-
-        if (tEvent->type==SDL_ACTIVEEVENT)
-        {
-            // Jonathans fullscreen bugfix.
-#ifdef MACOSX
-            if (currentScreensetting.fullscreen ^ lastSuccess.fullscreen) return false;
-#endif
-            int flags = SDL_APPINPUTFOCUS;
-            if ( tEvent->active.state & flags )
-            {
-                // con << tSysTimeFloat() << " " << "active: " << (tEvent->active.gain ? "on" : "off") << "\n";
-                sg_active = tEvent->active.gain;
-                st_ToDo(sg_DelayedActivation);
-            }
-
-            // reload GL stuff if application gets reactivated
-            if ( tEvent->active.gain && tEvent->active.state & SDL_APPACTIVE )
-            {
-                // just treat it like a screen mode change, gets the job done
                 st_ToDo(rCallbackBeforeScreenModeChange::Exec);
                 st_ToDo(rCallbackAfterScreenModeChange::Exec);
             }
             return false;
         }
 
+        if (tEvent->type == SDL_EVENT_WINDOW_RESIZED ||
+            tEvent->type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED)
+        {
+            int windowW = 0, windowH = 0, drawableW = 0, drawableH = 0;
+            SDL_GetWindowSize( sr_window, &windowW, &windowH );
+            SDL_GetWindowSizeInPixels( sr_window, &drawableW, &drawableH );
+            sr_screenWidth  = drawableW > 0 ? drawableW : windowW;
+            sr_screenHeight = drawableH > 0 ? drawableH : windowH;
+            st_ToDo( rCallbackAfterScreenModeChange::Exec );
+            return false;
+        }
+
         if (su_prefetchInput){
+            // SDL3: SDL_TextInputEvent.text is a const char* into SDL-owned memory.
+            // Storing it in the ring buffer (shallow copy) leaves a dangling pointer.
+            // Let text events stay in SDL's queue so SDL_PollEvent returns them with valid text.
+            if (tEvent->type == SDL_EVENT_TEXT_INPUT ||
+                tEvent->type == SDL_EVENT_TEXT_EDITING)
+                return 1;
             return su_StoreSDLEvent(*tEvent);
         }
 
@@ -581,17 +564,6 @@ int filter(const SDL_Event *tEvent){
 
 //from game.C
 void Update_netPlayer();
-
-void sg_SetIcon()
-{
-#ifndef DEDICATED
-    rSurface tex( "textures/icon.png" );
-    //    SDL_Surface *tex=IMG_Load( tDirectories::Data().GetReadPath( "textures/icon.png" ) );
-
-    if (tex.GetSurface())
-        SDL_WM_SetIcon(tex.GetSurface(),NULL);
-#endif
-}
 
 class gAutoStringArray
 {
@@ -631,15 +603,27 @@ namespace
 {
 tString sn_configurationSavedInVersion{"0.2.8"};
 tConfItem<tString> sn_configurationSavedInVersionConf("SAVED_IN_VERSION",sn_configurationSavedInVersion);
+
+#ifndef DEDICATED
+struct SDLCleanup
+{
+    // no init, that requires parameters and gives a return 
+    ~SDLCleanup(){SDL_Quit();}
+};
+struct SDLSoundCleanup
+{
+    SDLSoundCleanup(){se_SoundInit();}
+    ~SDLSoundCleanup(){se_SoundExit();}
+};
+#endif
 }
 
-int main(int argc,char **argv){
-    //std::cout << "enter\n";
-    //  net_test();
+#ifndef DEDICATED
+int filter(void *userdata, SDL_Event *tEvent);
+#endif
 
+int SDL_main(int argc,char **argv){
     bool dedicatedServer = false;
-
-    //  std::cout << "Running " << argv[0] << "...\n";
 
     // tERR_MESSAGE( "Start!" );
 
@@ -651,7 +635,9 @@ int main(int argc,char **argv){
         // analyse command line
         // tERR_MESSAGE( "Analyzing command line." );
         if ( ! commandLine.Analyse(argc, argv) )
+        {
             return 0;
+        }
 
 
         {
@@ -771,8 +757,6 @@ int main(int argc,char **argv){
             sr_glOut=1;
 #endif
 
-            //std::cout << "checked mp\n";
-
             // while DGA mouse is buggy in XFree 4.0:
 #ifdef linux
             // Sam 5/23 - Don't ever use DGA, we don't need it for this game.
@@ -823,26 +807,26 @@ int main(int argc,char **argv){
                 SDL_Init(SDL_INIT_VIDEO) < 0 )            {
                 tERR_ERROR("Couldn't initialize SDL: " << SDL_GetError());
             }
-            atexit(SDL_Quit);
+            SDLCleanup sdlCleanup; // call SDL_Quit later
 
             sr_glRendererInit();
 
-            SDL_SetEventFilter(&filter);
-
-            //std::cout << "set filter\n";
-
-            sg_SetIcon();
+            SDL_SetEventFilter((SDL_EventFilter)filter, NULL);
 
             tConsole::RegisterMessageCallback(&uMenu::Message);
             tConsole::RegisterIdleCallback(&uMenu::IdleInput);
 
 #ifndef NOSOUND
-            se_SoundInit();
-            atexit(se_SoundExit);
+            SDLSoundCleanup soundInitAndCleanup; // se_SoundInit() now, se_SoundExit() later
 #ifndef DEBUG
+#if false // this was added a long time ago to work around problems. Now it occasionally causes startup freezes because
+          // SDL does not like it when you init sound, then shut it down right away, some kind of race condition.
+          // We leave it around in case we get the same idea again.
+          
             // double sound initialisation for dodgy cards
             se_SoundExit();
             se_SoundInit();
+#endif
 #endif
 #endif
 
@@ -850,19 +834,11 @@ int main(int argc,char **argv){
 
                 try
                 {
-                    //std::cout << "init disp\n";
-
-                    //std::cout << "init sound\n";
-
                     welcome();
-
-                    //std::cout << "atexit\n";
 
                     sr_con.autoDisplayAtSwap=false;
 
                     se_SoundPause(false);
-
-                    //std::cout << "sound started\n";
 
                     gLogo::SetBig(false);
                     gLogo::SetSpinning(true);
@@ -892,17 +868,10 @@ int main(int argc,char **argv){
                 sr_ExitDisplay();
                 sr_RendererCleanup();
 
-                //std::cout << "exit\n";
-
                 st_SaveConfig();
 
-                //std::cout << "saved\n";
-
-                //    cleanup(grid);
                 SDL_QuitSubSystem(SDL_INIT_VIDEO);
             }
-            se_SoundExit();
-            SDL_Quit();
 #else
             sr_glOut=0;
 
@@ -972,6 +941,5 @@ static tConfItemFunc st_Dummy11("MASTER_SAVE_INTERVAL", &st_Dummy);
 static tConfItemFunc st_Dummy12("MASTER_IDLE", &st_Dummy);
 static tConfItemFunc st_Dummy13("MASTER_PORT", &st_Dummy);
 #endif
-
 
 

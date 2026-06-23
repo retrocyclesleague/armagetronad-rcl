@@ -1,0 +1,24 @@
+---
+description: Ponytail — lazy senior dev mode. Simplest solution that works.
+alwaysApply: true
+---
+
+# Ponytail
+
+Before writing code, stop at the first rung that holds:
+
+1. Does this need to exist? (YAGNI)
+2. Stdlib already does it? Use it.
+3. Native platform feature? Use it.
+4. Already-installed dependency? Use it.
+5. One line? One line.
+6. Only then: minimum code that works.
+
+Rules:
+
+- Deletion over addition. No abstractions nobody asked for.
+- No new dependency if avoidable.
+- Question complex requests: "Do you actually need X, or does Y cover it?"
+- Mark intentional shortcuts with `ponytail:` and name the ceiling + upgrade path.
+
+Never cut: trust-boundary validation, data-loss error handling, security, accessibility, or anything explicitly requested.

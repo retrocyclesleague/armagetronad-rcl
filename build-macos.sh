@@ -1,15 +1,14 @@
 #!/bin/bash
-# Build Armagetron Advanced client binaries on macOS (no .app bundle / DMG).
+# Build Armagetron Advanced on macOS via Xcode (SDL3).
+# Produces Armagetron Advanced.app — Tom11w macos0.2.9.3.0 SDL3 port integrated for RCL.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
-DEPS="${ROOT}/_deps"
-PREFIX="${ROOT}/_inst"
+MACOS="${ROOT}/MacOS"
+CONFIG="${1:-Debug}"
+DERIVED="${ROOT}/build/macos-xcode"
+APP="${DERIVED}/Build/Products/${CONFIG}/Armagetron Advanced.app"
 JOBS="$(sysctl -n hw.ncpu 2>/dev/null || echo 4)"
-
-export PKG_CONFIG_PATH="${DEPS}/lib/pkgconfig:/opt/homebrew/lib/pkgconfig:/opt/homebrew/opt/libxml2/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
-export CPPFLAGS="-I${DEPS}/include/SDL -I${DEPS}/include/libxml2 ${CPPFLAGS:-}"
-export LDFLAGS="-L${DEPS}/lib ${LDFLAGS:-}"
 
 need_brew() {
     if ! command -v brew >/dev/null; then
@@ -20,7 +19,7 @@ need_brew() {
 
 ensure_brew_deps() {
     local missing=()
-    for pkg in autoconf automake libtool pkg-config sdl12-compat libpng; do
+    for pkg in libpng; do
         brew list "$pkg" >/dev/null 2>&1 || missing+=("$pkg")
     done
     if ((${#missing[@]})); then
@@ -29,100 +28,56 @@ ensure_brew_deps() {
     fi
 }
 
-sdl_image_works() {
-    # ImageIO backend on modern macOS returns empty surfaces; libpng must be linked in.
-    test -f "${DEPS}/lib/libSDL_image.dylib" || return 1
-    otool -L "${DEPS}/lib/libSDL_image.dylib" 2>/dev/null | grep -q libpng || return 1
-    return 0
-}
-
-build_sdl12_addons() {
-    mkdir -p "${DEPS}"
-    cd /tmp
-    for archive in SDL_image-1.2.12 SDL_mixer-1.2.12; do
-        lib="${archive%-*}"
-        if test "${lib}" = SDL_image && sdl_image_works; then
-            continue
-        fi
-        test "${lib}" != SDL_image && test -f "${DEPS}/lib/lib${lib}.dylib" && continue
-        echo "Building ${archive}..."
-        curl -fsSL "https://www.libsdl.org/projects/${lib}/release/${archive}.tar.gz" -o "${archive}.tar.gz"
-        rm -rf "${archive}"
-        tar -xzf "${archive}.tar.gz"
-        (
-            cd "${archive}"
-            if test "${lib}" = SDL_image; then
-                CFLAGS="-Wno-incompatible-function-pointer-types" \
-                ./configure --prefix="${DEPS}" --with-sdl-prefix=/opt/homebrew \
-                    --disable-imageio --enable-png --disable-png-shared \
-                    PKG_CONFIG_PATH="/opt/homebrew/lib/pkgconfig" \
-                    CPPFLAGS="-I/opt/homebrew/include/SDL -I/opt/homebrew/opt/libpng/include/libpng16" \
-                    LDFLAGS="-L/opt/homebrew/lib -L/opt/homebrew/opt/libpng/lib"
-            else
-                ./configure --prefix="${DEPS}" --with-sdl-prefix=/opt/homebrew
-            fi
-            make -j"${JOBS}"
-            make install
-        )
-        rm -rf "${archive}" "${archive}.tar.gz"
-    done
-}
-
-build_libxml2() {
-    mkdir -p "${DEPS}"
-    if nm "${DEPS}/lib/libxml2.a" 2>/dev/null | grep -q xmlNanoHTTPOpen; then
+ensure_sdl_frameworks() {
+    if test -d "${MACOS}/Frameworks/SDL3.framework"; then
         return 0
     fi
-    echo "Building libxml2 2.14.5 with HTTP support..."
-    cd /tmp
-    local archive=libxml2-2.14.5
-    curl -fsSL "https://download.gnome.org/sources/libxml2/2.14/${archive}.tar.xz" -o "${archive}.tar.xz"
-    rm -rf "${archive}"
-    tar -xf "${archive}.tar.xz"
-    (
-        cd "${archive}"
-        ./configure --prefix="${DEPS}" --without-python --without-icu \
-            --disable-shared --enable-static --with-http
-        make -j"${JOBS}"
-        make install
-    )
-    rm -rf "${archive}" "${archive}.tar.xz"
+    echo "SDL3 frameworks missing — running MacOS/setup_fat_libs.sh (one-time download)..."
+    bash "${MACOS}/setup_fat_libs.sh" || {
+        echo "Note: fat libpng step may fail without x86 Homebrew; SDL frameworks should still install." >&2
+        test -d "${MACOS}/Frameworks/SDL3.framework" || exit 1
+    }
 }
 
-bootstrap_if_needed() {
-    if test ! -x "${ROOT}/configure"; then
-        echo "Running bootstrap.sh..."
-        (cd "${ROOT}" && ./bootstrap.sh)
+need_xcode() {
+    if ! xcodebuild -version >/dev/null 2>&1; then
+        echo "Xcode is required (App Store)." >&2
+        exit 1
     fi
 }
 
-configure_and_build() {
-    cd "${ROOT}"
-    ./configure \
-        --disable-restoreold \
-        --enable-automakedefaults \
-        --disable-useradd \
-        --disable-sysinstall \
-        --disable-initscripts \
-        --disable-uninstall \
-        --disable-etc \
-        --disable-games \
-        --disable-armathentication \
-        --prefix="${PREFIX}" \
-        "$@"
+build_client() {
+    mkdir -p "${DERIVED}"
+    xcodebuild \
+        -project "${MACOS}/Armagetron Advanced.xcodeproj" \
+        -scheme "Armagetron Advanced" \
+        -configuration "${CONFIG}" \
+        -destination 'platform=macOS' \
+        -derivedDataPath "${DERIVED}" \
+        -jobs "${JOBS}" \
+        build
+}
 
-    make -j"${JOBS}"
+install_run_symlink() {
+    mkdir -p "${ROOT}/src"
+    local bin="${APP}/Contents/MacOS/Armagetron Advanced"
+    if test -x "${bin}"; then
+        ln -sf "${bin}" "${ROOT}/src/armagetronad_main"
+        echo "  Symlink:       ${ROOT}/src/armagetronad_main -> .app binary"
+    fi
 }
 
 need_brew
+need_xcode
 ensure_brew_deps
-build_sdl12_addons
-build_libxml2
-bootstrap_if_needed
-configure_and_build "$@"
+ensure_sdl_frameworks
+build_client
+install_run_symlink
 
 echo
 echo "Build complete."
-echo "  Client binary: ${ROOT}/src/armagetronad_main"
-echo "  Run from tree: make run"
-echo "  Install to:    ${PREFIX} (make install)"
+echo "  App bundle:    ${APP}"
+echo "  Run from tree: make -C src run   (uses DATA_DIR from repo root)"
+echo "  Or open:       open \"${APP}\""
+echo
+echo "Xcode: open \"${MACOS}/Armagetron Advanced.xcodeproj\""

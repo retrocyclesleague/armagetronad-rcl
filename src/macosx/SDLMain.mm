@@ -4,7 +4,9 @@
 
 */
 #import <AppKit/AppKit.h>
-#import <SDL/SDL.h>
+#define SDL_MAIN_HANDLED
+#import <SDL3/SDL.h>
+extern "C" int SDL_main(int argc, char *argv[]);
 #import "SDLMain.h"
 #import <sys/param.h> /* for MAXPATHLEN */
 #import <unistd.h>
@@ -14,7 +16,7 @@
 #include "uMenu.h"
 
 /* Use this flag to determine whether we use SDLMain.nib or not */
-#define		SDL_USE_NIB_FILE	1
+#define		SDL_USE_NIB_FILE	0
 
 
 static int    gArgc;
@@ -34,10 +36,10 @@ static BOOL   gFinderLaunch;
 #endif
 
 SDL_Event event;
-@interface SDLApplication : NSApplication
+@interface ATApplication : NSApplication
 @end
 
-@implementation SDLApplication
+@implementation ATApplication
 /* Invoked from the Quit menu item */
 
 - (void)terminate:(id)sender
@@ -54,10 +56,10 @@ SDL_Event event;
 {
     NSEventType eventType = [event type];
     
-    if (eventType == NSKeyDown || eventType == NSKeyUp)
+    if (eventType == NSEventTypeKeyDown || eventType == NSEventTypeKeyUp)
     {
         // Let Mac OS X handle Hide, Minimize, etc
-        if ([event modifierFlags] & NSCommandKeyMask)
+        if ([event modifierFlags] & NSEventModifierFlagCommand)
             [super sendEvent:event];
     }
     else
@@ -210,7 +212,7 @@ int main (int argc, const char *argv[])
 	gFinderLaunch = YES;
     } else {
         gArgc = argc;
-	gFinderLaunch = NO;
+    gFinderLaunch = NO;
     }
     gArgv = (char**) malloc (sizeof(*gArgv) * (gArgc+1));
     tASSERT (gArgv != NULL);
@@ -220,10 +222,14 @@ int main (int argc, const char *argv[])
 	
 	MacOSX_SetCWD(gArgv);
 #if SDL_USE_NIB_FILE
-    [SDLApplication poseAsClass:[NSApplication class]];
     NSApplicationMain (argc, argv);
 #else
-    CustomApplicationMain (argc, argv);
+    // ponytail: modern macOS needs explicit delegate setup
+    [NSApplication sharedApplication];
+    SDLMain *delegate = [[SDLMain alloc] init];
+    [NSApp setDelegate:delegate];
+    [NSApp run];
 #endif
     return 0;
 }
+

@@ -24,27 +24,18 @@ int HandleEvent(SDL_Event *tEvent)
 
     done = 0;
     switch( tEvent->type ) {
-    case SDL_ACTIVEEVENT:
-        /* See what happened */
-        printf( "app %s ", tEvent->active.gain ? "gained" : "lost" );
-        if ( tEvent->active.state & SDL_APPACTIVE ) {
-            printf( "active " );
-        } else if ( tEvent->active.state & SDL_APPMOUSEFOCUS ) {
-            printf( "mouse " );
-        } else if ( tEvent->active.state & SDL_APPINPUTFOCUS ) {
-            printf( "input " );
-        }
-        printf( "focus\n" );
+    case SDL_WINDOWEVENT:
+        printf( "window event %d\n", tEvent->window.event );
         break;
 
-    case SDL_KEYDOWN:
-        if( tEvent->key.keysym.sym == SDLK_ESCAPE ) {
+    case SDL_EVENT_KEY_DOWN:
+        if( tEvent->key.key == SDLK_ESCAPE ) {
             done = 1;
         }
         printf("key '%s' pressed\n",
-               SDL_GetKeyName(tEvent->key.keysym.sym));
+               SDL_GetKeyName(tEvent->key.key));
         break;
-    case SDL_QUIT:
+    case SDL_EVENT_QUIT:
         done = 1;
         break;
     }
@@ -72,20 +63,19 @@ int RunGLTest( int argc, char* argv[] )
                        { 0.5,  0.5,  0.5},
                        { 0.5, -0.5,  0.5},
                        {-0.5, -0.5,  0.5}};
-    Uint32 video_flags;
+    Uint32 video_flags = SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN;
     int value;
+    SDL_Window *window = NULL;
+    SDL_GLContext glcontext = NULL;
 
     if( SDL_Init( SDL_INIT_VIDEO ) < 0 ) {
         fprintf(stderr,"Couldn't initialize SDL: %s\n",SDL_GetError());
         exit( 1 );
     }
 
-    /* Set the flags we want to use for setting the video mode */
-    video_flags = SDL_OPENGL;
-
     for ( i=1; argv[i]; ++i ) {
         if ( strcmp(argv[1], "-fullscreen") == 0 ) {
-            video_flags |= SDL_FULLSCREEN;
+            video_flags |= SDL_WINDOW_FULLSCREEN;
         }
     }
 
@@ -95,8 +85,18 @@ int RunGLTest( int argc, char* argv[] )
     SDL_GL_SetAttribute( SDL_GL_BLUE_SIZE, 5 );
     SDL_GL_SetAttribute( SDL_GL_DEPTH_SIZE, 16 );
     SDL_GL_SetAttribute( SDL_GL_DOUBLEBUFFER, 1 );
-    if ( SDL_SetVideoMode( w, h, bpp, video_flags ) == NULL ) {
-        fprintf(stderr, "Couldn't set GL mode: %s\n", SDL_GetError());
+
+    window = SDL_CreateWindow("SDL GL test", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, w, h, video_flags);
+    if ( !window ) {
+        fprintf(stderr, "Couldn't create window: %s\n", SDL_GetError());
+        SDL_Quit();
+        exit(1);
+    }
+
+    glcontext = SDL_GL_CreateContext(window);
+    if ( !glcontext ) {
+        fprintf(stderr, "Couldn't create GL context: %s\n", SDL_GetError());
+        SDL_DestroyWindow(window);
         SDL_Quit();
         exit(1);
     }
@@ -113,7 +113,7 @@ int RunGLTest( int argc, char* argv[] )
     printf( "SDL_GL_DOUBLEBUFFER: requested 1, got %d\n", value );
 
     /* Set the window manager title bar */
-    SDL_WM_SetCaption( "SDL GL test", "testgl" );
+    SDL_SetWindowTitle(window, "SDL GL test");
 
     glViewport( 0, 0, w, h );
     glMatrixMode( GL_PROJECTION );
@@ -179,7 +179,7 @@ int RunGLTest( int argc, char* argv[] )
         glMatrixMode(GL_MODELVIEW);
         glRotatef(5.0, 1.0, 1.0, 1.0);
 
-        SDL_GL_SwapBuffers( );
+        SDL_GL_SwapWindow(window);
 
         color += 0.01;
 
@@ -211,6 +211,8 @@ int RunGLTest( int argc, char* argv[] )
     }
 
     /* Destroy our GL context, etc. */
+    SDL_GL_DestroyContext(glcontext);
+    SDL_DestroyWindow(window);
     SDL_Quit( );
 }
 

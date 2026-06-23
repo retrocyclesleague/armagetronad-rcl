@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 42;
+	objectVersion = 100;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -22,8 +22,6 @@
 		9B8A49BE0D3708E10094FB81 /* Create Full Release */ = {
 			isa = PBXAggregateTarget;
 			buildConfigurationList = 9B8A49C90D37095A0094FB81 /* Build configuration list for PBXAggregateTarget "Create Full Release" */;
-			buildPhases = (
-			);
 			dependencies = (
 				9B8A49FD0D374AC90094FB81 /* PBXTargetDependency */,
 				9B8A49FF0D374ACD0094FB81 /* PBXTargetDependency */,
@@ -46,15 +44,8 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
-		6459A1320D2AE2B40042EFE8 /* libpng.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9B5414A20A45C78200745CE6 /* libpng.framework */; };
-		64956AEB0D410F6A00C501B8 /* gFriends.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 64956AE90D410F6A00C501B8 /* gFriends.cpp */; };
-		64956AEC0D410F6A00C501B8 /* gFriends.h in Copy Frameworks */ = {isa = PBXBuildFile; fileRef = 64956AEA0D410F6A00C501B8 /* gFriends.h */; };
 		64956AED0D410F6A00C501B8 /* gFriends.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 64956AE90D410F6A00C501B8 /* gFriends.cpp */; };
 		64956AEF0D410F6A00C501B8 /* gFriends.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 64956AE90D410F6A00C501B8 /* gFriends.cpp */; };
-		64C038B70D2E84E500810BB1 /* config_common.h.in in Resources */ = {isa = PBXBuildFile; fileRef = 64C038B60D2E84E500810BB1 /* config_common.h.in */; };
-		64E439260D64FC4100CA7EC4 /* rDisplayList.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 64E439230D64FC4100CA7EC4 /* rDisplayList.cpp */; };
-		64E439270D64FC4100CA7EC4 /* rDisplayList.h in Copy Frameworks */ = {isa = PBXBuildFile; fileRef = 64E439240D64FC4100CA7EC4 /* rDisplayList.h */; };
-		64E439280D64FC4100CA7EC4 /* rGL.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 64E439250D64FC4100CA7EC4 /* rGL.cpp */; };
 		64E439290D64FC4100CA7EC4 /* rDisplayList.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 64E439230D64FC4100CA7EC4 /* rDisplayList.cpp */; };
 		64E4392B0D64FC4100CA7EC4 /* rGL.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 64E439250D64FC4100CA7EC4 /* rGL.cpp */; };
 		64E4392C0D64FC4100CA7EC4 /* rDisplayList.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 64E439230D64FC4100CA7EC4 /* rDisplayList.cpp */; };
@@ -70,7 +61,6 @@
 		8C11CA51095A2B6E007AE0EA /* eFloor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E1C089EEC7C007E21DC /* eFloor.cpp */; };
 		8C11CA52095A2B6E007AE0EA /* eGameObject.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E1E089EEC7C007E21DC /* eGameObject.cpp */; };
 		8C11CA53095A2B6E007AE0EA /* eGrid.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E20089EEC7C007E21DC /* eGrid.cpp */; };
-		8C11CA54095A2B6E007AE0EA /* eKrawall.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E22089EEC7D007E21DC /* eKrawall.cpp */; };
 		8C11CA55095A2B6E007AE0EA /* eNetGameObject.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E24089EEC7D007E21DC /* eNetGameObject.cpp */; };
 		8C11CA56095A2B6E007AE0EA /* ePath.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E26089EEC7D007E21DC /* ePath.cpp */; };
 		8C11CA57095A2B6E007AE0EA /* ePlayer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E28089EEC7D007E21DC /* ePlayer.cpp */; };
@@ -105,7 +95,12 @@
 		8C11CA74095A2B6E007AE0EA /* gStuff.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EEC089EEC7D007E21DC /* gStuff.cpp */; };
 		8C11CA75095A2B6E007AE0EA /* gTeam.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EEE089EEC7D007E21DC /* gTeam.cpp */; };
 		8C11CA76095A2B6E007AE0EA /* gWall.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EF0089EEC7D007E21DC /* gWall.cpp */; };
-		8C11CA77095A2B6E007AE0EA /* gWinZone.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EF2089EEC7D007E21DC /* gWinZone.cpp */; };
+		8C11CA77095A2B6E007AE0EA /* gZone.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EF2089EEC7D007E21DC /* gZone.cpp */; };
+		3379CBDE981B4A8F822191C9 /* eBannedWords.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FB5217289921471C98C92D66 /* eBannedWords.cpp */; };
+		B35B7067701C4F019F909D04 /* gHudMap.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1676577541EA450FB4F5AAC6 /* gHudMap.cpp */; };
+		D3472E53A3F047E1B0BEE808 /* gRace.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F2CF3C9C90EE486FB170471C /* gRace.cpp */; };
+		EB3BB4FD4B144FEF8E996C09 /* gRotation.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 22B27B788DAA4A07B70C3D4A /* gRotation.cpp */; };
+		803E39D061744341BD78D85F /* gSvgOutput.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0DAE8BDFE2494EB1A765A947 /* gSvgOutput.cpp */; };
 		8C11CA78095A2B6E007AE0EA /* md5.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E41089EEC7D007E21DC /* md5.cpp */; };
 		8C11CA7A095A2B6E007AE0EA /* nConfig.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E45089EEC7D007E21DC /* nConfig.cpp */; };
 		8C11CA7B095A2B6E007AE0EA /* nKrawall.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E49089EEC7D007E21DC /* nKrawall.cpp */; };
@@ -156,119 +151,6 @@
 		8C11CAAB095A2B6E007AE0EA /* uMenu.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EFA089EEC7E007E21DC /* uMenu.cpp */; };
 		8C6EF51D08A32A0500816348 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 8C6EF51B08A32A0500816348 /* InfoPlist.strings */; };
 		8CAD9141095A37DD00DA0ECC /* rConsoleCout.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CAD9140095A37DD00DA0ECC /* rConsoleCout.cpp */; };
-		8CB97AB0096265A800AE8BCD /* SDLMain.nib in Resources */ = {isa = PBXBuildFile; fileRef = 8CBA6032089EF32F007E21DC /* SDLMain.nib */; };
-		8CB97AB1096265A800AE8BCD /* AUTHORS in Resources */ = {isa = PBXBuildFile; fileRef = 8CBA6039089EF359007E21DC /* AUTHORS */; };
-		8CB97AB2096265A800AE8BCD /* config in Resources */ = {isa = PBXBuildFile; fileRef = 8CBA603B089EF359007E21DC /* config */; };
-		8CB97AB3096265A800AE8BCD /* language in Resources */ = {isa = PBXBuildFile; fileRef = 8CBA603D089EF359007E21DC /* language */; };
-		8CB97AB4096265A800AE8BCD /* models in Resources */ = {isa = PBXBuildFile; fileRef = 8CBA603E089EF359007E21DC /* models */; };
-		8CB97AB5096265A800AE8BCD /* resource in Resources */ = {isa = PBXBuildFile; fileRef = 8CBA603F089EF359007E21DC /* resource */; };
-		8CB97AB6096265A800AE8BCD /* sound in Resources */ = {isa = PBXBuildFile; fileRef = 8CBA6040089EF359007E21DC /* sound */; };
-		8CB97AB7096265A800AE8BCD /* textures in Resources */ = {isa = PBXBuildFile; fileRef = 8CBA6041089EF359007E21DC /* textures */; };
-		8CB97AB8096265A800AE8BCD /* Armagetron Advanced.icns in Resources */ = {isa = PBXBuildFile; fileRef = 8CBA62E008A01A55007E21DC /* Armagetron Advanced.icns */; };
-		8CB97AB9096265A800AE8BCD /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 8CBA646108A065A8007E21DC /* Info.plist */; };
-		8CB97ABA096265A800AE8BCD /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 8C6EF51B08A32A0500816348 /* InfoPlist.strings */; };
-		8CB97AC1096265A800AE8BCD /* SDLMain.mm in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E08089EEC5B007E21DC /* SDLMain.mm */; };
-		8CB97AC2096265A800AE8BCD /* eAdvWall.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E10089EEC7C007E21DC /* eAdvWall.cpp */; };
-		8CB97AC3096265A800AE8BCD /* eAuthentication.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E12089EEC7C007E21DC /* eAuthentication.cpp */; };
-		8CB97AC4096265A800AE8BCD /* eAxis.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E14089EEC7C007E21DC /* eAxis.cpp */; };
-		8CB97AC5096265A800AE8BCD /* eCamera.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E16089EEC7C007E21DC /* eCamera.cpp */; };
-		8CB97AC6096265A800AE8BCD /* eDebugLine.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E19089EEC7C007E21DC /* eDebugLine.cpp */; };
-		8CB97AC7096265A800AE8BCD /* eDisplay.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E1B089EEC7C007E21DC /* eDisplay.cpp */; };
-		8CB97AC8096265A800AE8BCD /* eFloor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E1C089EEC7C007E21DC /* eFloor.cpp */; };
-		8CB97AC9096265A800AE8BCD /* eGameObject.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E1E089EEC7C007E21DC /* eGameObject.cpp */; };
-		8CB97ACA096265A800AE8BCD /* eGrid.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E20089EEC7C007E21DC /* eGrid.cpp */; };
-		8CB97ACB096265A800AE8BCD /* eKrawall.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E22089EEC7D007E21DC /* eKrawall.cpp */; };
-		8CB97ACC096265A800AE8BCD /* eNetGameObject.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E24089EEC7D007E21DC /* eNetGameObject.cpp */; };
-		8CB97ACD096265A800AE8BCD /* ePath.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E26089EEC7D007E21DC /* ePath.cpp */; };
-		8CB97ACE096265A800AE8BCD /* ePlayer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E28089EEC7D007E21DC /* ePlayer.cpp */; };
-		8CB97ACF096265A800AE8BCD /* eRectangle.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E2A089EEC7D007E21DC /* eRectangle.cpp */; };
-		8CB97AD0096265A800AE8BCD /* eSensor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E2C089EEC7D007E21DC /* eSensor.cpp */; };
-		8CB97AD1096265A800AE8BCD /* eSound.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E2E089EEC7D007E21DC /* eSound.cpp */; };
-		8CB97AD2096265A800AE8BCD /* eTeam.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E30089EEC7D007E21DC /* eTeam.cpp */; };
-		8CB97AD3096265A800AE8BCD /* eTimer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E33089EEC7D007E21DC /* eTimer.cpp */; };
-		8CB97AD4096265A800AE8BCD /* eVoter.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E35089EEC7D007E21DC /* eVoter.cpp */; };
-		8CB97AD5096265A800AE8BCD /* eWall.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E37089EEC7D007E21DC /* eWall.cpp */; };
-		8CB97AD6096265A800AE8BCD /* md5.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E41089EEC7D007E21DC /* md5.cpp */; };
-		8CB97AD8096265A800AE8BCD /* nConfig.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E45089EEC7D007E21DC /* nConfig.cpp */; };
-		8CB97AD9096265A800AE8BCD /* nKrawall.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E49089EEC7D007E21DC /* nKrawall.cpp */; };
-		8CB97ADA096265A800AE8BCD /* nKrawallPrivate.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E4B089EEC7D007E21DC /* nKrawallPrivate.cpp */; };
-		8CB97ADB096265A800AE8BCD /* nNetObject.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E4C089EEC7D007E21DC /* nNetObject.cpp */; };
-		8CB97ADC096265A800AE8BCD /* nNetwork.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E4E089EEC7D007E21DC /* nNetwork.cpp */; };
-		8CB97ADD096265A800AE8BCD /* nObserver.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E50089EEC7D007E21DC /* nObserver.cpp */; };
-		8CB97ADE096265A800AE8BCD /* nPriorizing.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E52089EEC7D007E21DC /* nPriorizing.cpp */; };
-		8CB97ADF096265A800AE8BCD /* nServerInfo.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E54089EEC7D007E21DC /* nServerInfo.cpp */; };
-		8CB97AE0096265A800AE8BCD /* nSocket.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E57089EEC7D007E21DC /* nSocket.cpp */; };
-		8CB97AE1096265A800AE8BCD /* nSpamProtection.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E59089EEC7D007E21DC /* nSpamProtection.cpp */; };
-		8CB97AE2096265A800AE8BCD /* rConsole.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E5F089EEC7D007E21DC /* rConsole.cpp */; };
-		8CB97AE3096265A800AE8BCD /* rConsoleGraph.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E62089EEC7D007E21DC /* rConsoleGraph.cpp */; };
-		8CB97AE4096265A800AE8BCD /* rFont.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E63089EEC7D007E21DC /* rFont.cpp */; };
-		8CB97AE5096265A800AE8BCD /* rGLRender.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E66089EEC7D007E21DC /* rGLRender.cpp */; };
-		8CB97AE6096265A800AE8BCD /* rModel.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E67089EEC7D007E21DC /* rModel.cpp */; };
-		8CB97AE7096265A800AE8BCD /* rRender.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E69089EEC7D007E21DC /* rRender.cpp */; };
-		8CB97AE8096265A800AE8BCD /* rScreen.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E6B089EEC7D007E21DC /* rScreen.cpp */; };
-		8CB97AE9096265A800AE8BCD /* rSysdep.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E6E089EEC7D007E21DC /* rSysdep.cpp */; };
-		8CB97AEA096265A800AE8BCD /* rTexture.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E70089EEC7D007E21DC /* rTexture.cpp */; };
-		8CB97AEB096265A800AE8BCD /* rViewport.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E72089EEC7D007E21DC /* rViewport.cpp */; };
-		8CB97AEC096265A800AE8BCD /* action_api.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E7D089EEC7D007E21DC /* action_api.cpp */; };
-		8CB97AED096265A800AE8BCD /* actions.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E7E089EEC7D007E21DC /* actions.cpp */; };
-		8CB97AEE096265A800AE8BCD /* opengl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E82089EEC7D007E21DC /* opengl.cpp */; };
-		8CB97AEF096265A800AE8BCD /* system.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E86089EEC7D007E21DC /* system.cpp */; };
-		8CB97AF0096265A800AE8BCD /* tArray.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E8A089EEC7D007E21DC /* tArray.cpp */; };
-		8CB97AF1096265A800AE8BCD /* tCallback.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E8C089EEC7D007E21DC /* tCallback.cpp */; };
-		8CB97AF2096265A800AE8BCD /* tCommandLine.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E90089EEC7D007E21DC /* tCommandLine.cpp */; };
-		8CB97AF3096265A800AE8BCD /* tConfiguration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E92089EEC7D007E21DC /* tConfiguration.cpp */; };
-		8CB97AF4096265A800AE8BCD /* tConsole.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E94089EEC7D007E21DC /* tConsole.cpp */; };
-		8CB97AF5096265A800AE8BCD /* tCrypt.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E96089EEC7D007E21DC /* tCrypt.cpp */; };
-		8CB97AF6096265A800AE8BCD /* tDirectories.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E98089EEC7D007E21DC /* tDirectories.cpp */; };
-		8CB97AF7096265A800AE8BCD /* tError.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E9A089EEC7D007E21DC /* tError.cpp */; };
-		8CB97AF8096265A800AE8BCD /* tEventQueue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E9C089EEC7D007E21DC /* tEventQueue.cpp */; };
-		8CB97AF9096265A800AE8BCD /* tException.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E9E089EEC7D007E21DC /* tException.cpp */; };
-		8CB97AFA096265A800AE8BCD /* tHeap.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EA0089EEC7D007E21DC /* tHeap.cpp */; };
-		8CB97AFB096265A800AE8BCD /* tLinkedList.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EA3089EEC7D007E21DC /* tLinkedList.cpp */; };
-		8CB97AFC096265A800AE8BCD /* tLocale.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EA6089EEC7D007E21DC /* tLocale.cpp */; };
-		8CB97AFD096265A800AE8BCD /* tMemManager.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EA9089EEC7D007E21DC /* tMemManager.cpp */; };
-		8CB97AFE096265A800AE8BCD /* tMemStack.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EAB089EEC7D007E21DC /* tMemStack.cpp */; };
-		8CB97AFF096265A800AE8BCD /* tRandom.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EAD089EEC7D007E21DC /* tRandom.cpp */; };
-		8CB97B00096265A800AE8BCD /* tRecorder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EB0089EEC7D007E21DC /* tRecorder.cpp */; };
-		8CB97B01096265A800AE8BCD /* tRecorderInternal.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EB2089EEC7D007E21DC /* tRecorderInternal.cpp */; };
-		8CB97B02096265A800AE8BCD /* tResourceManager.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EB5089EEC7D007E21DC /* tResourceManager.cpp */; };
-		8CB97B03096265A800AE8BCD /* tRing.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EB7089EEC7D007E21DC /* tRing.cpp */; };
-		8CB97B04096265A800AE8BCD /* tSafePTR.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EB9089EEC7D007E21DC /* tSafePTR.cpp */; };
-		8CB97B05096265A800AE8BCD /* tString.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EBC089EEC7D007E21DC /* tString.cpp */; };
-		8CB97B06096265A800AE8BCD /* tSysTime.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EBE089EEC7D007E21DC /* tSysTime.cpp */; };
-		8CB97B07096265A800AE8BCD /* tToDo.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EC0089EEC7D007E21DC /* tToDo.cpp */; };
-		8CB97B08096265A800AE8BCD /* gAIBase.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EC4089EEC7D007E21DC /* gAIBase.cpp */; };
-		8CB97B09096265A800AE8BCD /* gAICharacter.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EC6089EEC7D007E21DC /* gAICharacter.cpp */; };
-		8CB97B0A096265A800AE8BCD /* gArena.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EC8089EEC7D007E21DC /* gArena.cpp */; };
-		8CB97B0B096265A800AE8BCD /* gArmagetron.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5ECA089EEC7D007E21DC /* gArmagetron.cpp */; };
-		8CB97B0C096265A800AE8BCD /* gCamera.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5ECB089EEC7D007E21DC /* gCamera.cpp */; };
-		8CB97B0D096265A800AE8BCD /* gCycle.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5ECD089EEC7D007E21DC /* gCycle.cpp */; };
-		8CB97B0E096265A800AE8BCD /* gCycleMovement.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5ECF089EEC7D007E21DC /* gCycleMovement.cpp */; };
-		8CB97B0F096265A800AE8BCD /* gExplosion.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5ED1089EEC7D007E21DC /* gExplosion.cpp */; };
-		8CB97B10096265A800AE8BCD /* gFloor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5ED3089EEC7D007E21DC /* gFloor.cpp */; };
-		8CB97B11096265A800AE8BCD /* gGame.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5ED4089EEC7D007E21DC /* gGame.cpp */; };
-		8CB97B12096265A800AE8BCD /* gHud.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5ED6089EEC7D007E21DC /* gHud.cpp */; };
-		8CB97B13096265A800AE8BCD /* gLanguageMenu.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5ED8089EEC7D007E21DC /* gLanguageMenu.cpp */; };
-		8CB97B14096265A800AE8BCD /* gLogo.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EDA089EEC7D007E21DC /* gLogo.cpp */; };
-		8CB97B15096265A800AE8BCD /* gMenus.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EDC089EEC7D007E21DC /* gMenus.cpp */; };
-		8CB97B16096265A800AE8BCD /* gParser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EDE089EEC7D007E21DC /* gParser.cpp */; };
-		8CB97B17096265A800AE8BCD /* gParticles.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EE0089EEC7D007E21DC /* gParticles.cpp */; };
-		8CB97B18096265A800AE8BCD /* gSensor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EE2089EEC7D007E21DC /* gSensor.cpp */; };
-		8CB97B19096265A800AE8BCD /* gServerBrowser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EE4089EEC7D007E21DC /* gServerBrowser.cpp */; };
-		8CB97B1A096265A800AE8BCD /* gServerFavorites.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EE6089EEC7D007E21DC /* gServerFavorites.cpp */; };
-		8CB97B1B096265A800AE8BCD /* gSparks.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EE8089EEC7D007E21DC /* gSparks.cpp */; };
-		8CB97B1C096265A800AE8BCD /* gSpawn.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EEA089EEC7D007E21DC /* gSpawn.cpp */; };
-		8CB97B1D096265A800AE8BCD /* gStuff.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EEC089EEC7D007E21DC /* gStuff.cpp */; };
-		8CB97B1E096265A800AE8BCD /* gTeam.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EEE089EEC7D007E21DC /* gTeam.cpp */; };
-		8CB97B1F096265A800AE8BCD /* gWall.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EF0089EEC7D007E21DC /* gWall.cpp */; };
-		8CB97B20096265A800AE8BCD /* gWinZone.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EF2089EEC7D007E21DC /* gWinZone.cpp */; };
-		8CB97B21096265A800AE8BCD /* uInput.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EF6089EEC7D007E21DC /* uInput.cpp */; };
-		8CB97B22096265A800AE8BCD /* uInputQueue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EF8089EEC7E007E21DC /* uInputQueue.cpp */; };
-		8CB97B23096265A800AE8BCD /* uMenu.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EFA089EEC7E007E21DC /* uMenu.cpp */; };
-		8CB97B25096265A800AE8BCD /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */; };
-		8CB97B29096265A800AE8BCD /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8CBA60B0089F00F2007E21DC /* OpenGL.framework */; };
-		8CB97B450962677F00AE8BCD /* libxml2.2.6.22.dylib in Copy Frameworks */ = {isa = PBXBuildFile; fileRef = 8CB97B3F0962676B00AE8BCD /* libxml2.2.6.22.dylib */; };
-		8CB97BAC096271B000AE8BCD /* libpng12.0.dylib in Copy Frameworks */ = {isa = PBXBuildFile; fileRef = 8CB97BAA0962719600AE8BCD /* libpng12.0.dylib */; };
 		8CBA5E0A089EEC5B007E21DC /* SDLMain.mm in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E08089EEC5B007E21DC /* SDLMain.mm */; };
 		8CBA5EFD089EEC7E007E21DC /* eAdvWall.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E10089EEC7C007E21DC /* eAdvWall.cpp */; };
 		8CBA5EFF089EEC7E007E21DC /* eAuthentication.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E12089EEC7C007E21DC /* eAuthentication.cpp */; };
@@ -279,7 +161,6 @@
 		8CBA5F09089EEC7E007E21DC /* eFloor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E1C089EEC7C007E21DC /* eFloor.cpp */; };
 		8CBA5F0B089EEC7E007E21DC /* eGameObject.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E1E089EEC7C007E21DC /* eGameObject.cpp */; };
 		8CBA5F0D089EEC7E007E21DC /* eGrid.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E20089EEC7C007E21DC /* eGrid.cpp */; };
-		8CBA5F0F089EEC7E007E21DC /* eKrawall.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E22089EEC7D007E21DC /* eKrawall.cpp */; };
 		8CBA5F11089EEC7E007E21DC /* eNetGameObject.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E24089EEC7D007E21DC /* eNetGameObject.cpp */; };
 		8CBA5F13089EEC7E007E21DC /* ePath.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E26089EEC7D007E21DC /* ePath.cpp */; };
 		8CBA5F15089EEC7E007E21DC /* ePlayer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E28089EEC7D007E21DC /* ePlayer.cpp */; };
@@ -363,11 +244,15 @@
 		8CBA5FD2089EEC7E007E21DC /* gStuff.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EEC089EEC7D007E21DC /* gStuff.cpp */; };
 		8CBA5FD4089EEC7E007E21DC /* gTeam.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EEE089EEC7D007E21DC /* gTeam.cpp */; };
 		8CBA5FD6089EEC7E007E21DC /* gWall.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EF0089EEC7D007E21DC /* gWall.cpp */; };
-		8CBA5FD8089EEC7E007E21DC /* gWinZone.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EF2089EEC7D007E21DC /* gWinZone.cpp */; };
+		8CBA5FD8089EEC7E007E21DC /* gZone.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EF2089EEC7D007E21DC /* gZone.cpp */; };
+		A1F2B4E236624BD48A5C08B4 /* eBannedWords.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FB5217289921471C98C92D66 /* eBannedWords.cpp */; };
+		BF46E57BED9B41F9B2D7FD78 /* gHudMap.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1676577541EA450FB4F5AAC6 /* gHudMap.cpp */; };
+		7D6FC9823EB24F7D9DC2B73E /* gRace.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F2CF3C9C90EE486FB170471C /* gRace.cpp */; };
+		1581735ED8884496B4093BE4 /* gRotation.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 22B27B788DAA4A07B70C3D4A /* gRotation.cpp */; };
+		5A337B1B56DD4CA5A833C9A2 /* gSvgOutput.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0DAE8BDFE2494EB1A765A947 /* gSvgOutput.cpp */; };
 		8CBA5FDB089EEC7E007E21DC /* uInput.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EF6089EEC7D007E21DC /* uInput.cpp */; };
 		8CBA5FDD089EEC7E007E21DC /* uInputQueue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EF8089EEC7E007E21DC /* uInputQueue.cpp */; };
 		8CBA5FDF089EEC7E007E21DC /* uMenu.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EFA089EEC7E007E21DC /* uMenu.cpp */; };
-		8CBA6033089EF32F007E21DC /* SDLMain.nib in Resources */ = {isa = PBXBuildFile; fileRef = 8CBA6032089EF32F007E21DC /* SDLMain.nib */; };
 		8CBA6043089EF359007E21DC /* AUTHORS in Resources */ = {isa = PBXBuildFile; fileRef = 8CBA6039089EF359007E21DC /* AUTHORS */; };
 		8CBA6045089EF359007E21DC /* config in Resources */ = {isa = PBXBuildFile; fileRef = 8CBA603B089EF359007E21DC /* config */; };
 		8CBA6047089EF359007E21DC /* language in Resources */ = {isa = PBXBuildFile; fileRef = 8CBA603D089EF359007E21DC /* language */; };
@@ -378,35 +263,18 @@
 		8CBA60B1089F00F2007E21DC /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8CBA60B0089F00F2007E21DC /* OpenGL.framework */; };
 		8CBA62E108A01A55007E21DC /* Armagetron Advanced.icns in Resources */ = {isa = PBXBuildFile; fileRef = 8CBA62E008A01A55007E21DC /* Armagetron Advanced.icns */; };
 		8D11072F0486CEB800E47090 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */; };
-		9B5414A50A45C78200745CE6 /* libpng.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9B5414A20A45C78200745CE6 /* libpng.framework */; };
-		9B5414A60A45C78200745CE6 /* SDL_image.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9B5414A30A45C78200745CE6 /* SDL_image.framework */; };
-		9B5414A70A45C78200745CE6 /* SDL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9B5414A40A45C78200745CE6 /* SDL.framework */; };
-		9B5414DB0A45C78D00745CE6 /* libpng.framework in Copy Frameworks */ = {isa = PBXBuildFile; fileRef = 9B5414A20A45C78200745CE6 /* libpng.framework */; };
-		9B5414DC0A45C78D00745CE6 /* SDL_image.framework in Copy Frameworks */ = {isa = PBXBuildFile; fileRef = 9B5414A30A45C78200745CE6 /* SDL_image.framework */; };
-		9B5414DD0A45C78D00745CE6 /* SDL.framework in Copy Frameworks */ = {isa = PBXBuildFile; fileRef = 9B5414A40A45C78200745CE6 /* SDL.framework */; };
-		9B5414E90A45C7CB00745CE6 /* SDL_image.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9B5414E70A45C7CB00745CE6 /* SDL_image.framework */; };
-		9B5414EA0A45C7CB00745CE6 /* SDL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9B5414E80A45C7CB00745CE6 /* SDL.framework */; };
-		9B54150F0A45C7D700745CE6 /* SDL_image.framework in Copy Frameworks */ = {isa = PBXBuildFile; fileRef = 9B5414E70A45C7CB00745CE6 /* SDL_image.framework */; };
-		9B5415100A45C7D700745CE6 /* SDL.framework in Copy Frameworks */ = {isa = PBXBuildFile; fileRef = 9B5414E80A45C7CB00745CE6 /* SDL.framework */; };
 		9B5E119F0D5EBCD700175ABB /* config.h in Headers */ = {isa = PBXBuildFile; fileRef = 8CBA62A1089F1A95007E21DC /* config.h */; };
 		9B5E11AA0D5EBD1600175ABB /* config.h in Headers */ = {isa = PBXBuildFile; fileRef = 8CAD9136095A379B00DA0ECC /* config.h */; };
 		9B5E11BF0D5EC32500175ABB /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9B5E11BE0D5EC32500175ABB /* CoreServices.framework */; };
-		9B5E11C00D5EC32500175ABB /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9B5E11BE0D5EC32500175ABB /* CoreServices.framework */; };
 		9B5E11C10D5EC32500175ABB /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9B5E11BE0D5EC32500175ABB /* CoreServices.framework */; };
 		9B5FE82F0D57B2FC004AC137 /* nAuthentication.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 9B5FE82E0D57B2FC004AC137 /* nAuthentication.cpp */; };
-		9B5FE8300D57B2FC004AC137 /* nAuthentication.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 9B5FE82E0D57B2FC004AC137 /* nAuthentication.cpp */; };
 		9B5FE8310D57B2FC004AC137 /* nAuthentication.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 9B5FE82E0D57B2FC004AC137 /* nAuthentication.cpp */; };
 		9B69F6230A63E1A700F5F2E4 /* eLagCompensation.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 9B69F6210A63E1A700F5F2E4 /* eLagCompensation.cpp */; };
-		9B69F6250A63E1A700F5F2E4 /* eLagCompensation.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 9B69F6210A63E1A700F5F2E4 /* eLagCompensation.cpp */; };
-		9B69F6260A63E1A700F5F2E4 /* eLagCompensation.h in Copy Frameworks */ = {isa = PBXBuildFile; fileRef = 9B69F6220A63E1A700F5F2E4 /* eLagCompensation.h */; };
 		9B69F6270A63E1A700F5F2E4 /* eLagCompensation.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 9B69F6210A63E1A700F5F2E4 /* eLagCompensation.cpp */; };
 		9B78706A0D5E4FD20088A96F /* libZThread.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 9B7870670D5E4FD20088A96F /* libZThread.a */; };
 		9B865B720F4B3445003FCD2C /* eChat.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 9B865B700F4B3445003FCD2C /* eChat.cpp */; };
 		9B865B740F4B3445003FCD2C /* eChat.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 9B865B700F4B3445003FCD2C /* eChat.cpp */; };
-		9BA977200F1EC45500F02184 /* SDL_mixer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9BA9771F0F1EC45500F02184 /* SDL_mixer.framework */; };
-		9BA9773D0F1EC49700F02184 /* SDL_mixer.framework in Copy Frameworks */ = {isa = PBXBuildFile; fileRef = 9BA9771F0F1EC45500F02184 /* SDL_mixer.framework */; };
 		D01641340D904A6600FC0A23 /* tColor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D01641330D904A6600FC0A23 /* tColor.cpp */; };
-		D01641350D904A6600FC0A23 /* tColor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D01641330D904A6600FC0A23 /* tColor.cpp */; };
 		D01641360D904A6600FC0A23 /* tColor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D01641330D904A6600FC0A23 /* tColor.cpp */; };
 /* End PBXBuildFile section */
 
@@ -441,40 +309,6 @@
 		};
 /* End PBXContainerItemProxy section */
 
-/* Begin PBXCopyFilesBuildPhase section */
-		8CB97ABB096265A800AE8BCD /* Copy Frameworks */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 10;
-			files = (
-				9B54150F0A45C7D700745CE6 /* SDL_image.framework in Copy Frameworks */,
-				9B5415100A45C7D700745CE6 /* SDL.framework in Copy Frameworks */,
-				8CB97BAC096271B000AE8BCD /* libpng12.0.dylib in Copy Frameworks */,
-				8CB97B450962677F00AE8BCD /* libxml2.2.6.22.dylib in Copy Frameworks */,
-				9B69F6260A63E1A700F5F2E4 /* eLagCompensation.h in Copy Frameworks */,
-				64956AEC0D410F6A00C501B8 /* gFriends.h in Copy Frameworks */,
-				64E439270D64FC4100CA7EC4 /* rDisplayList.h in Copy Frameworks */,
-			);
-			name = "Copy Frameworks";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		8CBA5DD5089EEBB3007E21DC /* Copy Frameworks */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 10;
-			files = (
-				9BA9773D0F1EC49700F02184 /* SDL_mixer.framework in Copy Frameworks */,
-				9B5414DB0A45C78D00745CE6 /* libpng.framework in Copy Frameworks */,
-				9B5414DC0A45C78D00745CE6 /* SDL_image.framework in Copy Frameworks */,
-				9B5414DD0A45C78D00745CE6 /* SDL.framework in Copy Frameworks */,
-			);
-			name = "Copy Frameworks";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXCopyFilesBuildPhase section */
-
 /* Begin PBXFileReference section */
 		1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = /System/Library/Frameworks/Cocoa.framework; sourceTree = "<absolute>"; };
 		13E42FB307B3F0F600E4EEF1 /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = /System/Library/Frameworks/CoreData.framework; sourceTree = "<absolute>"; };
@@ -492,9 +326,6 @@
 		8C6EF51C08A32A0500816348 /* English */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = English; path = InfoPlist.strings; sourceTree = "<group>"; };
 		8CAD9136095A379B00DA0ECC /* config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = config.h; path = ../src/macosx/dedicated/config.h; sourceTree = SOURCE_ROOT; };
 		8CAD9140095A37DD00DA0ECC /* rConsoleCout.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = rConsoleCout.cpp; sourceTree = "<group>"; };
-		8CB97B30096265A800AE8BCD /* Armagetron Advanced.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Armagetron Advanced.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		8CB97B3F0962676B00AE8BCD /* libxml2.2.6.22.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libxml2.2.6.22.dylib; path = /Library/Frameworks/ArmagetronAdvanced/10.2.8/libxml2.2.6.22.dylib; sourceTree = "<absolute>"; };
-		8CB97BAA0962719600AE8BCD /* libpng12.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libpng12.0.dylib; path = /Library/Frameworks/ArmagetronAdvanced/10.2.8/libpng12.0.dylib; sourceTree = "<absolute>"; };
 		8CBA5E07089EEC5B007E21DC /* SDLMain.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = SDLMain.h; path = ../src/macosx/SDLMain.h; sourceTree = SOURCE_ROOT; };
 		8CBA5E08089EEC5B007E21DC /* SDLMain.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = SDLMain.mm; path = ../src/macosx/SDLMain.mm; sourceTree = SOURCE_ROOT; };
 		8CBA5E0B089EEC66007E21DC /* defs.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = defs.h; path = ../src/defs.h; sourceTree = SOURCE_ROOT; };
@@ -516,8 +347,6 @@
 		8CBA5E1F089EEC7C007E21DC /* eGameObject.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = eGameObject.h; sourceTree = "<group>"; };
 		8CBA5E20089EEC7C007E21DC /* eGrid.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = eGrid.cpp; sourceTree = "<group>"; };
 		8CBA5E21089EEC7C007E21DC /* eGrid.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = eGrid.h; sourceTree = "<group>"; };
-		8CBA5E22089EEC7D007E21DC /* eKrawall.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = eKrawall.cpp; sourceTree = "<group>"; };
-		8CBA5E23089EEC7D007E21DC /* eKrawall.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = eKrawall.h; sourceTree = "<group>"; };
 		8CBA5E24089EEC7D007E21DC /* eNetGameObject.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = eNetGameObject.cpp; sourceTree = "<group>"; };
 		8CBA5E25089EEC7D007E21DC /* eNetGameObject.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = eNetGameObject.h; sourceTree = "<group>"; };
 		8CBA5E26089EEC7D007E21DC /* ePath.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = ePath.cpp; sourceTree = "<group>"; };
@@ -688,15 +517,24 @@
 		8CBA5EEF089EEC7D007E21DC /* gTeam.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = gTeam.h; sourceTree = "<group>"; };
 		8CBA5EF0089EEC7D007E21DC /* gWall.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = gWall.cpp; sourceTree = "<group>"; };
 		8CBA5EF1089EEC7D007E21DC /* gWall.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = gWall.h; sourceTree = "<group>"; };
-		8CBA5EF2089EEC7D007E21DC /* gWinZone.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = gWinZone.cpp; sourceTree = "<group>"; };
-		8CBA5EF3089EEC7D007E21DC /* gWinZone.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = gWinZone.h; sourceTree = "<group>"; };
+		8CBA5EF2089EEC7D007E21DC /* gZone.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = gZone.cpp; sourceTree = "<group>"; };
+		8CBA5EF3089EEC7D007E21DC /* gZone.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = gZone.h; sourceTree = "<group>"; };
+		FB5217289921471C98C92D66 /* eBannedWords.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = eBannedWords.cpp; sourceTree = "<group>"; };
+		3A9DD9D7AE844CCC9DFDC8C1 /* eBannedWords.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = eBannedWords.h; sourceTree = "<group>"; };
+		1676577541EA450FB4F5AAC6 /* gHudMap.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = gHudMap.cpp; sourceTree = "<group>"; };
+		F2D1EC27A649446F935D0B37 /* gHudMap.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = gHudMap.h; sourceTree = "<group>"; };
+		F2CF3C9C90EE486FB170471C /* gRace.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = gRace.cpp; sourceTree = "<group>"; };
+		0537E1E2D65E4C788BDA59C1 /* gRace.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = gRace.h; sourceTree = "<group>"; };
+		22B27B788DAA4A07B70C3D4A /* gRotation.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = gRotation.cpp; sourceTree = "<group>"; };
+		FD16D0C9CE30496AAFE17943 /* gRotation.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = gRotation.h; sourceTree = "<group>"; };
+		0DAE8BDFE2494EB1A765A947 /* gSvgOutput.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = gSvgOutput.cpp; sourceTree = "<group>"; };
+		1E18C094303D4ECDB7103547 /* gSvgOutput.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = gSvgOutput.h; sourceTree = "<group>"; };
 		8CBA5EF6089EEC7D007E21DC /* uInput.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = uInput.cpp; sourceTree = "<group>"; };
 		8CBA5EF7089EEC7E007E21DC /* uInput.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = uInput.h; sourceTree = "<group>"; };
 		8CBA5EF8089EEC7E007E21DC /* uInputQueue.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = uInputQueue.cpp; sourceTree = "<group>"; };
 		8CBA5EF9089EEC7E007E21DC /* uInputQueue.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = uInputQueue.h; sourceTree = "<group>"; };
 		8CBA5EFA089EEC7E007E21DC /* uMenu.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = uMenu.cpp; sourceTree = "<group>"; };
 		8CBA5EFB089EEC7E007E21DC /* uMenu.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = uMenu.h; sourceTree = "<group>"; };
-		8CBA6032089EF32F007E21DC /* SDLMain.nib */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = SDLMain.nib; path = /Library/Frameworks/ArmagetronAdvanced/current/SDL.framework/Versions/A/Resources/SDLMain.nib; sourceTree = "<absolute>"; };
 		8CBA6039089EF359007E21DC /* AUTHORS */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = AUTHORS; path = ../AUTHORS; sourceTree = SOURCE_ROOT; };
 		8CBA603B089EF359007E21DC /* config */ = {isa = PBXFileReference; lastKnownFileType = folder; name = config; path = ../config; sourceTree = SOURCE_ROOT; };
 		8CBA603D089EF359007E21DC /* language */ = {isa = PBXFileReference; lastKnownFileType = folder; name = language; path = ../language; sourceTree = SOURCE_ROOT; };
@@ -709,11 +547,6 @@
 		8CBA62E008A01A55007E21DC /* Armagetron Advanced.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = "Armagetron Advanced.icns"; sourceTree = "<group>"; };
 		8CBA646108A065A8007E21DC /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; name = Info.plist; path = ../src/macosx/Info.plist; sourceTree = SOURCE_ROOT; };
 		8D1107320486CEB800E47090 /* Armagetron Advanced.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Armagetron Advanced.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		9B5414A20A45C78200745CE6 /* libpng.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = libpng.framework; path = /Library/Frameworks/ArmagetronAdvanced/current/libpng.framework; sourceTree = "<absolute>"; };
-		9B5414A30A45C78200745CE6 /* SDL_image.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SDL_image.framework; path = /Library/Frameworks/ArmagetronAdvanced/current/SDL_image.framework; sourceTree = "<absolute>"; };
-		9B5414A40A45C78200745CE6 /* SDL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SDL.framework; path = /Library/Frameworks/ArmagetronAdvanced/current/SDL.framework; sourceTree = "<absolute>"; };
-		9B5414E70A45C7CB00745CE6 /* SDL_image.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SDL_image.framework; path = /Library/Frameworks/ArmagetronAdvanced/10.2.8/SDL_image.framework; sourceTree = "<absolute>"; };
-		9B5414E80A45C7CB00745CE6 /* SDL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SDL.framework; path = /Library/Frameworks/ArmagetronAdvanced/10.2.8/SDL.framework; sourceTree = "<absolute>"; };
 		9B5E11BE0D5EC32500175ABB /* CoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreServices.framework; path = /System/Library/Frameworks/CoreServices.framework; sourceTree = "<absolute>"; };
 		9B5FE82D0D57B2FC004AC137 /* nAuthentication.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = nAuthentication.h; sourceTree = "<group>"; };
 		9B5FE82E0D57B2FC004AC137 /* nAuthentication.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = nAuthentication.cpp; sourceTree = "<group>"; };
@@ -722,46 +555,23 @@
 		9B7870670D5E4FD20088A96F /* libZThread.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libZThread.a; path = /Library/Frameworks/ArmagetronAdvanced/current/libZThread.a; sourceTree = "<absolute>"; };
 		9B865B6F0F4B3445003FCD2C /* eChat.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = eChat.h; sourceTree = "<group>"; };
 		9B865B700F4B3445003FCD2C /* eChat.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = eChat.cpp; sourceTree = "<group>"; };
-		9BA9771F0F1EC45500F02184 /* SDL_mixer.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SDL_mixer.framework; path = /Library/Frameworks/ArmagetronAdvanced/current/SDL_mixer.framework; sourceTree = "<absolute>"; };
 		D01641330D904A6600FC0A23 /* tColor.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = tColor.cpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		8C11CA40095A268E007AE0EA /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
-				9B78706A0D5E4FD20088A96F /* libZThread.a in Frameworks */,
 				9B5E11C10D5EC32500175ABB /* CoreServices.framework in Frameworks */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		8CB97B24096265A800AE8BCD /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				8CB97B25096265A800AE8BCD /* Cocoa.framework in Frameworks */,
-				8CB97B29096265A800AE8BCD /* OpenGL.framework in Frameworks */,
-				9B5414E90A45C7CB00745CE6 /* SDL_image.framework in Frameworks */,
-				9B5414EA0A45C7CB00745CE6 /* SDL.framework in Frameworks */,
-				6459A1320D2AE2B40042EFE8 /* libpng.framework in Frameworks */,
-				9B5E11C00D5EC32500175ABB /* CoreServices.framework in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		8D11072E0486CEB800E47090 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				8D11072F0486CEB800E47090 /* Cocoa.framework in Frameworks */,
 				8CBA60B1089F00F2007E21DC /* OpenGL.framework in Frameworks */,
-				9B5414A50A45C78200745CE6 /* libpng.framework in Frameworks */,
-				9B5414A60A45C78200745CE6 /* SDL_image.framework in Frameworks */,
-				9B5414A70A45C78200745CE6 /* SDL.framework in Frameworks */,
 				9B5E11BF0D5EC32500175ABB /* CoreServices.framework in Frameworks */,
-				9BA977200F1EC45500F02184 /* SDL_mixer.framework in Frameworks */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
@@ -771,7 +581,6 @@
 			children = (
 				8D1107320486CEB800E47090 /* Armagetron Advanced.app */,
 				8C11CA42095A268E007AE0EA /* armagetronad-dedicated */,
-				8CB97B30096265A800AE8BCD /* Armagetron Advanced.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -799,7 +608,6 @@
 				8CBA603F089EF359007E21DC /* resource */,
 				8CBA6040089EF359007E21DC /* sound */,
 				8CBA6041089EF359007E21DC /* textures */,
-				8CBA6032089EF32F007E21DC /* SDLMain.nib */,
 			);
 			name = Resources;
 			sourceTree = "<group>";
@@ -807,7 +615,6 @@
 		29B97323FDCFA39411CA2CEA /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				9B5414E60A45C7B900745CE6 /* 10.2.8 */,
 				9B5414DF0A45C7A200745CE6 /* current */,
 				29B97324FDCFA39411CA2CEA /* AppKit.framework */,
 				1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */,
@@ -898,8 +705,6 @@
 				8CBA5E1F089EEC7C007E21DC /* eGameObject.h */,
 				8CBA5E20089EEC7C007E21DC /* eGrid.cpp */,
 				8CBA5E21089EEC7C007E21DC /* eGrid.h */,
-				8CBA5E22089EEC7D007E21DC /* eKrawall.cpp */,
-				8CBA5E23089EEC7D007E21DC /* eKrawall.h */,
 				9B69F6210A63E1A700F5F2E4 /* eLagCompensation.cpp */,
 				9B69F6220A63E1A700F5F2E4 /* eLagCompensation.h */,
 				8CBA5E24089EEC7D007E21DC /* eNetGameObject.cpp */,
@@ -907,6 +712,8 @@
 				8CBA5E26089EEC7D007E21DC /* ePath.cpp */,
 				8CBA5E27089EEC7D007E21DC /* ePath.h */,
 				8CBA5E28089EEC7D007E21DC /* ePlayer.cpp */,
+				FB5217289921471C98C92D66 /* eBannedWords.cpp */,
+				3A9DD9D7AE844CCC9DFDC8C1 /* eBannedWords.h */,
 				8CBA5E29089EEC7D007E21DC /* ePlayer.h */,
 				8CBA5E2A089EEC7D007E21DC /* eRectangle.cpp */,
 				8CBA5E2B089EEC7D007E21DC /* eRectangle.h */,
@@ -1137,8 +944,16 @@
 				8CBA5EEF089EEC7D007E21DC /* gTeam.h */,
 				8CBA5EF0089EEC7D007E21DC /* gWall.cpp */,
 				8CBA5EF1089EEC7D007E21DC /* gWall.h */,
-				8CBA5EF2089EEC7D007E21DC /* gWinZone.cpp */,
-				8CBA5EF3089EEC7D007E21DC /* gWinZone.h */,
+				8CBA5EF2089EEC7D007E21DC /* gZone.cpp */,
+				8CBA5EF3089EEC7D007E21DC /* gZone.h */,
+				1676577541EA450FB4F5AAC6 /* gHudMap.cpp */,
+				F2D1EC27A649446F935D0B37 /* gHudMap.h */,
+				F2CF3C9C90EE486FB170471C /* gRace.cpp */,
+				0537E1E2D65E4C788BDA59C1 /* gRace.h */,
+				22B27B788DAA4A07B70C3D4A /* gRotation.cpp */,
+				FD16D0C9CE30496AAFE17943 /* gRotation.h */,
+				0DAE8BDFE2494EB1A765A947 /* gSvgOutput.cpp */,
+				1E18C094303D4ECDB7103547 /* gSvgOutput.h */,
 			);
 			name = tron;
 			path = ../src/tron;
@@ -1161,24 +976,9 @@
 		9B5414DF0A45C7A200745CE6 /* current */ = {
 			isa = PBXGroup;
 			children = (
-				9B5414A20A45C78200745CE6 /* libpng.framework */,
 				9B7870670D5E4FD20088A96F /* libZThread.a */,
-				9B5414A40A45C78200745CE6 /* SDL.framework */,
-				9B5414A30A45C78200745CE6 /* SDL_image.framework */,
-				9BA9771F0F1EC45500F02184 /* SDL_mixer.framework */,
 			);
 			name = current;
-			sourceTree = "<group>";
-		};
-		9B5414E60A45C7B900745CE6 /* 10.2.8 */ = {
-			isa = PBXGroup;
-			children = (
-				9B5414E70A45C7CB00745CE6 /* SDL_image.framework */,
-				9B5414E80A45C7CB00745CE6 /* SDL.framework */,
-				8CB97BAA0962719600AE8BCD /* libpng12.0.dylib */,
-				8CB97B3F0962676B00AE8BCD /* libxml2.2.6.22.dylib */,
-			);
-			name = 10.2.8;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -1186,19 +986,15 @@
 /* Begin PBXHeadersBuildPhase section */
 		9B5E11A10D5EBCDE00175ABB /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				9B5E119F0D5EBCD700175ABB /* config.h in Headers */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		9B5E11AC0D5EBD2400175ABB /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				9B5E11AA0D5EBD1600175ABB /* config.h in Headers */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXHeadersBuildPhase section */
 
@@ -1215,35 +1011,10 @@
 			);
 			buildRules = (
 			);
-			dependencies = (
-			);
 			name = "Armagetron Advanced Dedicated";
 			productName = "Armagetron Advanced Dedicated";
 			productReference = 8C11CA42095A268E007AE0EA /* armagetronad-dedicated */;
 			productType = "com.apple.product-type.tool";
-		};
-		8CB97AAC096265A800AE8BCD /* Armagetron Advanced 10.2.8 */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 8CB97B2D096265A800AE8BCD /* Build configuration list for PBXNativeTarget "Armagetron Advanced 10.2.8" */;
-			buildPhases = (
-				8CB97AAD096265A800AE8BCD /* Process Files */,
-				8CB97AAE096265A800AE8BCD /* Sort Resources */,
-				8CB97AAF096265A800AE8BCD /* Resources */,
-				8CB97ABB096265A800AE8BCD /* Copy Frameworks */,
-				8CB97AC0096265A800AE8BCD /* Sources */,
-				8CB97B24096265A800AE8BCD /* Frameworks */,
-				8CB97B2B096265A800AE8BCD /* Sort Package */,
-				8CB97B2C096265A800AE8BCD /* Change Dependencies */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = "Armagetron Advanced 10.2.8";
-			productInstallPath = "$(HOME)/Applications";
-			productName = "Armagetron Advanced";
-			productReference = 8CB97B30096265A800AE8BCD /* Armagetron Advanced.app */;
-			productType = "com.apple.product-type.application";
 		};
 		8D1107260486CEB800E47090 /* Armagetron Advanced */ = {
 			isa = PBXNativeTarget;
@@ -1252,16 +1023,13 @@
 				8CBA6203089F11BE007E21DC /* Process Files */,
 				8CA7C30608B71B3B00BE10F2 /* Sort Resources */,
 				8D1107290486CEB800E47090 /* Resources */,
-				8CBA5DD5089EEBB3007E21DC /* Copy Frameworks */,
 				9B5E11A10D5EBCDE00175ABB /* Headers */,
 				8D11072C0486CEB800E47090 /* Sources */,
 				8D11072E0486CEB800E47090 /* Frameworks */,
 				8C6EF3CA08A3168C00816348 /* Sort Package */,
-				8CEA127508A67DE4005E93C1 /* Change libpng */,
+				8CEA127508A67DE4005E93C2 /* ShellScript */,
 			);
 			buildRules = (
-			);
-			dependencies = (
 			);
 			name = "Armagetron Advanced";
 			productInstallPath = "$(HOME)/Applications";
@@ -1274,15 +1042,24 @@
 /* Begin PBXProject section */
 		29B97313FDCFA39411CA2CEA /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 2650;
+			};
 			buildConfigurationList = 8CBA5D48089EE60D007E21DC /* Build configuration list for PBXProject "Armagetron Advanced" */;
-			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = en;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+				Base,
+				English,
+			);
 			mainGroup = 29B97314FDCFA39411CA2CEA /* Armagetron Advanced */;
+			preferredProjectObjectVersion = 100;
 			projectDirPath = "";
 			projectRoot = ..;
 			targets = (
 				8D1107260486CEB800E47090 /* Armagetron Advanced */,
-				8CB97AAC096265A800AE8BCD /* Armagetron Advanced 10.2.8 */,
 				8C11CA41095A268E007AE0EA /* Armagetron Advanced Dedicated */,
 				9B8A49C20D3709170094FB81 /* Create Client Release */,
 				9B8A49B90D3708A30094FB81 /* Create Dedicated Release */,
@@ -1292,30 +1069,9 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		8CB97AAF096265A800AE8BCD /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				8CB97AB0096265A800AE8BCD /* SDLMain.nib in Resources */,
-				8CB97AB1096265A800AE8BCD /* AUTHORS in Resources */,
-				8CB97AB2096265A800AE8BCD /* config in Resources */,
-				8CB97AB3096265A800AE8BCD /* language in Resources */,
-				8CB97AB4096265A800AE8BCD /* models in Resources */,
-				8CB97AB5096265A800AE8BCD /* resource in Resources */,
-				8CB97AB6096265A800AE8BCD /* sound in Resources */,
-				8CB97AB7096265A800AE8BCD /* textures in Resources */,
-				8CB97AB8096265A800AE8BCD /* Armagetron Advanced.icns in Resources */,
-				8CB97AB9096265A800AE8BCD /* Info.plist in Resources */,
-				8CB97ABA096265A800AE8BCD /* InfoPlist.strings in Resources */,
-				64C038B70D2E84E500810BB1 /* config_common.h.in in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		8D1107290486CEB800E47090 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
-				8CBA6033089EF32F007E21DC /* SDLMain.nib in Resources */,
 				8CBA6043089EF359007E21DC /* AUTHORS in Resources */,
 				8CBA6045089EF359007E21DC /* config in Resources */,
 				8CBA6047089EF359007E21DC /* language in Resources */,
@@ -1326,183 +1082,166 @@
 				8CBA62E108A01A55007E21DC /* Armagetron Advanced.icns in Resources */,
 				8C6EF51D08A32A0500816348 /* InfoPlist.strings in Resources */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
 		8C6EF3CA08A3168C00816348 /* Sort Package */ = {
 			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-			);
 			name = "Sort Package";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = "/bin/bash -l";
-			shellScript = "# Author: Daniel Harple\n# Purpose:\n# \tGet rid of useless files, and move some files to their correct positions\n\ntarget_build=\"${TARGET_BUILD_DIR}/${WRAPPER_NAME}\"\n\n# Xcode copies this file over to Resources/, not where it belongs.\nrm -f \"${target_build}/Contents/Resources/Info.plist\"\n\n# Move InfoPlist.strings to the correct spot (we should really fix this correctly)\nif [ ! -d \"${target_build}/Contents/Resources/English.lproj\" ]\nthen\n\tmkdir \"${target_build}/Contents/Resources/English.lproj\"\n\tmv \"${target_build}/Contents/Resources/InfoPlist.strings\" \"${target_build}/Contents/Resources/English.lproj/InfoPlist.strings\"\nfi\n\n# App sometimes loads this icon if it exists, so we remove it.\nrm -f \"${target_build}/Contents/Resources/textures/icon.png\"\n\n# Remove useless files\nfor a in \"*.am\" \"*.in\" \"*.h\" \"astylerc\" \".cvsignore\"\ndo\n\tfind \"${target_build}/Contents\" -name \"${a}\" -exec rm -f \\{\\} \\;\ndone\n\n# Remove the proto/ directory\nrm -rf \"${target_build}/Contents/Resources/resource/proto\"\n";
+			shellScript = (
+				"# Author: Daniel Harple",
+				"# Purpose:",
+				"# \tGet rid of useless files, and move some files to their correct positions",
+				"",
+				"target_build=\"${TARGET_BUILD_DIR}/${WRAPPER_NAME}\"",
+				"",
+				"# Xcode copies this file over to Resources/, not where it belongs.",
+				"rm -f \"${target_build}/Contents/Resources/Info.plist\"",
+				"",
+				"# Move InfoPlist.strings to the correct spot (we should really fix this correctly)",
+				"if [ ! -d \"${target_build}/Contents/Resources/English.lproj\" ]",
+				"then",
+				"\tmkdir \"${target_build}/Contents/Resources/English.lproj\"",
+				"\tmv \"${target_build}/Contents/Resources/InfoPlist.strings\" \"${target_build}/Contents/Resources/English.lproj/InfoPlist.strings\"",
+				"fi",
+				"",
+				"# App sometimes loads this icon if it exists, so we remove it.",
+				"rm -f \"${target_build}/Contents/Resources/textures/icon.png\"",
+				"",
+				"# Remove useless files",
+				"for a in \"*.am\" \"*.in\" \"*.h\" \"astylerc\" \".cvsignore\"",
+				"do",
+				"\tfind \"${target_build}/Contents\" -name \"${a}\" -exec rm -f \\{\\} \\;",
+				"done",
+				"",
+				"# Remove the proto/ directory",
+				"rm -rf \"${target_build}/Contents/Resources/resource/proto\"",
+				"",
+				"# Sign the binary manually (workaround for Xcode -no_adhoc_codesign issue)",
+				"codesign --force --sign - --timestamp=none --deep \"${target_build}\"",
+				"",
+			);
 		};
 		8CA7C30608B71B3B00BE10F2 /* Sort Resources */ = {
 			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-			);
 			name = "Sort Resources";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = "/bin/bash -l";
-			shellScript = "# Sort map resources\n\ntop_level=..\n\n# Only run this script when it is a CVS build\nif [ \"`ruby -ryaml -e 'print YAML.load_file(\\\"../macosx_build_information.yml\\\")[:kind]'`\" = \"CVS\" ]\nthen\n\tsh \"${top_level}/batch/make/sortresources\" \"${top_level}/resource/proto\" \"${top_level}/resource/included\" \"${top_level}/batch/make/sortresources.py\"\nfi";
+			shellScript = (
+				"# resource/included is managed by git; sortresources is not needed",
+				"",
+			);
 		};
 		8CAD9172095A3BB700DA0ECC /* Process Files */ = {
 			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-			);
 			name = "Process Files";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = "/bin/bash -l";
-			shellScript = "# Replace tags and move *.in files\n\nbuild_tools_dir=build_tools\n\nruby \"${build_tools_dir}/process_files.rb\"";
+			shellScript = (
+				"# Replace tags and move *.in files",
+				"",
+				"build_tools_dir=build_tools",
+				"",
+				"ruby \"${build_tools_dir}/process_files.rb\"",
+				"",
+			);
 		};
 		8CAD917A095A3BD000DA0ECC /* Sort Resources */ = {
 			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-			);
 			name = "Sort Resources";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = "/bin/bash -l";
-			shellScript = "# Sort map resources\n\ntop_level=..\n\n# Only run this script when it is a CVS build\nif [ \"`ruby -ryaml -e 'print YAML.load_file(\\\"../macosx_build_information.yml\\\")[:kind]'`\" = \"CVS\" ]\nthen\n\tsh \"${top_level}/batch/make/sortresources\" \"${top_level}/resource/proto\" \"${top_level}/resource/included\" \"${top_level}/batch/make/sortresources.py\"\nfi";
-		};
-		8CB97AAD096265A800AE8BCD /* Process Files */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
+			shellScript = (
+				"# resource/included is managed by git; sortresources is not needed",
+				"",
 			);
-			inputPaths = (
-			);
-			name = "Process Files";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = "/bin/bash -l";
-			shellScript = "# Replace tags and move *.in files\n\nbuild_tools_dir=build_tools\n\nruby \"${build_tools_dir}/process_files.rb\"";
-		};
-		8CB97AAE096265A800AE8BCD /* Sort Resources */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-			);
-			name = "Sort Resources";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = "/bin/bash -l";
-			shellScript = "# Sort map resources\n\ntop_level=..\n\n# Only run this script when it is a CVS build\nif [ \"`ruby -ryaml -e 'print YAML.load_file(\\\"../macosx_build_information.yml\\\")[:kind]'`\" = \"CVS\" ]\nthen\n\tsh \"${top_level}/batch/make/sortresources\" \"${top_level}/resource/proto\" \"${top_level}/resource/included\" \"${top_level}/batch/make/sortresources.py\"\nfi";
-		};
-		8CB97B2B096265A800AE8BCD /* Sort Package */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-			);
-			name = "Sort Package";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = "/bin/bash -l";
-			shellScript = "# Author: Daniel Harple\n# Purpose:\n# \tGet rid of useless files, and move some files to their correct positions\n\ntarget_build=\"${TARGET_BUILD_DIR}/${WRAPPER_NAME}\"\n\n# Xcode copies this file over to Resources/, not where it belongs.\nrm -f \"${target_build}/Contents/Resources/Info.plist\"\n\n# Move InfoPlist.strings to the correct spot (we should really fix this correctly)\nif [ ! -d \"${target_build}/Contents/Resources/English.lproj\" ]\nthen\n\tmkdir \"${target_build}/Contents/Resources/English.lproj\"\n\tmv \"${target_build}/Contents/Resources/InfoPlist.strings\" \"${target_build}/Contents/Resources/English.lproj/InfoPlist.strings\"\nfi\n\n# App sometimes loads this icon if it exists, so we remove it.\nrm -f \"${target_build}/Contents/Resources/textures/icon.png\"\n\n# Remove useless files\nfor a in \"*.am\" \"*.in\" \"*.h\" \"astylerc\" \".cvsignore\"\ndo\n\tfind \"${target_build}/Contents\" -name \"${a}\" -exec rm -f \\{\\} \\;\ndone\n\n# Remove the proto/ directory\nrm -rf \"${target_build}/Contents/Resources/resource/proto\"\n";
-		};
-		8CB97B2C096265A800AE8BCD /* Change Dependencies */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-			);
-			name = "Change Dependencies";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = "/bin/bash -l";
-			shellScript = "install_name_tool -change /usr/local/lib/libxml2.2.dylib \\\n@executable_path/../Frameworks/libxml2.2.6.22.dylib \\\n\"${TARGET_BUILD_DIR}/${WRAPPER_NAME}/Contents/MacOS/${PRODUCT_NAME}\"\n\ninstall_name_tool -change /usr/local/lib/libpng12.0.dylib \\\n@executable_path/../Frameworks/libpng12.0.dylib \\\n\"${TARGET_BUILD_DIR}/${WRAPPER_NAME}/Contents/MacOS/${PRODUCT_NAME}\"";
 		};
 		8CBA6203089F11BE007E21DC /* Process Files */ = {
 			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-			);
 			name = "Process Files";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = "/bin/bash -l";
-			shellScript = "# Replace tags and move *.in files\n\nbuild_tools_dir=build_tools\n\nruby \"${build_tools_dir}/process_files.rb\"";
+			shellScript = (
+				"# Replace tags and move *.in files",
+				"",
+				"build_tools_dir=build_tools",
+				"",
+				"ruby \"${build_tools_dir}/process_files.rb\"",
+				"",
+			);
 		};
-		8CEA127508A67DE4005E93C1 /* Change libpng */ = {
+		8CEA127508A67DE4005E93C2 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
+			shellPath = /bin/sh;
+			shellScript = (
+				"codesign --force --sign - --timestamp=none --deep \"${TARGET_BUILD_DIR}/${WRAPPER_NAME}\"",
+				"",
 			);
-			inputPaths = (
-			);
-			name = "Change libpng";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = "/bin/bash -l";
-			shellScript = "# Change the libpng to the one in the Frameworks/ directory\n# UPDATE: moved to libpng framework. This is not needed anymore. It is kept here for future reference.\n\n# install_name_tool -change /usr/local/lib/libpng12.0.dylib @executable_path/../Frameworks/libpng12.0.dylib \\\n# \"${TARGET_BUILD_DIR}/${TARGET_NAME}.app/Contents/MacOS/${TARGET_NAME}\"\n";
+			showEnvVarsInLog = 0;
 		};
 		9B8A49B80D3708A30094FB81 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/bash;
-			shellScript = "TMPDIR=\"${TEMP_FILES_DIR}\"\nto_package_dir=$(mktemp -dt armagetronad)\nversion=$(ruby -ryaml -e \"print YAML.load_file('../macosx_build_information.yml')[:version]\")\nfinal_dmg=\"${BUILT_PRODUCTS_DIR}/armagetronad-dedicated-${version}.macosx-universal\"\n\ntest -f \"${final_dmg}.dmg\" && rm \"${final_dmg}.dmg\"\n\nprog_dir=\"${to_package_dir}/Armagetron Advanced Dedicated\"\nmkdir \"${prog_dir}\"\n\ncp \"${TARGET_BUILD_DIR}/armagetronad-dedicated\" \"${prog_dir}\"\nfor copy_me in \"../config\" \"../language\" \"../resource\"\ndo\n\tcp -R \"${copy_me}\" \"${prog_dir}\"\ndone\n\n\nrm -rf \"${prog_dir}/resource/proto\"\nfind \"${prog_dir}\" -depth -type d -name .svn -exec rm -rf \\{\\} \\;\nfor a in \"*.am\" \"*.in\" \"*.h\" \"astylerc\"\ndo\n\tfind \"${prog_dir}\" -name \"${a}\" -exec rm -f \\{\\} \\;\ndone\n\n\nuncompressed_dmg=$(./build_tools/dmg-create \"${to_package_dir}\" \"Armagetron Advanced Dedicated\")\n\n./build_tools/dmg-convert \"${uncompressed_dmg}\" \"${final_dmg}\"\nrm \"${uncompressed_dmg}\"\nrm -r \"${to_package_dir}\"\n";
+			shellScript = (
+				"TMPDIR=\"${TEMP_FILES_DIR}\"",
+				"to_package_dir=$(mktemp -dt armagetronad)",
+				"version=$(grep -m1 '#define VERSION' \"../src/macosx/config_common.h\" | sed 's/.*\"\\(.*\\)\".*/\\1/')",
+				"final_dmg=\"${BUILT_PRODUCTS_DIR}/armagetronad-dedicated-${version}-macos\"",
+				"",
+				"test -f \"${final_dmg}.dmg\" && rm \"${final_dmg}.dmg\"",
+				"",
+				"prog_dir=\"${to_package_dir}/Armagetron Advanced Dedicated\"",
+				"mkdir \"${prog_dir}\"",
+				"",
+				"cp \"${TARGET_BUILD_DIR}/armagetronad-dedicated\" \"${prog_dir}\"",
+				"for copy_me in \"../config\" \"../language\" \"../resource\"",
+				"do",
+				"\tcp -R \"${copy_me}\" \"${prog_dir}\"",
+				"done",
+				"",
+				"rm -rf \"${prog_dir}/resource/proto\"",
+				"for a in \"*.am\" \"*.in\" \"*.h\" \"astylerc\"",
+				"do",
+				"\tfind \"${prog_dir}\" -name \"${a}\" -exec rm -f \\{\\} \\;",
+				"done",
+				"",
+				"uncompressed_dmg=$(./build_tools/dmg-create \"${to_package_dir}\" \"Armagetron Advanced Dedicated\")",
+				"",
+				"./build_tools/dmg-convert \"${uncompressed_dmg}\" \"${final_dmg}\"",
+				"rm \"${uncompressed_dmg}\"",
+				"rm -r \"${to_package_dir}\"",
+				"",
+			);
 		};
 		9B8A49C10D3709170094FB81 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = "/bin/bash -l";
-			shellScript = "TMPDIR=\"${TEMP_FILES_DIR}\"\nto_package_dir=$(mktemp -dt armagetronad)\nversion=$(ruby -ryaml -e \"print YAML.load_file('../macosx_build_information.yml')[:version]\")\nfinal_dmg=\"${BUILT_PRODUCTS_DIR}/armagetronad-${version}.macosx-universal\"\n\ntest -f \"${final_dmg}.dmg\" && rm \"${final_dmg}.dmg\"\n\ncp -R \"${BUILT_PRODUCTS_DIR}/Armagetron Advanced.app\" \"${to_package_dir}\"\n\nif [ -n \"${AA_RECORDER_APP}\" ]\nthen\n\tcp -R \"${AA_RECORDER_APP}\" \"${to_package_dir}\"\nfi\n\nuncompressed_dmg=$(./build_tools/dmg-create \"${to_package_dir}\" \"Armagetron Advanced\")\n\n./build_tools/dmg-convert \"${uncompressed_dmg}\" \"${final_dmg}\"\nrm \"${uncompressed_dmg}\"\nrm -r \"${to_package_dir}\"";
+			shellScript = (
+				"TMPDIR=\"${TEMP_FILES_DIR}\"",
+				"to_package_dir=$(mktemp -dt armagetronad)",
+				"version=$(grep -m1 '#define VERSION' \"../src/macosx/config_common.h\" | sed 's/.*\"\\(.*\\)\".*/\\1/')",
+				"final_dmg=\"${BUILT_PRODUCTS_DIR}/armagetronad-${version}-macos\"",
+				"",
+				"test -f \"${final_dmg}.dmg\" && rm \"${final_dmg}.dmg\"",
+				"",
+				"cp -R \"${BUILT_PRODUCTS_DIR}/Armagetron Advanced.app\" \"${to_package_dir}\"",
+				"",
+				"if [ -n \"${AA_RECORDER_APP}\" ]",
+				"then",
+				"\tcp -R \"${AA_RECORDER_APP}\" \"${to_package_dir}\"",
+				"fi",
+				"",
+				"uncompressed_dmg=$(./build_tools/dmg-create \"${to_package_dir}\" \"Armagetron Advanced\")",
+				"",
+				"./build_tools/dmg-convert \"${uncompressed_dmg}\" \"${final_dmg}\"",
+				"rm \"${uncompressed_dmg}\"",
+				"rm -r \"${to_package_dir}\"",
+				"",
+			);
 		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		8C11CA3F095A268E007AE0EA /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				8C11CA49095A2B6E007AE0EA /* action_api.cpp in Sources */,
 				8C11CA4A095A2B6E007AE0EA /* actions.cpp in Sources */,
@@ -1515,7 +1254,6 @@
 				8C11CA51095A2B6E007AE0EA /* eFloor.cpp in Sources */,
 				8C11CA52095A2B6E007AE0EA /* eGameObject.cpp in Sources */,
 				8C11CA53095A2B6E007AE0EA /* eGrid.cpp in Sources */,
-				8C11CA54095A2B6E007AE0EA /* eKrawall.cpp in Sources */,
 				8C11CA55095A2B6E007AE0EA /* eNetGameObject.cpp in Sources */,
 				8C11CA56095A2B6E007AE0EA /* ePath.cpp in Sources */,
 				8C11CA57095A2B6E007AE0EA /* ePlayer.cpp in Sources */,
@@ -1550,7 +1288,12 @@
 				8C11CA74095A2B6E007AE0EA /* gStuff.cpp in Sources */,
 				8C11CA75095A2B6E007AE0EA /* gTeam.cpp in Sources */,
 				8C11CA76095A2B6E007AE0EA /* gWall.cpp in Sources */,
-				8C11CA77095A2B6E007AE0EA /* gWinZone.cpp in Sources */,
+				8C11CA77095A2B6E007AE0EA /* gZone.cpp in Sources */,
+				3379CBDE981B4A8F822191C9 /* eBannedWords.cpp in Sources */,
+				B35B7067701C4F019F909D04 /* gHudMap.cpp in Sources */,
+				D3472E53A3F047E1B0BEE808 /* gRace.cpp in Sources */,
+				EB3BB4FD4B144FEF8E996C09 /* gRotation.cpp in Sources */,
+				803E39D061744341BD78D85F /* gSvgOutput.cpp in Sources */,
 				8C11CA78095A2B6E007AE0EA /* md5.cpp in Sources */,
 				8C11CA7A095A2B6E007AE0EA /* nConfig.cpp in Sources */,
 				8C11CA7B095A2B6E007AE0EA /* nKrawall.cpp in Sources */,
@@ -1608,122 +1351,9 @@
 				D01641360D904A6600FC0A23 /* tColor.cpp in Sources */,
 				9B865B740F4B3445003FCD2C /* eChat.cpp in Sources */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		8CB97AC0096265A800AE8BCD /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				8CB97AC1096265A800AE8BCD /* SDLMain.mm in Sources */,
-				8CB97AC2096265A800AE8BCD /* eAdvWall.cpp in Sources */,
-				8CB97AC3096265A800AE8BCD /* eAuthentication.cpp in Sources */,
-				8CB97AC4096265A800AE8BCD /* eAxis.cpp in Sources */,
-				8CB97AC5096265A800AE8BCD /* eCamera.cpp in Sources */,
-				8CB97AC6096265A800AE8BCD /* eDebugLine.cpp in Sources */,
-				8CB97AC7096265A800AE8BCD /* eDisplay.cpp in Sources */,
-				8CB97AC8096265A800AE8BCD /* eFloor.cpp in Sources */,
-				8CB97AC9096265A800AE8BCD /* eGameObject.cpp in Sources */,
-				8CB97ACA096265A800AE8BCD /* eGrid.cpp in Sources */,
-				8CB97ACB096265A800AE8BCD /* eKrawall.cpp in Sources */,
-				8CB97ACC096265A800AE8BCD /* eNetGameObject.cpp in Sources */,
-				8CB97ACD096265A800AE8BCD /* ePath.cpp in Sources */,
-				8CB97ACE096265A800AE8BCD /* ePlayer.cpp in Sources */,
-				8CB97ACF096265A800AE8BCD /* eRectangle.cpp in Sources */,
-				8CB97AD0096265A800AE8BCD /* eSensor.cpp in Sources */,
-				8CB97AD1096265A800AE8BCD /* eSound.cpp in Sources */,
-				8CB97AD2096265A800AE8BCD /* eTeam.cpp in Sources */,
-				8CB97AD3096265A800AE8BCD /* eTimer.cpp in Sources */,
-				8CB97AD4096265A800AE8BCD /* eVoter.cpp in Sources */,
-				8CB97AD5096265A800AE8BCD /* eWall.cpp in Sources */,
-				8CB97AD6096265A800AE8BCD /* md5.cpp in Sources */,
-				8CB97AD8096265A800AE8BCD /* nConfig.cpp in Sources */,
-				8CB97AD9096265A800AE8BCD /* nKrawall.cpp in Sources */,
-				8CB97ADA096265A800AE8BCD /* nKrawallPrivate.cpp in Sources */,
-				8CB97ADB096265A800AE8BCD /* nNetObject.cpp in Sources */,
-				8CB97ADC096265A800AE8BCD /* nNetwork.cpp in Sources */,
-				8CB97ADD096265A800AE8BCD /* nObserver.cpp in Sources */,
-				8CB97ADE096265A800AE8BCD /* nPriorizing.cpp in Sources */,
-				8CB97ADF096265A800AE8BCD /* nServerInfo.cpp in Sources */,
-				8CB97AE0096265A800AE8BCD /* nSocket.cpp in Sources */,
-				8CB97AE1096265A800AE8BCD /* nSpamProtection.cpp in Sources */,
-				8CB97AE2096265A800AE8BCD /* rConsole.cpp in Sources */,
-				8CB97AE3096265A800AE8BCD /* rConsoleGraph.cpp in Sources */,
-				8CB97AE4096265A800AE8BCD /* rFont.cpp in Sources */,
-				8CB97AE5096265A800AE8BCD /* rGLRender.cpp in Sources */,
-				8CB97AE6096265A800AE8BCD /* rModel.cpp in Sources */,
-				8CB97AE7096265A800AE8BCD /* rRender.cpp in Sources */,
-				8CB97AE8096265A800AE8BCD /* rScreen.cpp in Sources */,
-				8CB97AE9096265A800AE8BCD /* rSysdep.cpp in Sources */,
-				8CB97AEA096265A800AE8BCD /* rTexture.cpp in Sources */,
-				8CB97AEB096265A800AE8BCD /* rViewport.cpp in Sources */,
-				8CB97AEC096265A800AE8BCD /* action_api.cpp in Sources */,
-				8CB97AED096265A800AE8BCD /* actions.cpp in Sources */,
-				8CB97AEE096265A800AE8BCD /* opengl.cpp in Sources */,
-				8CB97AEF096265A800AE8BCD /* system.cpp in Sources */,
-				8CB97AF0096265A800AE8BCD /* tArray.cpp in Sources */,
-				8CB97AF1096265A800AE8BCD /* tCallback.cpp in Sources */,
-				8CB97AF2096265A800AE8BCD /* tCommandLine.cpp in Sources */,
-				8CB97AF3096265A800AE8BCD /* tConfiguration.cpp in Sources */,
-				8CB97AF4096265A800AE8BCD /* tConsole.cpp in Sources */,
-				8CB97AF5096265A800AE8BCD /* tCrypt.cpp in Sources */,
-				8CB97AF6096265A800AE8BCD /* tDirectories.cpp in Sources */,
-				8CB97AF7096265A800AE8BCD /* tError.cpp in Sources */,
-				8CB97AF8096265A800AE8BCD /* tEventQueue.cpp in Sources */,
-				8CB97AF9096265A800AE8BCD /* tException.cpp in Sources */,
-				8CB97AFA096265A800AE8BCD /* tHeap.cpp in Sources */,
-				8CB97AFB096265A800AE8BCD /* tLinkedList.cpp in Sources */,
-				8CB97AFC096265A800AE8BCD /* tLocale.cpp in Sources */,
-				8CB97AFD096265A800AE8BCD /* tMemManager.cpp in Sources */,
-				8CB97AFE096265A800AE8BCD /* tMemStack.cpp in Sources */,
-				8CB97AFF096265A800AE8BCD /* tRandom.cpp in Sources */,
-				8CB97B00096265A800AE8BCD /* tRecorder.cpp in Sources */,
-				8CB97B01096265A800AE8BCD /* tRecorderInternal.cpp in Sources */,
-				8CB97B02096265A800AE8BCD /* tResourceManager.cpp in Sources */,
-				8CB97B03096265A800AE8BCD /* tRing.cpp in Sources */,
-				8CB97B04096265A800AE8BCD /* tSafePTR.cpp in Sources */,
-				8CB97B05096265A800AE8BCD /* tString.cpp in Sources */,
-				8CB97B06096265A800AE8BCD /* tSysTime.cpp in Sources */,
-				8CB97B07096265A800AE8BCD /* tToDo.cpp in Sources */,
-				8CB97B08096265A800AE8BCD /* gAIBase.cpp in Sources */,
-				8CB97B09096265A800AE8BCD /* gAICharacter.cpp in Sources */,
-				8CB97B0A096265A800AE8BCD /* gArena.cpp in Sources */,
-				8CB97B0B096265A800AE8BCD /* gArmagetron.cpp in Sources */,
-				8CB97B0C096265A800AE8BCD /* gCamera.cpp in Sources */,
-				8CB97B0D096265A800AE8BCD /* gCycle.cpp in Sources */,
-				8CB97B0E096265A800AE8BCD /* gCycleMovement.cpp in Sources */,
-				8CB97B0F096265A800AE8BCD /* gExplosion.cpp in Sources */,
-				8CB97B10096265A800AE8BCD /* gFloor.cpp in Sources */,
-				8CB97B11096265A800AE8BCD /* gGame.cpp in Sources */,
-				8CB97B12096265A800AE8BCD /* gHud.cpp in Sources */,
-				8CB97B13096265A800AE8BCD /* gLanguageMenu.cpp in Sources */,
-				8CB97B14096265A800AE8BCD /* gLogo.cpp in Sources */,
-				8CB97B15096265A800AE8BCD /* gMenus.cpp in Sources */,
-				8CB97B16096265A800AE8BCD /* gParser.cpp in Sources */,
-				8CB97B17096265A800AE8BCD /* gParticles.cpp in Sources */,
-				8CB97B18096265A800AE8BCD /* gSensor.cpp in Sources */,
-				8CB97B19096265A800AE8BCD /* gServerBrowser.cpp in Sources */,
-				8CB97B1A096265A800AE8BCD /* gServerFavorites.cpp in Sources */,
-				8CB97B1B096265A800AE8BCD /* gSparks.cpp in Sources */,
-				8CB97B1C096265A800AE8BCD /* gSpawn.cpp in Sources */,
-				8CB97B1D096265A800AE8BCD /* gStuff.cpp in Sources */,
-				8CB97B1E096265A800AE8BCD /* gTeam.cpp in Sources */,
-				8CB97B1F096265A800AE8BCD /* gWall.cpp in Sources */,
-				8CB97B20096265A800AE8BCD /* gWinZone.cpp in Sources */,
-				8CB97B21096265A800AE8BCD /* uInput.cpp in Sources */,
-				8CB97B22096265A800AE8BCD /* uInputQueue.cpp in Sources */,
-				8CB97B23096265A800AE8BCD /* uMenu.cpp in Sources */,
-				9B69F6250A63E1A700F5F2E4 /* eLagCompensation.cpp in Sources */,
-				64956AEB0D410F6A00C501B8 /* gFriends.cpp in Sources */,
-				9B5FE8300D57B2FC004AC137 /* nAuthentication.cpp in Sources */,
-				64E439260D64FC4100CA7EC4 /* rDisplayList.cpp in Sources */,
-				64E439280D64FC4100CA7EC4 /* rGL.cpp in Sources */,
-				D01641350D904A6600FC0A23 /* tColor.cpp in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		8D11072C0486CEB800E47090 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				8CBA5E0A089EEC5B007E21DC /* SDLMain.mm in Sources */,
 				8CBA5EFD089EEC7E007E21DC /* eAdvWall.cpp in Sources */,
@@ -1735,7 +1365,6 @@
 				8CBA5F09089EEC7E007E21DC /* eFloor.cpp in Sources */,
 				8CBA5F0B089EEC7E007E21DC /* eGameObject.cpp in Sources */,
 				8CBA5F0D089EEC7E007E21DC /* eGrid.cpp in Sources */,
-				8CBA5F0F089EEC7E007E21DC /* eKrawall.cpp in Sources */,
 				8CBA5F11089EEC7E007E21DC /* eNetGameObject.cpp in Sources */,
 				8CBA5F13089EEC7E007E21DC /* ePath.cpp in Sources */,
 				8CBA5F15089EEC7E007E21DC /* ePlayer.cpp in Sources */,
@@ -1819,7 +1448,12 @@
 				8CBA5FD2089EEC7E007E21DC /* gStuff.cpp in Sources */,
 				8CBA5FD4089EEC7E007E21DC /* gTeam.cpp in Sources */,
 				8CBA5FD6089EEC7E007E21DC /* gWall.cpp in Sources */,
-				8CBA5FD8089EEC7E007E21DC /* gWinZone.cpp in Sources */,
+				8CBA5FD8089EEC7E007E21DC /* gZone.cpp in Sources */,
+				A1F2B4E236624BD48A5C08B4 /* eBannedWords.cpp in Sources */,
+				BF46E57BED9B41F9B2D7FD78 /* gHudMap.cpp in Sources */,
+				7D6FC9823EB24F7D9DC2B73E /* gRace.cpp in Sources */,
+				1581735ED8884496B4093BE4 /* gRotation.cpp in Sources */,
+				5A337B1B56DD4CA5A833C9A2 /* gSvgOutput.cpp in Sources */,
 				8CBA5FDB089EEC7E007E21DC /* uInput.cpp in Sources */,
 				8CBA5FDD089EEC7E007E21DC /* uInputQueue.cpp in Sources */,
 				8CBA5FDF089EEC7E007E21DC /* uMenu.cpp in Sources */,
@@ -1831,7 +1465,6 @@
 				D01641340D904A6600FC0A23 /* tColor.cpp in Sources */,
 				9B865B720F4B3445003FCD2C /* eChat.cpp in Sources */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
@@ -1870,24 +1503,24 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
-		8C11CA47095A269A007AE0EA /* Debug */ = {
+		8C11CA47095A269A007AE0EA /* Debug configuration for PBXNativeTarget "Armagetron Advanced Dedicated" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEDICATED=1",
+					"DATA_DIR=\\\"$(SOURCE_ROOT)/..\\\"",
+				);
 				HEADER_SEARCH_PATHS = (
 					/usr/include/libxml2,
-					/Library/Frameworks/ArmagetronAdvanced/current/include,
+					/opt/homebrew/include,
 				);
 				INSTALL_PATH = "$(HOME)/bin";
-				LIBRARY_SEARCH_PATHS = (
-					/usr/lib,
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
-				);
-				LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/ArmagetronAdvanced/current\"";
+				LIBRARY_SEARCH_PATHS = /usr/lib;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = (
 					"-lxml2",
@@ -1896,10 +1529,7 @@
 					"-liconv",
 					"-lm",
 				);
-				OTHER_REZFLAGS = "";
-				PREBINDING = NO;
 				PRODUCT_NAME = "armagetronad-dedicated";
-				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -1908,160 +1538,46 @@
 			};
 			name = Debug;
 		};
-		8C11CA48095A269A007AE0EA /* Release */ = {
+		8C11CA48095A269A007AE0EA /* Release configuration for PBXNativeTarget "Armagetron Advanced Dedicated" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
+				DEAD_CODE_STRIPPING = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = 1;
-				HEADER_SEARCH_PATHS = (
-					/usr/include/libxml2,
-					/Library/Frameworks/ArmagetronAdvanced/current/include,
-				);
-				INSTALL_PATH = "$(HOME)/bin";
-				LIBRARY_SEARCH_PATHS = (
-					/usr/lib,
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
-				);
-				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/ArmagetronAdvanced/current\"";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = (
-					"-lxml2",
-					"-lz",
-					"-lpthread",
-					"-liconv",
-					"-lm",
-				);
-				OTHER_REZFLAGS = "";
-				PREBINDING = NO;
-				PRODUCT_NAME = "armagetronad-dedicated";
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = Release;
-		};
-		8CB97B2E096265A800AE8BCD /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
-				);
-				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/ArmagetronAdvanced/current\"";
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREFIX_HEADER = "../src/macosx/Armagetron Advanced_Prefix.pch";
-				GCC_VERSION = 3.3;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = (
-					/Library/Frameworks/ArmagetronAdvanced/10.2.8/SDL.framework/Headers,
-					/Library/Frameworks/ArmagetronAdvanced/10.2.8/SDL_image.framework/Headers,
-					/Library/Frameworks/ArmagetronAdvanced/current/libpng.framework/Headers,
-					/Library/Frameworks/ArmagetronAdvanced/10.2.8/,
-				);
-				INFOPLIST_FILE = ../src/macosx/Info.plist;
-				INSTALL_PATH = "$(HOME)/Applications";
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_2)",
-				);
-				LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SRCROOT)/../../Library/Frameworks/Platforms/10.2\"";
-				LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_2 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/ArmagetronAdvanced/current\"";
-				OTHER_LDFLAGS = (
-					"$(OTHER_LDFLAGS_QUOTED_1)",
-					"$(OTHER_LDFLAGS_QUOTED_2)",
-					"$(OTHER_LDFLAGS_QUOTED_3)",
-					"-lz",
-					"-lpthread",
-					"-lm",
-				);
-				OTHER_LDFLAGS_QUOTED_1 = "-framework\\ SDL";
-				OTHER_LDFLAGS_QUOTED_2 = "-framework\\ SDL_image";
-				OTHER_LDFLAGS_QUOTED_3 = "-framework\\ SDL_mixer";
-				OTHER_LDFLAGS_i386 = "-L/usr/lib -L/Library/Frameworks/ArmagetronAdvanced/current -F/Library/Frameworks/ArmagetronAdvanced/current/ -lxml2";
-				OTHER_LDFLAGS_ppc = "-L/Library/Frameworks/ArmagetronAdvanced/10.2.8 -F/Library/Frameworks/ArmagetronAdvanced/10.2.8 -lxml2.2.6.22";
-				PREBINDING = NO;
-				PRODUCT_NAME = "Armagetron Advanced";
-				SDKROOT = /Developer/SDKs/MacOSX10.2.8.sdk;
-				WRAPPER_EXTENSION = app;
-				ZERO_LINK = YES;
-			};
-			name = Debug;
-		};
-		8CB97B2F096265A800AE8BCD /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
-				);
-				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/ArmagetronAdvanced/current\"";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
-				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 2;
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREFIX_HEADER = "../src/macosx/Armagetron Advanced_Prefix.pch";
-				GCC_VERSION = 3.3;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = "DEDICATED=1";
 				HEADER_SEARCH_PATHS = (
-					/Library/Frameworks/ArmagetronAdvanced/10.2.8/SDL.framework/Headers,
-					/Library/Frameworks/ArmagetronAdvanced/10.2.8/SDL_image.framework/Headers,
-					/Library/Frameworks/ArmagetronAdvanced/current/libpng.framework/Headers,
-					/Library/Frameworks/ArmagetronAdvanced/10.2.8/,
+					/usr/include/libxml2,
+					/opt/homebrew/include,
 				);
-				INFOPLIST_FILE = ../src/macosx/Info.plist;
-				INSTALL_PATH = "$(HOME)/Applications";
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
-				);
-				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/ArmagetronAdvanced/current\"";
-				LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SRCROOT)/../../Library/Frameworks/Platforms/10.2\"";
-				MACOSX_DEPLOYMENT_TARGET = 10.2;
+				INSTALL_PATH = "$(HOME)/bin";
+				LIBRARY_SEARCH_PATHS = /usr/lib;
+				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = (
-					"$(OTHER_LDFLAGS_QUOTED_1)",
-					"$(OTHER_LDFLAGS_QUOTED_2)",
-					"$(OTHER_LDFLAGS_QUOTED_3)",
+					"-lxml2",
 					"-lz",
 					"-lpthread",
+					"-liconv",
 					"-lm",
 				);
-				OTHER_LDFLAGS_QUOTED_1 = "-framework\\ SDL";
-				OTHER_LDFLAGS_QUOTED_2 = "-framework\\ SDL_image";
-				OTHER_LDFLAGS_QUOTED_3 = "-framework\\ SDL_mixer";
-				OTHER_LDFLAGS_i386 = "-L/usr/lib -L/Library/Frameworks/ArmagetronAdvanced/current -F/Library/Frameworks/ArmagetronAdvanced/current/ -lxml2";
-				OTHER_LDFLAGS_ppc = "-L/Library/Frameworks/ArmagetronAdvanced/10.2.8 -F/Library/Frameworks/ArmagetronAdvanced/10.2.8 -lxml2.2.6.22";
-				PREBINDING = NO;
-				PRODUCT_NAME = "Armagetron Advanced";
-				SDKROOT = /Developer/SDKs/MacOSX10.2.8.sdk;
-				WRAPPER_EXTENSION = app;
-				ZERO_LINK = NO;
+				PRODUCT_NAME = "armagetronad-dedicated";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
 			};
 			name = Release;
 		};
-		8CBA5D45089EE60D007E21DC /* Debug */ = {
+		8CBA5D45089EE60D007E21DC /* Debug configuration for PBXNativeTarget "Armagetron Advanced" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = NO;
-				FRAMEWORK_SEARCH_PATHS = /Library/Frameworks/ArmagetronAdvanced/current/;
+				DEAD_CODE_STRIPPING = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -2069,180 +1585,248 @@
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = (
-					/Library/Frameworks/ArmagetronAdvanced/current/SDL.framework/Headers,
-					/Library/Frameworks/ArmagetronAdvanced/current/SDL_mixer.framework/Headers,
-					/Library/Frameworks/ArmagetronAdvanced/current/SDL_image.framework/Headers,
-					/Library/Frameworks/ArmagetronAdvanced/current/libpng.framework/Headers,
+					/opt/homebrew/include,
 					/usr/include/libxml2,
-					/Library/Frameworks/ArmagetronAdvanced/current/include,
 				);
 				INFOPLIST_FILE = ../src/macosx/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.arcade-games";
 				INSTALL_PATH = "$(HOME)/Applications";
+				FRAMEWORK_SEARCH_PATHS = "$(SRCROOT)/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(SRCROOT)/Libs",
+					"$(SRCROOT)/Frameworks",
+					"@executable_path/../Frameworks",
+				);
 				LIBRARY_SEARCH_PATHS = (
+					"$(SRCROOT)/Libs",
 					/usr/lib,
+					/opt/homebrew/lib,
 					/Library/Frameworks/ArmagetronAdvanced/current,
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.3;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				OTHER_LDFLAGS = (
-					"$(OTHER_LDFLAGS_QUOTED_1)",
-					"$(OTHER_LDFLAGS_QUOTED_2)",
-					"$(OTHER_LDFLAGS_QUOTED_3)",
+					"-framework",
+					"SDL3",
+					"-framework",
+					"SDL3_image",
+					"-framework",
+					"SDL3_mixer",
+					"-lpng",
 					"-lxml2",
 					"-lz",
 					"-lpthread",
 					"-liconv",
 					"-lm",
 				);
-				OTHER_LDFLAGS_QUOTED_1 = "-framework\\ SDL";
-				OTHER_LDFLAGS_QUOTED_2 = "-framework\\ SDL_image";
-				OTHER_LDFLAGS_QUOTED_3 = "-framework\\ SDL_mixer";
-				PREBINDING = NO;
+				PRODUCT_BUNDLE_IDENTIFIER = org.armagetronad;
 				PRODUCT_NAME = "Armagetron Advanced";
 				WRAPPER_EXTENSION = app;
-				ZERO_LINK = YES;
 			};
 			name = Debug;
 		};
-		8CBA5D46089EE60D007E21DC /* Release */ = {
+		8CBA5D46089EE60D007E21DC /* Release configuration for PBXNativeTarget "Armagetron Advanced" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					ppc,
-					i386,
-				);
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
 				COPY_PHASE_STRIP = YES;
-				FRAMEWORK_SEARCH_PATHS = /Library/Frameworks/ArmagetronAdvanced/current/;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				DEAD_CODE_STRIPPING = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = 1;
+				GCC_OPTIMIZATION_LEVEL = 3;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "../src/macosx/Armagetron Advanced_Prefix.pch";
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = (
-					/Library/Frameworks/ArmagetronAdvanced/current/SDL.framework/Headers,
-					/Library/Frameworks/ArmagetronAdvanced/current/SDL_mixer.framework/Headers,
-					/Library/Frameworks/ArmagetronAdvanced/current/SDL_image.framework/Headers,
-					/Library/Frameworks/ArmagetronAdvanced/current/libpng.framework/Headers,
+					/opt/homebrew/include,
 					/usr/include/libxml2,
-					/Library/Frameworks/ArmagetronAdvanced/current/include,
 				);
 				INFOPLIST_FILE = ../src/macosx/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.arcade-games";
 				INSTALL_PATH = "$(HOME)/Applications";
+				FRAMEWORK_SEARCH_PATHS = "$(SRCROOT)/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(SRCROOT)/Libs",
+					"$(SRCROOT)/Frameworks",
+					"@executable_path/../Frameworks",
+				);
 				LIBRARY_SEARCH_PATHS = (
+					"$(SRCROOT)/Libs",
 					/usr/lib,
+					/opt/homebrew/lib,
 					/Library/Frameworks/ArmagetronAdvanced/current,
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.3;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				OTHER_LDFLAGS = (
-					"$(OTHER_LDFLAGS_QUOTED_1)",
-					"$(OTHER_LDFLAGS_QUOTED_2)",
-					"$(OTHER_LDFLAGS_QUOTED_3)",
+					"-framework",
+					"SDL3",
+					"-framework",
+					"SDL3_image",
+					"-framework",
+					"SDL3_mixer",
+					"-lpng",
 					"-lxml2",
 					"-lz",
 					"-lpthread",
 					"-liconv",
 					"-lm",
 				);
-				OTHER_LDFLAGS_QUOTED_1 = "-framework\\ SDL";
-				OTHER_LDFLAGS_QUOTED_2 = "-framework\\ SDL_image";
-				OTHER_LDFLAGS_QUOTED_3 = "-framework\\ SDL_mixer";
-				PREBINDING = NO;
+				PRODUCT_BUNDLE_IDENTIFIER = org.armagetronad;
 				PRODUCT_NAME = "Armagetron Advanced";
 				WRAPPER_EXTENSION = app;
-				ZERO_LINK = NO;
 			};
 			name = Release;
 		};
-		8CBA5D49089EE60D007E21DC /* Debug */ = {
+		8CBA5D49089EE60D007E21DC /* Debug configuration for PBXProject "Armagetron Advanced" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					i386,
-					ppc,
-				);
-				GCC_VERSION_i386 = 4.0;
-				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
-				SDKROOT_i386 = "$(DEVELOPER_SDK_DIR)/MacOSX10.4u.sdk";
+				ARCHS = "$(ARCHS_STANDARD)";
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				DEAD_CODE_STRIPPING = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 			};
 			name = Debug;
 		};
-		8CBA5D4A089EE60D007E21DC /* Release */ = {
+		8CBA5D4A089EE60D007E21DC /* Release configuration for PBXProject "Armagetron Advanced" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					i386,
-					ppc,
-				);
+				ARCHS = "$(ARCHS_STANDARD)";
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				DEAD_CODE_STRIPPING = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
-				GCC_OPTIMIZATION_LEVEL = 1;
-				GCC_VERSION_i386 = 4.0;
-				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
-				SDKROOT_i386 = "$(DEVELOPER_SDK_DIR)/MacOSX10.4u.sdk";
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 2;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 			};
 			name = Release;
 		};
-		9B8A49BA0D3708A30094FB81 /* Debug */ = {
+		9B8A49BA0D3708A30094FB81 /* Debug configuration for PBXAggregateTarget "Create Dedicated Release" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				PRODUCT_NAME = "Create Release";
 			};
 			name = Debug;
 		};
-		9B8A49BB0D3708A30094FB81 /* Release */ = {
+		9B8A49BB0D3708A30094FB81 /* Release configuration for PBXAggregateTarget "Create Dedicated Release" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				PRODUCT_NAME = "Create Release";
-				ZERO_LINK = NO;
 			};
 			name = Release;
 		};
-		9B8A49BF0D3708E10094FB81 /* Debug */ = {
+		9B8A49BF0D3708E10094FB81 /* Debug configuration for PBXAggregateTarget "Create Full Release" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				PRODUCT_NAME = Aggregate;
 			};
 			name = Debug;
 		};
-		9B8A49C00D3708E10094FB81 /* Release */ = {
+		9B8A49C00D3708E10094FB81 /* Release configuration for PBXAggregateTarget "Create Full Release" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				PRODUCT_NAME = Aggregate;
-				ZERO_LINK = NO;
 			};
 			name = Release;
 		};
-		9B8A49C30D3709180094FB81 /* Debug */ = {
+		9B8A49C30D3709180094FB81 /* Debug configuration for PBXAggregateTarget "Create Client Release" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				PRODUCT_NAME = "Create Client Release";
 			};
 			name = Debug;
 		};
-		9B8A49C40D3709180094FB81 /* Release */ = {
+		9B8A49C40D3709180094FB81 /* Release configuration for PBXAggregateTarget "Create Client Release" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				PRODUCT_NAME = "Create Client Release";
-				ZERO_LINK = NO;
 			};
 			name = Release;
 		};
@@ -2252,64 +1836,49 @@
 		8C11CA46095A269A007AE0EA /* Build configuration list for PBXNativeTarget "Armagetron Advanced Dedicated" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				8C11CA47095A269A007AE0EA /* Debug */,
-				8C11CA48095A269A007AE0EA /* Release */,
+				8C11CA47095A269A007AE0EA /* Debug configuration for PBXNativeTarget "Armagetron Advanced Dedicated" */,
+				8C11CA48095A269A007AE0EA /* Release configuration for PBXNativeTarget "Armagetron Advanced Dedicated" */,
 			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		8CB97B2D096265A800AE8BCD /* Build configuration list for PBXNativeTarget "Armagetron Advanced 10.2.8" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				8CB97B2E096265A800AE8BCD /* Debug */,
-				8CB97B2F096265A800AE8BCD /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		8CBA5D44089EE60D007E21DC /* Build configuration list for PBXNativeTarget "Armagetron Advanced" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				8CBA5D45089EE60D007E21DC /* Debug */,
-				8CBA5D46089EE60D007E21DC /* Release */,
+				8CBA5D45089EE60D007E21DC /* Debug configuration for PBXNativeTarget "Armagetron Advanced" */,
+				8CBA5D46089EE60D007E21DC /* Release configuration for PBXNativeTarget "Armagetron Advanced" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		8CBA5D48089EE60D007E21DC /* Build configuration list for PBXProject "Armagetron Advanced" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				8CBA5D49089EE60D007E21DC /* Debug */,
-				8CBA5D4A089EE60D007E21DC /* Release */,
+				8CBA5D49089EE60D007E21DC /* Debug configuration for PBXProject "Armagetron Advanced" */,
+				8CBA5D4A089EE60D007E21DC /* Release configuration for PBXProject "Armagetron Advanced" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		9B8A49C70D37095A0094FB81 /* Build configuration list for PBXAggregateTarget "Create Client Release" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				9B8A49C30D3709180094FB81 /* Debug */,
-				9B8A49C40D3709180094FB81 /* Release */,
+				9B8A49C30D3709180094FB81 /* Debug configuration for PBXAggregateTarget "Create Client Release" */,
+				9B8A49C40D3709180094FB81 /* Release configuration for PBXAggregateTarget "Create Client Release" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		9B8A49C80D37095A0094FB81 /* Build configuration list for PBXAggregateTarget "Create Dedicated Release" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				9B8A49BA0D3708A30094FB81 /* Debug */,
-				9B8A49BB0D3708A30094FB81 /* Release */,
+				9B8A49BA0D3708A30094FB81 /* Debug configuration for PBXAggregateTarget "Create Dedicated Release" */,
+				9B8A49BB0D3708A30094FB81 /* Release configuration for PBXAggregateTarget "Create Dedicated Release" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		9B8A49C90D37095A0094FB81 /* Build configuration list for PBXAggregateTarget "Create Full Release" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				9B8A49BF0D3708E10094FB81 /* Debug */,
-				9B8A49C00D3708E10094FB81 /* Release */,
+				9B8A49BF0D3708E10094FB81 /* Debug configuration for PBXAggregateTarget "Create Full Release" */,
+				9B8A49C00D3708E10094FB81 /* Release configuration for PBXAggregateTarget "Create Full Release" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */

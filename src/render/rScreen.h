@@ -93,7 +93,21 @@ extern rScreenSettings currentScreensetting;
 extern rScreenSettings lastSuccess;
 
 struct SDL_Surface;
-extern SDL_Surface *sr_screen;
+#ifndef DEDICATED
+#include "rSDL.h"
+#endif
+
+#ifndef DEDICATED
+extern SDL_Window *sr_window;
+extern SDL_GLContext sr_glcontext;
+#endif
+
+// SDL2 compatibility - sr_screen maps to sr_window for boolean checks; NULL in dedicated builds (no display)
+#ifndef DEDICATED
+#define sr_screen ((SDL_Surface*)sr_window)
+#else
+#define sr_screen ((SDL_Surface*)nullptr)
+#endif
 
 extern int sr_screenWidth,sr_screenHeight;
 
@@ -189,7 +203,4 @@ void sr_LoadDefaultConfig();
 void sr_ResetRenderState(bool menu=0);
 void sr_DepthOffset(bool offset);
 void sr_Activate(bool active); // set activation staus
-
-void sr_LockSDL();
-void sr_UnlockSDL();
 #endif

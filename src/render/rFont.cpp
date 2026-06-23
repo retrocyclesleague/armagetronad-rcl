@@ -68,8 +68,7 @@ static size_t my_strnlen(char const *c, size_t i) {
 
 static rFont sr_lowerPartFont("textures/font_extra.png");
 rFont rFont::s_defaultFont("textures/font.png", &sr_lowerPartFont);
-//rFont rFont::s_defaultFontSmall("textures/font_s.png",32,5/128.0,9/128.0,1/128.0, -1);
-rFont rFont::s_defaultFontSmall("textures/font_s.png",32,5/128.0,9/128.0,1/128.0);
+rFont rFont::s_defaultFontSmall("textures/font_s.png",32,5/128.0,9/128.0,1/128.0, -1);
 //rFont rFont::s_defaultFontSmall("textures/Font.png",0,16/256.0,32/256.0);
 //rFont rFont::s_defaultFontSmall("textures/Font.png",0,1/16.0,1/8.0);
 
@@ -110,7 +109,7 @@ void rFont::ProcessImage( SDL_Surface * surface )
     // pre-blend alpha values
     GLubyte *pixels =reinterpret_cast<GLubyte *>(surface->pixels);
 
-    if (surface->format->BytesPerPixel == 4)
+    if (SDL_GetPixelFormatDetails(surface->format)->bytes_per_pixel == 4)
     {
         for (int i=surface->w*surface->h-1;i>=0;i--){
             GLubyte alpha=pixels[4*i+3];
@@ -119,7 +118,7 @@ void rFont::ProcessImage( SDL_Surface * surface )
             pixels[4*i+2] = (alpha * pixels[4*i+2]) >> 8;
         }
     }
-    else if (surface->format->BytesPerPixel == 2)
+    else if (SDL_GetPixelFormatDetails(surface->format)->bytes_per_pixel == 2)
     {
         for (int i=surface->w*surface->h-1;i>=0;i--){
             GLubyte alpha=pixels[2*i+1];
@@ -181,7 +180,7 @@ void rFont::Render(unsigned char c,REAL left,REAL top,REAL right,REAL bot){
             select->Select(true);
             sr_lastSelected = select;
         }
-
+        
         BeginQuads();
 
         glTexCoord2f(tright,tbot);
@@ -289,12 +288,6 @@ rTextField::~rTextField(){
 #endif
 }
 
-static bool sr_renderBrightBackground = false;
-static tConfItem<bool> rbb("TEXT_BRIGHT_BACKGROUND",sr_renderBrightBackground);
-
-static int sr_textShadow = 1;
-static tConfItem<int> textShadowConf("TEXT_SHADOW", sr_textShadow);
-
 void rTextField::FlushLine(int len,bool newline){
 #ifndef DEDICATED
     // reload textures if alpha blending changed
@@ -319,8 +312,7 @@ void rTextField::FlushLine(int len,bool newline){
     if (sr_glOut)
     {
         // render bright background
-        //this is kind of ugly
-        if ( color_.IsDark() && sr_renderBrightBackground)
+        if ( color_.IsDark() )
         {
             RenderEnd(true);
             glDisable(GL_TEXTURE_2D);
@@ -352,52 +344,6 @@ void rTextField::FlushLine(int len,bool newline){
             RenderEnd(true);
             glEnable(GL_TEXTURE_2D);
         }
-        
-        if( sr_textShadow && (
-            ( color_.IsDark() && (sr_textShadow&1) ) ||
-            (!color_.IsDark() && (sr_textShadow&2) )
-        ))
-        {
-            RenderEnd(true);
-            glEnable(GL_TEXTURE_2D);
-            sr_lastSelected = 0;
-            
-            int fakex = realx;
-            REAL l,t;
-            
-            if( color_.IsDark() )
-            {
-                glColor4f( 1, 1, 1, blendColor_.a_*a );
-            }
-            else
-            {
-                glColor4f( 0, 0, 0, blendColor_.a_*a );
-            }
-            
-            #if 0
-                {
-                    static REAL offset[8][2] = {{0,1},{1,1},{1,0},{0,-1},{-1,-1},{-1,0},{-1,1},{1,-1}};
-                    for(i=0;i<len;++i)
-                    {
-                        for(int z=0;z<8;++z)
-                        {
-                            l=(left+(0.002*offset[z][0]))+fakex*cwidth;
-                            t=(top+(0.002*offset[z][0]))-y*cheight;
-                            F->Render(buffer[fakex],l,t,l+cwidth,t-cheight);
-                        }
-                        fakex++;
-                    }
-                }
-            #else
-                    for(i=0;i<len;i++)
-                    {
-                        l=(left+0.0025)+fakex*cwidth;
-                        t=(top-0.0025)-y*cheight;
-                        F->Render(buffer[fakex],l,t,l+cwidth,t-cheight);
-                        fakex++;
-                    }
-            #endif
-        }
 
 
         if ( len > 0 )
@@ -409,7 +355,7 @@ void rTextField::FlushLine(int len,bool newline){
         for (i=0;i<=len;i++){
             REAL l=left+realx*cwidth;
             REAL t=top-y*cheight;
-
+            
             if (0 <= cursorPos--){
                 cursor_x=l;
                 cursor_y=t;
@@ -545,44 +491,49 @@ rTextField & rTextField::StringOutput(const char * c, ColorMode colorMode )
         }
 
         // detect presence of color code
-        if (*c == '0' && my_strnlen(c, 8) >= 8 && c[1] == 'x' && colorMode != COLOR_IGNORE && (strncmp(c,"0xRESETT",8) == 0 || tColor::VerifyColorCode(c)))
+        if (*c=='0' && my_strnlen(c, 8)>=8 && c[1]=='x' && colorMode != COLOR_IGNORE )
         {
             tColor color;
+            bool use = false;
 
-            if ( 0 == strncmp(c,"0xRESETT",8) )
+            if ( 0 ==strncmp(c,"0xRESETT",8) )
             {
                 // color reset to default requested
                 color = defaultColor_;
+                use = true;
             }
             else
             {
                 // found! extract colors
-                tString colorStr(c);
-                color = tColor(colorStr.ToLower());
+                cursorPos-=8;
+		color = tColor( c );
+                use = true;
             }
 
             // advance
             if ( colorMode == COLOR_USE )
             {
-                c += 8;
-                cursorPos -= 8;
+                c+=8;
             }
             else
             {
                 // write color code out
-                for(int i = 7; i >= 0; --i)
+                cursorPos+=8;
+                for(int i=7; i>=0;--i)
                     WriteChar(*(c++));
             }
 
-            FlushLine(false);
-            cursorPos++;
-            color_ = color;
+            // apply color
+            if ( use )
+            {
+                FlushLine(false);
+                cursorPos++;
+                color_ = color;
+            }
         }
         else
-        {
             // normal operation: add char
             WriteChar(*(c++));
-        }
     }
 
     RenderEnd( true );

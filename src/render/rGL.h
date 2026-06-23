@@ -9,7 +9,9 @@
 
 
 #define NO_SDL_GLEXT
-#include <SDL_opengl.h>
+#define GL_SILENCE_DEPRECATION
+#include <SDL3/SDL_opengl.h>
+#include <OpenGL/glu.h>
 
 /*
 // include OpenGL header

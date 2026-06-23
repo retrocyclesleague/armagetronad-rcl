@@ -5,23 +5,20 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleExecutable</key>
-	<string>MacOS/armagetronad</string>
+	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIconFile</key>
 	<string>Armagetron Advanced.icns</string>
 	<key>CFBundleIdentifier</key>
-	<string>org.armagetronad</string>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
 	<string>Armagetron Advanced</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
-	<key>NSMainNibFile</key>
-	<string>SDLMain</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
-	<key>NSHighResolutionCapable</key><true/>
 </dict>
 </plist>

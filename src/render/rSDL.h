@@ -4,10 +4,15 @@
 #include "config.h"
 
 #ifndef DEDICATED
-#include <SDL.h>
+#include <SDL3/SDL.h>
 #else
-#define SDLK_LAST 1024
-typedef int SDL_keysym;
+#define SDLK_UNKNOWN       0
+#define SDL_SCANCODE_UNKNOWN 0
+#define SDL_SCANCODE_COUNT 512
+#define SDLK_LAST          0
+typedef int SDL_Keycode;
+typedef int SDL_Scancode;
+struct SDL_KeyboardEvent { SDL_Keycode key; SDL_Scancode scancode; };
 typedef int SDL_Event;
 typedef unsigned char Uint8;
 typedef unsigned int Uint32;

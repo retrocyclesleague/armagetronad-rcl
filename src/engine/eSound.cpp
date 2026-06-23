@@ -20,7 +20,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-
+  
 ***************************************************************************
 
 */
@@ -49,7 +49,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #ifndef DEDICATED
 #ifdef  HAVE_LIBSDL_MIXER
-#include <SDL_mixer.h>
+#include <SDL3_mixer/SDL_mixer.h>
 static Mix_Music* music = NULL;
 #endif
 
@@ -128,14 +128,14 @@ static bool se_SoundInitPrepare()
         char * arg = "SDL_AUDIODRIVER=" STRING(DEFAULT_SDL_AUDIODRIVER);
         putenv(arg);
 
-        if ( SDL_InitSubSystem(SDL_INIT_AUDIO) >= 0 )
+        if ( SDL_Init(SDL_INIT_AUDIO) >= 0 )
             return true;
 
         putenv("SDL_AUDIODRIVER=");
     }
 
     // if that fails, try what the user wanted
-    return ( SDL_InitSubSystem(SDL_INIT_AUDIO) >= 0 );
+    return ( SDL_Init(SDL_INIT_AUDIO) >= 0 );
 }
 #endif
 #endif
@@ -186,70 +186,15 @@ void se_SoundInit()
             desired.freq=22050;
         }
 
-        desired.format=AUDIO_S16SYS;
-        desired.samples=128;
-        while (desired.samples <= desired.freq >> (6-buffer_shift))
-            desired.samples <<= 1;
+        desired.format=SDL_AUDIO_S16;
         desired.channels = 2;
-        desired.callback = fill_audio;
-        desired.userdata = NULL;
 
-#ifdef HAVE_LIBSDL_MIXER
-        uses_sdl_mixer=true;
+        // ponytail: SDL3 removed callback-based SDL_OpenAudio; audio pending rewrite
+        (void)desired;
+        sound_is_there = false;
 
-        // init using SDL_Mixer
-        sound_is_there=(Mix_OpenAudio(desired.freq, desired.format, desired.channels, desired.samples)>=0);
-
-        if ( sound_is_there )
-        {
-            // query actual sound info
-            audio = desired;
-            int channels;
-            Mix_QuerySpec( &audio.freq, &audio.format, &channels );
-            audio.channels = channels;
-
-            // register callback
-            Mix_SetPostMix( &fill_audio, NULL );
-
-            const tPath& vpath = tDirectories::Data();
-            tString musFile = vpath.GetReadPath( "music/fire.xm" );
-
-            music = Mix_LoadMUS( musFile );
-
-            if ( music )
-                Mix_FadeInMusic( music, -1, 2000 );
-
-        }
-#else
-        // just use SDL to init sound
-        uses_sdl_mixer=false;
-        sound_is_there=(SDL_OpenAudio(&desired,&audio)>=0);
-#endif
-        if (sound_is_there && (audio.format!=AUDIO_S16SYS || audio.channels!=2))
-        {
-            uses_sdl_mixer=false;
-            se_SoundExit();
-            // force emulation of 16 bit stereo; sadly, this cannot use SDL_Mixer :-(
-            audio.format=AUDIO_S16SYS;
-            audio.channels=2;
-            sound_is_there=(SDL_OpenAudio(&audio,NULL)>=0);
-            con << tOutput("$sound_error_no16bit");
-        }
         if (!sound_is_there)
             con << tOutput("$sound_error_initfailed");
-        else
-        {
-            //for(int i=wavs.Len()-1;i>=0;i--)
-            //wavs(i)->Init();
-#ifdef DEBUG
-            tOutput o;
-            o.SetTemplateParameter(1,audio.freq);
-            o.SetTemplateParameter(2,audio.samples);
-            o << "$sound_inited";
-            con << o;
-#endif
-            se_SoundPause(false);
-        }
     }
 
     // save sound settings, they appear to work
@@ -275,25 +220,7 @@ void se_SoundExit(){
         //    for(int i=wavs.Len()-1;i>=0;i--)
         //wavs(i)->Exit();
 
-#ifdef HAVE_LIBSDL_MIXER
-        if ( music )
-        {
-            if( Mix_PlayingMusic() )
-            {
-                Mix_FadeOutMusic(100);
-                SDL_Delay(100);
-            }
-            Mix_FreeMusic( music );
-            music = NULL;
-        }
-
-        se_SoundPause(true);
-
-        if ( uses_sdl_mixer )
-            Mix_CloseAudio();
-        else
-#endif
-            SDL_CloseAudio();
+        // ponytail: SDL_CloseAudio removed in SDL3
 
 #ifdef DEBUG
         con << tOutput("$sound_disabling_done");
@@ -309,24 +236,18 @@ static unsigned int locks;
 
 void se_SoundLock(){
 #ifndef DEDICATED
-    if (!locks)
-        SDL_LockAudio();
-    locks++;
+    locks++;  // ponytail: SDL_LockAudio removed in SDL3; no-op for now
 #endif
 }
 
 void se_SoundUnlock(){
 #ifndef DEDICATED
     locks--;
-    if (!locks)
-        SDL_UnlockAudio();
 #endif
 }
 
-void se_SoundPause(bool p){
-#ifndef DEDICATED
-    SDL_PauseAudio(p);
-#endif
+void se_SoundPause(bool){
+    // ponytail: SDL_PauseAudio removed in SDL3; no-op for now
 }
 
 // ***********************************************************
@@ -343,19 +264,6 @@ eWavData::eWavData(const char * fileName,const char *alternative)
 
 #ifndef DEDICATED
 
-#ifdef SDL_LoadWAV
-#undef SDL_LoadWAV
-#endif
-
-static SDL_AudioSpec * SDLCALL SDL_LoadWAV(char const *file, SDL_AudioSpec *spec, Uint8 **audio_buf, Uint32 *audio_len)
-{
-    auto *rw = SDL_RWFromFile(file, "rb");
-    if(!rw)
-        return nullptr;
-
-    return SDL_LoadWAV_RW(rw,1, spec,audio_buf,audio_len);
-}
-
 #endif
 
 void eWavData::Load(){
@@ -366,8 +274,6 @@ void eWavData::Load(){
         loadError = false;
         return;
     }
-
-    //return;
 
 #ifndef DEDICATED
 
@@ -381,11 +287,9 @@ void eWavData::Load(){
 
     const tPath& path = tDirectories::Data();
 
-    SDL_AudioSpec *result=SDL_LoadWAV( path.GetReadPath( filename ) ,&spec,&data,&len);
-    if (result!=&spec || !data){
+    if (!SDL_LoadWAV( path.GetReadPath( filename ) ,&spec,&data,&len) || !data){
         if (filename_alt.Len()>1){
-            result=SDL_LoadWAV( path.GetReadPath( filename_alt ),&spec,&data,&len);
-            if (result!=&spec || !data)
+            if (!SDL_LoadWAV( path.GetReadPath( filename_alt ),&spec,&data,&len) || !data)
             {
                 tOutput err;
                 err.SetTemplateParameter(1, filename);
@@ -396,8 +300,7 @@ void eWavData::Load(){
                 alt=true;
         }
         else{
-            result=SDL_LoadWAV( path.GetReadPath( "sound/expl.wav" ) ,&spec,&data,&len);
-            if (result!=&spec || !data)
+            if (!SDL_LoadWAV( path.GetReadPath( "sound/expl.wav" ) ,&spec,&data,&len) || !data)
             {
                 tOutput err;
                 err.SetTemplateParameter(1, "sound/expl.waw");
@@ -407,14 +310,11 @@ void eWavData::Load(){
             else
                 len=0;
         }
-        /*
-          tERR_ERROR("Sound file " << fileName << " not found. Have you called "
-          "Armagetron from the right directory?"); */
     }
 
-    if (spec.format==AUDIO_S16SYS)
+    if (spec.format==SDL_AUDIO_S16)
         samples=len>>1;
-    else if(spec.format==AUDIO_U8)
+    else if(spec.format==SDL_AUDIO_U8)
         samples=len;
     else
     {
@@ -423,30 +323,8 @@ void eWavData::Load(){
         err.SetTemplateParameter(1, filename);
         err << "$sound_error_unsupported";
 
-        // convert to 16 bit system format
-        SDL_AudioCVT cvt;
-        if ( -1 == SDL_BuildAudioCVT( &cvt, spec.format, spec.channels, spec.freq, AUDIO_S16SYS, spec.channels, spec.freq ) )
-        {
-            throw tGenericException(err, errorName);
-        }
-
-        cvt.buf=reinterpret_cast<Uint8 *>( malloc( len * cvt.len_mult ) );
-        cvt.len=len;
-        memcpy(cvt.buf, data, len);
-        freeData = true;
-
-
-        if ( -1 == SDL_ConvertAudio( &cvt ) )
-        {
-            throw tGenericException(err, errorName);
-        }
-
-        SDL_FreeWAV( data );
-        data = cvt.buf;
-        spec.format = AUDIO_S16SYS;
-        len    = len * cvt.len_ratio;
-
-        samples = len >> 1;
+        // ponytail: SDL_BuildAudioCVT removed in SDL3; unsupported formats fail
+        throw tGenericException(err, errorName);
     }
 
     samples/=spec.channels;
@@ -455,8 +333,8 @@ void eWavData::Load(){
 #ifdef LINUX
     con << "Sound file " << filename << " loaded: ";
     switch (spec.format){
-    case AUDIO_S16SYS: con << "16 bit "; break;
-    case AUDIO_U8: con << "8 bit "; break;
+    case SDL_AUDIO_S16: con << "16 bit "; break;
+    case SDL_AUDIO_U8: con << "8 bit "; break;
     default: con << "unknown "; break;
     }
     if (spec.channels==2)
@@ -492,7 +370,7 @@ void eWavData::Unload(){
 
         {
 
-            SDL_FreeWAV(data);
+            SDL_free(data);
 
         }
 
@@ -585,7 +463,7 @@ bool eWavData::Mix( Uint8* dest_u8, Uint32 playlen, eAudioPos& pos,
 
     while (goon){
         if (spec.channels==2){
-            if (spec.format==AUDIO_U8)
+            if (spec.format==SDL_AUDIO_U8)
                 while (playlen>0 && pos.pos<samples){
                     // fix endian problems for the Mac port, as well as support for other
                     // formats than  stereo...
@@ -642,7 +520,7 @@ bool eWavData::Mix( Uint8* dest_u8, Uint32 playlen, eAudioPos& pos,
             }
         }
         else{
-            if (spec.format==AUDIO_U8){
+            if (spec.format==SDL_AUDIO_U8){
                 while (playlen>0 && pos.pos<samples){
                     // fix endian problems for the Mac port, as well as support for other
                     // formats than  stereo...
@@ -720,7 +598,7 @@ void eWavData::Loop(){
         memcpy(buff2,data,len);
         Uint32 samples;
 
-        if (spec.format==AUDIO_U8){
+        if (spec.format==SDL_AUDIO_U8){
             samples=len;
             for(int i=samples-1;i>=0;i--){
                 Uint32 j=i+((len>>2)<<1);
@@ -733,7 +611,7 @@ void eWavData::Loop(){
                 data[i]=int(a*buff2[i]+b*buff2[j]);
             }
         }
-        else if (spec.format==AUDIO_S16SYS){
+        else if (spec.format==SDL_AUDIO_S16){
             samples=len>>1;
             auto data_s = reinterpret_cast<short*>( data );
             auto buff2_s = reinterpret_cast<short*>( buff2 );
