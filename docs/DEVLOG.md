@@ -1,5 +1,7 @@
 # Dev log
 
+- Menu mouse hit: center on `YPos` (was offset down by `0.55×height`); row half `0.48×pitch` so adjacent rows don't overlap. Removed 70ms hover debounce.
+
 ## 2026-06-27 — Metal renderer audit: fixed primitive expansion slop
 
 - `metalRenderer::FlushBatch` had copy-paste bugs that corrupted 3D geometry (floors/walls/cycles/zones use these):

@@ -71,9 +71,6 @@ protected:
 
     int                  selected;
 
-    int                  hoverPending_;
-    double               hoverPendingSince_;
-
     uRclLayout           rclLayout_;
 
     REAL YPos(int num);

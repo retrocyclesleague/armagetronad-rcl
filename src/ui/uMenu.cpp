@@ -59,8 +59,7 @@ bool uMenu::exitToMain=false;
 
 #ifdef SLOPPYLOCALE
 uMenu::uMenu(const char *t="",bool exit_item)
-        :exitFlag(0),spaceBelow(.4),title(t),rclLayout_(uRclLayout_Off),
-        hoverPending_(-1),hoverPendingSince_(0){
+        :exitFlag(0),spaceBelow(.4),title(t),rclLayout_(uRclLayout_Off){
     if (exit_item) new uMenuItemExit(this);
     center=0;
     menuTop=.7;
@@ -71,8 +70,7 @@ uMenu::uMenu(const char *t="",bool exit_item)
 #endif
 
 uMenu::uMenu(const tOutput &t,bool exit_item)
-        :exitFlag(0),spaceBelow(.4),title(t),rclLayout_(uRclLayout_Off),
-        hoverPending_(-1),hoverPendingSince_(0){
+        :exitFlag(0),spaceBelow(.4),title(t),rclLayout_(uRclLayout_Off){
     if (exit_item) new uMenuItemExit(this);
     center=0;
     menuTop=.7;
@@ -182,7 +180,7 @@ int uMenu::ItemAt(REAL mx, REAL my)
     REAL bestDist = 1e9f;
     for ( int i = 0; i < items.Len(); ++i )
     {
-        const REAL cy = ItemDrawY( i ) + ItemRowHalf( i );
+        const REAL cy = ItemDrawY( i );
         const REAL dist = fabsf( my - cy );
         if ( dist < bestDist )
         {
@@ -205,7 +203,8 @@ REAL uMenu::ItemRowHalf(int itemIndex)
 {
     (void)itemIndex;
     REAL h = RclTheme() ? uRclTheme::TextH() : text_height;
-    return h * 0.55f;
+    // Row pitch is h (YPos spacing); stay inside so adjacent rows don't overlap.
+    return h * 0.48f;
 }
 
 REAL uMenu::ShortcutGutterX() const
@@ -296,8 +295,6 @@ void uMenu::OnEnter(){
 
     exitFlag=0;
     yOffset=menuTop;
-    hoverPending_ = -1;
-    hoverPendingSince_ = 0;
     REAL lastt=0;
     REAL ts=0;
     bool snapScroll = false;
@@ -612,23 +609,10 @@ void uMenu::HandleEvent( SDL_Event event )
         {
         case SDL_EVENT_MOUSE_MOTION:
         {
-            static const double hoverDebounce = 0.07;
-
             REAL mx, my;
             MenuScreenToNormalized( event.motion.x, event.motion.y, mx, my );
             int hit = ItemAt( mx, my );
-            if ( hit < 0 )
-            {
-                hoverPending_ = -1;
-                return;
-            }
-            if ( hit != hoverPending_ )
-            {
-                hoverPending_ = hit;
-                hoverPendingSince_ = tSysTimeFloat();
-                return;
-            }
-            if ( selected != hit && tSysTimeFloat() - hoverPendingSince_ >= hoverDebounce )
+            if ( hit >= 0 && selected != hit )
             {
                 selected = hit;
                 items[selected]->DisplayHelp( false, 0, 0.0f );
@@ -643,8 +627,6 @@ void uMenu::HandleEvent( SDL_Event event )
                 int hit = ItemAt( mx, my );
                 if ( hit >= 0 )
                 {
-                    hoverPending_ = hit;
-                    hoverPendingSince_ = tSysTimeFloat();
                     selected = hit;
                     ActivateSelected();
                 }

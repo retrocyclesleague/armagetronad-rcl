@@ -521,7 +521,7 @@ REAL gServerMenu::ItemDrawY(int itemIndex)
 REAL gServerMenu::ItemRowHalf(int itemIndex)
 {
     (void)itemIndex;
-    return RowTextHeight() * RowShrink() * 0.5f;
+    return RowTextHeight() * RowShrink() * 0.48f;
 }
 
 gServerMenu::~gServerMenu()
