@@ -8731,7 +8731,7 @@ static void se_listPlayerColors()
 static nSettingItem<int> se_pingCharityServerConf("PING_CHARITY_SERVER",sn_pingCharityServer );
 static nVersionFeature   se_pingCharityServerControlled( 14 );
 
-static int se_pingCharityMax = 500, se_pingCharityMin = 0;
+static int se_pingCharityMax = 500, se_pingCharityMin = 100;
 static tSettingItem<int> se_pingCharityMaxConf( "PING_CHARITY_MAX", se_pingCharityMax );
 static tSettingItem<int> se_pingCharityMinConf( "PING_CHARITY_MIN", se_pingCharityMin );
 

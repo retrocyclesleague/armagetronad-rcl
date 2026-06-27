@@ -1,0 +1,27 @@
+name: build-dedicated
+
+on:
+  push:
+    branches: [hack-0.2.8-sty+ct+ap, "rcl/**"]
+  pull_request:
+    branches: [hack-0.2.8-sty+ct+ap, "rcl/**"]
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            autoconf automake bison bzip2 g++ libtool libxml2-dev \
+            libzthread-dev make pkg-config python3 wget
+
+      - name: Bootstrap and build dedicated server
+        run: bash .cursor/scripts/cloud-agent-install.sh
+
+      - name: Smoke dedicated server
+        run: bash scripts/smoke-dedicated.sh

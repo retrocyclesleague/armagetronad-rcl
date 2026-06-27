@@ -43,6 +43,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "tRandom.h"
 #include "tRecorder.h"
 #include <stdlib.h>
+#include "tConfiguration.h"
 
 #define AI_REACTION          0
 #define AI_EMERGENCY         1
@@ -2944,7 +2945,13 @@ static gAISensor * sg_GetSensor( int currentDirectionNumber, gCycle const & obje
     return ret;
 }
 
+static int sg_aiThinkEnabled = 1;
+static tSettingItem<int> sg_aiThinkEnabledConf("AI_THINK", sg_aiThinkEnabled);
+
 REAL gAIPlayer::Think(){
+    if (!sg_aiThinkEnabled)
+        return 1;
+
     // get the delay between two turns
     REAL delay = Delay();
 

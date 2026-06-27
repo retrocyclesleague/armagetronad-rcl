@@ -1,0 +1,11 @@
+{
+  "name": "RCL Armagetron (sty+ct+ap dedicated)",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "."
+  },
+  "install": "bash .cursor/scripts/cloud-agent-install.sh",
+  "repositoryDependencies": [
+    "github.com/jamie-legg/rcl-dashboard"
+  ]
+}

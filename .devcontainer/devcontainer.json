@@ -1,0 +1,18 @@
+{
+  "name": "RCL Armagetron (dedicated)",
+  "build": {
+    "dockerfile": "../.cursor/Dockerfile",
+    "context": "../.cursor"
+  },
+  "workspaceFolder": "/workspace",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+  "postCreateCommand": "bash .cursor/scripts/cloud-agent-install.sh",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.cpptools",
+        "ms-vscode.cmake-tools"
+      ]
+    }
+  }
+}
