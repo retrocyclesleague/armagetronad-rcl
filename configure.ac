@@ -517,8 +517,9 @@ dnl *************************************************
 dnl GL AND  MATHLIB SELECTION ( SYSTEM DEPENDANT)
 dnl *************************************************
 case "$target" in
-    *-*-cygwin* | *-*-mingw32*)
+    *-*-cygwin* | *-*-mingw32* | *-*-mingw*)
 	AC_DEFINE(WIN32, 1, [Windows 9x/NT/2k/XP])
+        AC_DEFINE(PARTICLEDLL_EXPORTS, 1, [Static particle library build on Windows])
         MATHLIB=""
         SYS_GL_LIB="opengl32"
         SYS_GLU_LIB="glu32"
@@ -669,15 +670,21 @@ fi
 
 
 dnl *************************************************
-dnl         SDL
+dnl         SDL3
 dnl *************************************************
 
-AC_MSG_CHECKING(whether SDL is installed)
-if SDLLIBS=`${SDL_CONFIG} --libs`; then
+AC_MSG_CHECKING(for SDL3 via pkg-config)
+if pkg-config --exists sdl3 2>/dev/null; then
+    SDLLIBS=`pkg-config --libs sdl3`
+    SDLCFLAGS=`pkg-config --cflags sdl3`
     AC_MSG_RESULT(yes)
+    AC_DEFINE(USE_SDL3, 1, [Define if using SDL3])
+else
+    AC_MSG_RESULT(no)
+    AC_MSG_ERROR([SDL3 library not found. You need SDL3 to compile ${progtitle}.])
 fi
 
-CPPFLAGS="$CPPFLAGS `${SDL_CONFIG} --cflags`"
+CPPFLAGS="$CPPFLAGS $SDLCFLAGS"
 LIBS="${SDLLIBS} $LIBS"
 
 AC_CHECK_FUNC(SDL_Init,
@@ -686,26 +693,32 @@ AC_MSG_ERROR([You need the library SDL to compile ${progtitle}. Read the file do
 ,)
 
 dnl *************************************************
-dnl         SDL_Mixer
+dnl         SDL3_mixer (optional music)
 dnl *************************************************
 
 if test x$enable_music = xyes; then
- AC_CHECK_LIB(SDL_mixer,Mix_OpenAudio,
- AC_DEFINE(HAVE_LIBSDL_MIXER, 1, [Define if you have the SDL_mixer library (-lSDL_mixer).])
- LIBS="-lSDL_mixer $LIBS",
- AC_MSG_WARN([
- SDL_mixer library not found. You will not hear music.])
- enable_music=no
- ,)
+ AC_MSG_CHECKING(for SDL3_mixer via pkg-config)
+ if pkg-config --exists sdl3-mixer 2>/dev/null; then
+   LIBS="`pkg-config --libs sdl3-mixer` $LIBS"
+   CPPFLAGS="$CPPFLAGS `pkg-config --cflags sdl3-mixer`"
+   AC_DEFINE(HAVE_LIBSDL_MIXER, 1, [Define if you have the SDL_mixer library.])
+   AC_MSG_RESULT(yes)
+ else
+   AC_MSG_RESULT(no)
+   AC_MSG_WARN([SDL3_mixer library not found. You will not hear music.])
+   enable_music=no
+ fi
 fi
 
 dnl *************************************************
 dnl  Winsock on windows cross-compile
 dnl *************************************************
 
-if test "`${SDL_CONFIG} --libs | grep windows`" ; then
-	AC_CHECK_LIB(wsock32, connect)
-fi
+case $host in
+  *-*-mingw* | *-*-cygwin*)
+    AC_CHECK_LIB(wsock32, connect)
+    ;;
+esac
 
 dnl *************************************************
 dnl         GL
@@ -746,11 +759,20 @@ dnl *************************************************
 
 if test $SYS_GLU_LIB && echo $LIBS | grep -v "\-lGLU" > /dev/null; then
 
-dnl AC_CHECK_LIB($SYS_GLU_LIB, gluBuild2DMipmaps,,
-AC_CHECK_LIB($SYS_GLU_LIB, gluBuild3DMipmaps,,
-AC_MSG_ERROR([
+case $host in
+  *-*-mingw*)
+    AC_CHECK_LIB($SYS_GLU_LIB, gluBuild2DMipmaps,,
+    AC_MSG_ERROR([
 You need GLU to compile ${progtitle}; it SHOULD have come with OpenGL.
 Read the file doc/install_linux.html.]))
+    ;;
+  *)
+    AC_CHECK_LIB($SYS_GLU_LIB, gluBuild3DMipmaps,,
+    AC_MSG_ERROR([
+You need GLU to compile ${progtitle}; it SHOULD have come with OpenGL.
+Read the file doc/install_linux.html.]))
+    ;;
+esac
 
 fi
 
@@ -778,26 +800,19 @@ dnl	libjpeg not found. Expect small graphical errors ( missing moviepack title s
 dnl	)
 dnl )
 
-AC_CHECK_LIB(SDL_image, IMG_Load,,
-dnl AC_CHECK_LIB(IMG, main,,
-AC_MSG_ERROR([You need the library SDL_image to compile ${progtitle}.]
-dnl )
-))
+AC_MSG_CHECKING(for SDL3_image via pkg-config)
+if pkg-config --exists sdl3-image 2>/dev/null; then
+    LIBS="`pkg-config --libs sdl3-image` $LIBS"
+    CPPFLAGS="$CPPFLAGS `pkg-config --cflags sdl3-image`"
+    AC_DEFINE(HAVE_LIBSDL_IMAGE, 1, [Define if you have SDL3_image.])
+    AC_MSG_RESULT(yes)
+else
+    AC_MSG_RESULT(no)
+    AC_MSG_ERROR([You need SDL3_image to compile ${progtitle}.])
+fi
 
-dnl look for the right header for SDL_image
-AC_CHECK_HEADERS(SDL_image.h,,
-[
-AC_MSG_WARN([SDL_image header not found where it should be ( the SDL include directory ).
-Trying fallback.])
-AC_CHECK_HEADERS(SDL/SDL_image.h,,
-[AC_MSG_WARN([
-SDL_image header not found. The library is there, so something must be unusual
-in your setup: SDL_image.h does not reside in the same folder as the rest of the SDL
-inlcudes and not in any SDL subdirectory in the inclue path. If you know the
-correct path to it, edit src/render/rTexture.cpp and enter it there.])]
-)
-]
-)
+AC_CHECK_HEADERS(SDL3_image/SDL_image.h,,
+AC_MSG_ERROR([SDL3_image header not found.]))
 
 ifelse(,,,
 [

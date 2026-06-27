@@ -28,6 +28,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "config.h"
 
+#ifdef TOP_SOURCE_DIR
+#include "tUniversalVariables.h"
+#endif
+
 #include <errno.h>
 #include <sys/types.h>
 #ifndef WIN32
@@ -74,8 +78,7 @@ static const char * s_topSourceDir = ".";
 #endif
 
 #ifdef TOP_SOURCE_DIR
-// #include "tPaths.h"
-#include "tUniversalVariables.h"
+// tUniversalVariables.h included at top of file (before COM headers on Windows).
 #endif
 
 #ifndef PREFIX
