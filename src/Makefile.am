@@ -126,10 +126,10 @@ endif
 #AM_CXXFLAGS= $(BINRELOC_CFLAGS)
 
 libtools_a_CPPFLAGS = -iquote @srcdir@/thirdparty/binreloc
-libtools_a_CXXFLAGS  =$(AM_CXXFLAGS)  -iquote @srcdir@/tools
+libtools_a_CXXFLAGS  =$(AM_CXXFLAGS)  -iquote @srcdir@/tools -iquote @srcdir@/render
 libnetwork_a_CXXFLAGS=$(libtools_a_CXXFLAGS)  -iquote @srcdir@/network
 librender_a_CXXFLAGS =$(libtools_a_CXXFLAGS)  -iquote @srcdir@/render
-libui_a_CXXFLAGS     =$(librender_a_CXXFLAGS) -iquote @srcdir@/ui
+libui_a_CXXFLAGS     =$(librender_a_CXXFLAGS) -iquote @srcdir@/ui -iquote @srcdir@/engine -iquote @srcdir@/network
 libengine_a_CXXFLAGS =$(libui_a_CXXFLAGS)     -iquote @srcdir@/network -iquote @srcdir@/engine 
 libtron_a_CXXFLAGS   =$(libengine_a_CXXFLAGS) -iquote @srcdir@/thirdparty/particles -iquote @srcdir@/tron 
 
@@ -174,6 +174,8 @@ endif
 armagetronad_main_SOURCES = tron/gFloor.cpp
 armagetronad_main_CXXFLAGS =$(libtron_a_CXXFLAGS)
 armagetronad_main_LDADD=libtron.a libenginecore.a libengine.a libnetwork.a libui.a librender.a libtools.a
+# MinGW ld scans static archives once; force WinMain from libtron (SDL_main.h in gArmagetron.cpp).
+armagetronad_main_LDFLAGS=-Wl,-u,WinMain
 
 armagetronad_main_master_SOURCES = network/master.cpp
 armagetronad_main_master_CXXFLAGS =$(libtron_a_CXXFLAGS)
