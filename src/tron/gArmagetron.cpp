@@ -35,6 +35,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "gLogo.h"
 #include "eSound.h"
 #include "rScreen.h"
+#include "rGraphicsBackend.h"
 #include "rSysdep.h"
 #include "uInputQueue.h"
 //#include "eTess.h"
@@ -674,6 +675,20 @@ int SDL_main(int argc,char **argv){
         ePlayer::Init();
 
         // tERR_MESSAGE( "Loading configuration." );
+        {
+            std::ifstream languagesFile;
+            if ( !tDirectories::Data().Open( languagesFile, "language/languages.txt" ) )
+            {
+                con << "Cannot find language/languages.txt in the game data directory.\n";
+#ifdef DATA_DIR
+                con << "DATA_DIR is set to: " << DATA_DIR << "\n";
+#endif
+                con << "Build and run from the RCL repo: ./build-macos.sh\n";
+                con << "If using Xcode, open MacOS/Armagetron Advanced.xcodeproj in this repo\n";
+                con << "(not the old tom11w worktree) and use Product > Clean Build Folder.\n";
+                exit( 1 );
+            }
+        }
         tLocale::Load("languages.txt");
 
         st_LoadConfig();
@@ -810,7 +825,8 @@ int SDL_main(int argc,char **argv){
             }
             SDLCleanup sdlCleanup; // call SDL_Quit later
 
-            sr_glRendererInit();
+            sr_ApplyGraphicsBackendSetting();
+            sr_rendererInit();
 
             SDL_SetEventFilter((SDL_EventFilter)filter, NULL);
 

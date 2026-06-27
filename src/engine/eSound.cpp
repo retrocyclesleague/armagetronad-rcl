@@ -54,8 +54,10 @@ static Mix_Music* music = NULL;
 #endif
 
 static SDL_AudioSpec audio;
+static SDL_AudioStream *audio_stream = NULL;
 static bool sound_is_there=false;
 static bool uses_sdl_mixer=false;
+static bool audio_stream_paused=false;
 #endif
 
 // sound quality
@@ -114,6 +116,26 @@ void fill_audio(void *udata, Uint8 *stream, int len)
 }
 
 #ifndef DEDICATED
+static void SDLCALL se_AudioStreamFeed(void *userdata, SDL_AudioStream *stream, int additional_amount, int /*total_amount*/)
+{
+    if (additional_amount <= 0 || !stream)
+        return;
+
+    Uint8 *buf = static_cast<Uint8 *>(SDL_malloc((size_t)additional_amount));
+    if (!buf)
+        return;
+
+    memset(buf, 0, (size_t)additional_amount);
+    fill_audio(userdata, buf, additional_amount);
+
+    if (!SDL_PutAudioStreamData(stream, buf, additional_amount))
+        SDL_ClearAudioStream(stream);
+
+    SDL_free(buf);
+}
+#endif
+
+#ifndef DEDICATED
 #ifdef DEFAULT_SDL_AUDIODRIVER
 
 // stringification, yep, two levels required
@@ -128,14 +150,14 @@ static bool se_SoundInitPrepare()
         char * arg = "SDL_AUDIODRIVER=" STRING(DEFAULT_SDL_AUDIODRIVER);
         putenv(arg);
 
-        if ( SDL_Init(SDL_INIT_AUDIO) >= 0 )
+        if ( SDL_Init(SDL_INIT_AUDIO) )
             return true;
 
         putenv("SDL_AUDIODRIVER=");
     }
 
     // if that fails, try what the user wanted
-    return ( SDL_Init(SDL_INIT_AUDIO) >= 0 );
+    return SDL_Init(SDL_INIT_AUDIO);
 }
 #endif
 #endif
@@ -189,12 +211,26 @@ void se_SoundInit()
         desired.format=SDL_AUDIO_S16;
         desired.channels = 2;
 
-        // ponytail: SDL3 removed callback-based SDL_OpenAudio; audio pending rewrite
-        (void)desired;
-        sound_is_there = false;
+        audio_stream = SDL_OpenAudioDeviceStream(
+            SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &desired, se_AudioStreamFeed, NULL);
 
-        if (!sound_is_there)
+        if (audio_stream)
+        {
+            SDL_AudioSpec src;
+            if (SDL_GetAudioStreamFormat(audio_stream, &src, NULL))
+                audio = src;
+            else
+                audio = desired;
+
+            sound_is_there = true;
+            if (!audio_stream_paused)
+                SDL_ResumeAudioStreamDevice(audio_stream);
+        }
+        else
+        {
+            sound_is_there = false;
             con << tOutput("$sound_error_initfailed");
+        }
     }
 
     // save sound settings, they appear to work
@@ -220,7 +256,11 @@ void se_SoundExit(){
         //    for(int i=wavs.Len()-1;i>=0;i--)
         //wavs(i)->Exit();
 
-        // ponytail: SDL_CloseAudio removed in SDL3
+        if (audio_stream)
+        {
+            SDL_DestroyAudioStream(audio_stream);
+            audio_stream = NULL;
+        }
 
 #ifdef DEBUG
         con << tOutput("$sound_disabling_done");
@@ -236,18 +276,39 @@ static unsigned int locks;
 
 void se_SoundLock(){
 #ifndef DEDICATED
-    locks++;  // ponytail: SDL_LockAudio removed in SDL3; no-op for now
+    if (locks == 0 && audio_stream)
+        SDL_LockAudioStream(audio_stream);
+    locks++;
 #endif
 }
 
 void se_SoundUnlock(){
 #ifndef DEDICATED
-    locks--;
+    if (locks > 0)
+    {
+        locks--;
+        if (locks == 0 && audio_stream)
+            SDL_UnlockAudioStream(audio_stream);
+    }
 #endif
 }
 
-void se_SoundPause(bool){
-    // ponytail: SDL_PauseAudio removed in SDL3; no-op for now
+void se_SoundPause(bool pause){
+#ifndef DEDICATED
+    if (!audio_stream)
+        return;
+
+    if (pause)
+    {
+        SDL_PauseAudioStreamDevice(audio_stream);
+        audio_stream_paused = true;
+    }
+    else
+    {
+        SDL_ResumeAudioStreamDevice(audio_stream);
+        audio_stream_paused = false;
+    }
+#endif
 }
 
 // ***********************************************************

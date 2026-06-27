@@ -46,6 +46,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 class uMenuItem;
 
+enum uRclLayout
+{
+    uRclLayout_Off  = 0,
+    uRclLayout_Menu = 1,
+    uRclLayout_Full = 2
+};
+
 class uMenu{
     friend class uMenuItem;
 
@@ -64,9 +71,26 @@ protected:
 
     int                  selected;
 
+    int                  hoverPending_;
+    double               hoverPendingSince_;
+
+    uRclLayout           rclLayout_;
+
     REAL YPos(int num);
+    virtual REAL ItemDrawY(int itemIndex);
+    virtual REAL ItemRowHalf(int itemIndex);
+    int ItemAt(REAL mx, REAL my);
+    int ShortcutForItem(int itemIndex) const;
+    void ActivateSelected();
+    REAL ShortcutGutterX() const;
+    void DrawItemShortcut(REAL y, int shortcutNum, REAL alpha);
 public:
     static bool          wrap;
+    
+    void SetRclLayout(uRclLayout layout) { rclLayout_ = layout; }
+    uRclLayout GetRclLayout() const { return rclLayout_; }
+    void SetRclTheme(bool rcl) { rclLayout_ = rcl ? uRclLayout_Menu : uRclLayout_Off; }
+    bool RclTheme() const { return rclLayout_ != uRclLayout_Off; }
     
     // different quick exit types
     enum QuickExit
@@ -106,6 +130,9 @@ public:
 
     //! enters the menu; calls idle_func before rendering every frame
     inline void Enter(){OnEnter();}
+
+    //! Row badges [1]-[9]; false for custom table layouts (e.g. server browser).
+    virtual bool ShowItemShortcuts() const { return true; }
 
     void ReverseItems();
 
@@ -174,6 +201,8 @@ public:
             menu->items.Remove(this,idnum);
     }
 
+    virtual tString GetLabel() const { return tString(); }
+
     //! called when the menu item is selected, the incoming parameter says
     //! whether help should be displayed, the function returns true if 
     //! the menu code itself should handle the display or whether the menu item
@@ -232,6 +261,7 @@ public:
     }
 
     virtual void Enter(){menu->Exit();}
+    virtual tString GetLabel() const { return tString(t); }
     // if the user presses enter/space on menu
 };
 
@@ -301,6 +331,8 @@ public:
         if (choices.Len())
             *target=choices(select)->value;
     }
+
+    virtual tString GetLabel() const { return tString(title); }
 
     virtual void Render(REAL x,REAL y,REAL alpha=1,bool selected=0){
         for(int i=choices.Len()-1;i>=0;i--)
@@ -374,6 +406,8 @@ public:
 
     ~uMenuItemInt(){}
 
+    virtual tString GetLabel() const { return tString(title); }
+
     virtual void LeftRight(int);
 
     virtual void Render(REAL x,REAL y,REAL alpha=1,bool selected=0);
@@ -401,6 +435,8 @@ public:
 
     ~uMenuItemReal(){}
 
+    virtual tString GetLabel() const { return tString(title); }
+
     virtual void LeftRight(int);
 
     virtual void Render(REAL x,REAL y,REAL alpha=1,bool selected=0);
@@ -424,6 +460,8 @@ public:
     uMenuItemString(uMenu *M,const tOutput& desc,
                     const tOutput& help,tString &c, int maxLength = 1024 );
     virtual ~uMenuItemString(){}
+
+    virtual tString GetLabel() const { return tString(description); }
 
     virtual void Render(REAL x,REAL y,REAL alpha=1,bool selected=0);
 
@@ -472,6 +510,8 @@ public:
                      const tOutput& help);
     virtual ~uMenuItemSubmenu(){}
 
+    virtual tString GetLabel() const { return tString(submenu->title); }
+
     virtual void Render(REAL x,REAL y,REAL alpha=1,bool selected=0);
 
     virtual void Enter();
@@ -488,6 +528,8 @@ public:
                     const tOutput& help );
 
     virtual ~uMenuItemAction(){}
+
+    virtual tString GetLabel() const { return tString(name_); }
 
     virtual void Render(REAL x,REAL y,REAL alpha=1,bool selected=0);
 

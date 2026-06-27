@@ -276,7 +276,7 @@ tLocaleItem::operator const char *() const// return the version of this string i
         {
             // load english and try again
             static bool loadEnglish = true;
-            if ( loadEnglish )
+            if ( loadEnglish && english )
             {
                 loadEnglish = false;
                 english->Load();

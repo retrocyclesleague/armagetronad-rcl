@@ -43,6 +43,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #ifndef DEDICATED
 #include "rRender.h"
 #include "rGL.h"
+#include "rGraphicsBackend.h"
+#include "rMetalBackend.h"
+#include "rMetalGLCompat.h"
+
+static GLuint sr_metalNextTexId = 1;
 
 // Load SDL2_image
 #include <SDL3_image/SDL_image.h>
@@ -398,7 +403,10 @@ rISurfaceTexture::~rISurfaceTexture( void )
     {
         rDisplayList::ClearAll();
 
-        glDeleteTextures(1,&tint_);
+        if (sr_UsingMetalBackend())
+            sr_MetalDeleteTexture(tint_);
+        else
+            glDeleteTextures(1,&tint_);
         tint_ = 0;
     }
 #endif
@@ -431,18 +439,33 @@ void rISurfaceTexture::ProcessImage( SDL_Surface * surface )
 void rISurfaceTexture::Upload( rSurface & surface )
 {
 #ifndef DEDICATED
-#ifndef GL_CLAMP_TO_EDGE
-// GL_CLAMP_TO_EDGE was observed undefined in Windows; should be the same as GL_CLAMP.
-#define GL_CLAMP_TO_EDGE GL_CLAMP
-#endif
-
     GLenum texformat = surface.GetFormat();
     SDL_Surface * tex = surface.GetSurface();
     tASSERT( tex );
 
-    bool texalpha=SDL_GetPixelFormatDetails(tex->format)->Amask;
+    bool texalpha = SDL_GetPixelFormatDetails(tex->format)->Amask;
 
     ProcessImage(tex);
+
+    if (sr_UsingMetalBackend())
+    {
+        SDL_Surface *upload = tex;
+        bool rgba = SDL_GetPixelFormatDetails(tex->format)->bytes_per_pixel >= 4;
+        if (!rgba)
+        {
+            upload = SDL_ConvertSurface(tex, SDL_PIXELFORMAT_RGBA8888);
+            rgba = true;
+        }
+        sr_MetalUploadTexture(tint_, upload->pixels, upload->w, upload->h, rgba);
+        if (upload != tex)
+            SDL_DestroySurface(upload);
+        return;
+    }
+
+#ifndef GL_CLAMP_TO_EDGE
+// GL_CLAMP_TO_EDGE was observed undefined in Windows; should be the same as GL_CLAMP.
+#define GL_CLAMP_TO_EDGE GL_CLAMP
+#endif
 
     if(repx_)
         glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT);
@@ -502,8 +525,15 @@ void rISurfaceTexture::OnSelect( bool enforce )
                 // don't generate textures inside display lists
                 rDisplayList::Cancel();
 
-                glGenTextures(1, &tint_);
-                glBindTexture(GL_TEXTURE_2D,tint_);
+                if (sr_UsingMetalBackend())
+                {
+                    if (!tint_)
+                        tint_ = sr_metalNextTexId++;
+                }
+                else
+                    glGenTextures(1, &tint_);
+
+                sr_metal_glBindTexture(GL_TEXTURE_2D, tint_);
 
                 if (textureModeLast_<0)
                 {
@@ -511,42 +541,23 @@ void rISurfaceTexture::OnSelect( bool enforce )
                     OnSelect();
                 }
 
-                //glEnable(GL_TEXTURE);
-                glEnable(GL_TEXTURE_2D);
-
-                glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,
-                                texmod);
-
-                switch(texmod)
-                {
-                case GL_NEAREST:
-                case GL_NEAREST_MIPMAP_NEAREST:
-                    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,
-                                    GL_NEAREST);
-                    break;
-                default:
-                    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,
-                                    GL_LINEAR);
-                    break;
-                }
-
+                if (texmod>0)
+                    sr_metal_glEnable(GL_TEXTURE_2D);
+                else
+                    sr_metal_glDisable(GL_TEXTURE_2D);
             }
             else
             {
-                glDisable(GL_TEXTURE_2D);
+                sr_metal_glDisable(GL_TEXTURE_2D);
             }
         }
         else
         {
-            glBindTexture(GL_TEXTURE_2D,tint_);
+            sr_metal_glBindTexture(GL_TEXTURE_2D, tint_);
             if (texmod>0)
-            {
-                glEnable(GL_TEXTURE_2D);
-            }
+                sr_metal_glEnable(GL_TEXTURE_2D);
             else
-            {
-                glDisable(GL_TEXTURE_2D);
-            }
+                sr_metal_glDisable(GL_TEXTURE_2D);
         }
         textureModeLast_=texmod;
     }
@@ -585,8 +596,10 @@ void rISurfaceTexture::OnUnload( void )
     {
         rDisplayList::ClearAll();
 
-        // std::cerr << "unloading texture " << fileName << ':' << tint_ << "\n";
-        glDeleteTextures(1,&tint_);
+        if (sr_UsingMetalBackend())
+            sr_MetalDeleteTexture(tint_);
+        else
+            glDeleteTextures(1,&tint_);
         tint_ = 0;
     }
 

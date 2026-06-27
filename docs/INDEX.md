@@ -9,4 +9,6 @@
 
 ## Runtime docs
 
+- [macOS modern stack (SDL3 / Metal)](MACOS-MODERN.md) — Metal migration phases, config keys
+
 Generated HTML docs live under `src/doc/` after a build. Starting point: `src/doc/index.html`.

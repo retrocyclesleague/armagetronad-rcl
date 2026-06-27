@@ -77,7 +77,6 @@ install_run_symlink
 echo
 echo "Build complete."
 echo "  App bundle:    ${APP}"
-echo "  Run from tree: make -C src run   (uses DATA_DIR from repo root)"
-echo "  Or open:       open \"${APP}\""
+echo "  Open the app:  open \"${APP}\""
 echo
-echo "Xcode: open \"${MACOS}/Armagetron Advanced.xcodeproj\""
+open "${APP}"

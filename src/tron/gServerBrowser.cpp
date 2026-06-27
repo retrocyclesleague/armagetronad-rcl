@@ -108,6 +108,12 @@ class gServerMenu: public uMenu
     int sortKey_;
 
 public:
+    static REAL RowShrink() { return 0.6f; }
+    static REAL RowDisplace() { return 0.15f; }
+    static REAL RowTextHeight() { return 0.05f; }
+
+    int ItemIndex(uMenuItem *item) const;
+
     virtual void OnRender();
 
     void Update(); // sort the server view by score
@@ -116,6 +122,9 @@ public:
 
     virtual void HandleEvent( SDL_Event event );
 
+    virtual REAL ItemDrawY(int itemIndex);
+    virtual REAL ItemRowHalf(int itemIndex);
+
     void Render(REAL y,
                 const tString &servername, const tOutput &score,
                 const tOutput &users     , const tOutput &ping);
@@ -123,6 +132,8 @@ public:
     void Render(REAL y,
                 const tString &servername, const tString &score,
                 const tString &users     , const tString &ping);
+
+    virtual bool ShowItemShortcuts() const { return false; }
 };
 
 
@@ -494,6 +505,25 @@ gServerMenu::gServerMenu(const char *title)
         selected = items.Len();
 }
 
+int gServerMenu::ItemIndex(uMenuItem *item) const
+{
+    for ( int i = items.Len() - 1; i >= 0; --i )
+        if ( items(i) == item )
+            return i;
+    return -1;
+}
+
+REAL gServerMenu::ItemDrawY(int itemIndex)
+{
+    return YPos( itemIndex ) * RowShrink() + RowDisplace();
+}
+
+REAL gServerMenu::ItemRowHalf(int itemIndex)
+{
+    (void)itemIndex;
+    return RowTextHeight() * RowShrink() * 0.5f;
+}
+
 gServerMenu::~gServerMenu()
 {
     for (int i=items.Len()-1; i>=0; i--)
@@ -504,9 +534,6 @@ gServerMenu::~gServerMenu()
 static REAL text_height=.05;
 static REAL text_width=.025;
 
-static REAL shrink = .6f;
-static REAL displace = .15;
-
 void gServerMenu::Render(REAL y,
                          const tString &servername, const tString &score,
                          const tString &users     , const tString &ping)
@@ -514,7 +541,8 @@ void gServerMenu::Render(REAL y,
     if (sr_glOut)
     {
         REAL const xAspectMultiplier = rTextField::AspectWidthMultiplier();
-        rTextField c(-.9f * xAspectMultiplier, y+text_height*.5, text_width * xAspectMultiplier, text_height);
+        rTextField c(-.9f * xAspectMultiplier, y + text_height * 0.5f,
+                     text_width * xAspectMultiplier, text_height);
         c.SetWidth(1000);
 
         c.SetIndent(5);
@@ -611,6 +639,8 @@ void gServerMenuItem::Render(REAL x,REAL y,REAL alpha, bool selected)
     SetColor( selected, alpha );
 
     gServerMenu *serverMenu = static_cast<gServerMenu*>(menu);
+    const int idx = serverMenu->ItemIndex( this );
+    const REAL drawY = serverMenu->ItemDrawY( idx >= 0 ? idx : GetID() );
 
     if (server)
     {
@@ -680,7 +710,7 @@ void gServerMenuItem::Render(REAL x,REAL y,REAL alpha, bool selected)
             name << server->GetName();
         }
 
-        serverMenu->Render(y*shrink + displace,
+        serverMenu->Render(drawY,
                            name,
                            score, users, ping);
     }
@@ -689,7 +719,7 @@ void gServerMenuItem::Render(REAL x,REAL y,REAL alpha, bool selected)
         tOutput o("$network_master_noserver");
         tString s;
         s << o;
-        serverMenu->Render(y*shrink + displace,
+        serverMenu->Render(drawY,
                            s,
                            tString(""), tString(""), tString(""));
 
@@ -703,7 +733,7 @@ static REAL sg_requestBottom = -.9;
 void gServerMenuItem::RenderBackground()
 {
 #ifndef DEDICATED
-    REAL helpTopReal = sg_requestBottom*shrink + displace - .05;;
+    REAL helpTopReal = sg_requestBottom * gServerMenu::RowShrink() + gServerMenu::RowDisplace() - .05f;
 
     gBrowserMenuItem::RenderBackground();
 
@@ -732,7 +762,7 @@ void gServerMenuItem::RenderBackground()
 
     REAL helpSpace = players.GetTop() - players.GetBottom();
     REAL helpTop = -.85 + helpSpace;
-    REAL helpTopScaled = ( helpTop - displace )/shrink;
+    REAL helpTopScaled = ( helpTop - gServerMenu::RowDisplace() ) / gServerMenu::RowShrink();
     REAL helpTopMax = .25;
     REAL helpTopMin = -.9;
     if( helpTopScaled > helpTopMax )
@@ -959,11 +989,13 @@ void gServerStartMenuItem::Render(REAL x,REAL y,REAL alpha, bool selected)
 
     SetColor( selected, alpha );
 
+    gServerMenu *serverMenu = static_cast<gServerMenu*>(menu);
+    const int idx = serverMenu->ItemIndex( this );
+    const REAL drawY = serverMenu->ItemDrawY( idx >= 0 ? idx : GetID() );
+
     tString s;
     s << tOutput("$network_master_start");
-    static_cast<gServerMenu*>(menu)->Render(y*shrink + displace,
-                                            s,
-                                            tString(), tString(), tString());
+    serverMenu->Render(drawY, s, tString(), tString(), tString());
 #endif
 }
 

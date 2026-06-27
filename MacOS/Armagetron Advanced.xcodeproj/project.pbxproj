@@ -115,6 +115,11 @@
 		8C11CA85095A2B6E007AE0EA /* rConsole.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E5F089EEC7D007E21DC /* rConsole.cpp */; };
 		8C11CA87095A2B6E007AE0EA /* rFont.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E63089EEC7D007E21DC /* rFont.cpp */; };
 		8C11CA88095A2B6E007AE0EA /* rGLRender.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E66089EEC7D007E21DC /* rGLRender.cpp */; };
+		A1RCL013089EEC7D007E21DC /* rGraphicsBackend.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1RCL011089EEC7D007E21DC /* rGraphicsBackend.cpp */; };
+		A1RCL014089EEC7D007E21DC /* rMetalBackend.mm in Sources */ = {isa = PBXBuildFile; fileRef = A1RCL012089EEC7D007E21DC /* rMetalBackend.mm */; };
+		A1RCL021089EEC7D007E21DC /* rMatrixState.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1RCL020089EEC7D007E21DC /* rMatrixState.cpp */; };
+		A1RCL023089EEC7D007E21DC /* rMetalGLCompat.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1RCL022089EEC7D007E21DC /* rMetalGLCompat.cpp */; };
+		A1RCL025089EEC7D007E21DC /* rMetalRender.mm in Sources */ = {isa = PBXBuildFile; fileRef = A1RCL024089EEC7D007E21DC /* rMetalRender.mm */; };
 		8C11CA89095A2B6E007AE0EA /* rModel.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E67089EEC7D007E21DC /* rModel.cpp */; };
 		8C11CA8A095A2B6E007AE0EA /* rRender.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E69089EEC7D007E21DC /* rRender.cpp */; };
 		8C11CA8B095A2B6E007AE0EA /* rScreen.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E6B089EEC7D007E21DC /* rScreen.cpp */; };
@@ -149,6 +154,7 @@
 		8C11CAA9095A2B6E007AE0EA /* uInput.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EF6089EEC7D007E21DC /* uInput.cpp */; };
 		8C11CAAA095A2B6E007AE0EA /* uInputQueue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EF8089EEC7E007E21DC /* uInputQueue.cpp */; };
 		8C11CAAB095A2B6E007AE0EA /* uMenu.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EFA089EEC7E007E21DC /* uMenu.cpp */; };
+		RCL00001089EEC7E007E21DC /* uRclTheme.cpp in Sources */ = {isa = PBXBuildFile; fileRef = RCL00002089EEC7E007E21DC /* uRclTheme.cpp */; };
 		8C6EF51D08A32A0500816348 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 8C6EF51B08A32A0500816348 /* InfoPlist.strings */; };
 		8CAD9141095A37DD00DA0ECC /* rConsoleCout.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CAD9140095A37DD00DA0ECC /* rConsoleCout.cpp */; };
 		8CBA5E0A089EEC5B007E21DC /* SDLMain.mm in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E08089EEC5B007E21DC /* SDLMain.mm */; };
@@ -186,6 +192,11 @@
 		8CBA5F4D089EEC7E007E21DC /* rConsoleGraph.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E62089EEC7D007E21DC /* rConsoleGraph.cpp */; };
 		8CBA5F4E089EEC7E007E21DC /* rFont.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E63089EEC7D007E21DC /* rFont.cpp */; };
 		8CBA5F51089EEC7E007E21DC /* rGLRender.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E66089EEC7D007E21DC /* rGLRender.cpp */; };
+		A1RCL015089EEC7D007E21DC /* rGraphicsBackend.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1RCL011089EEC7D007E21DC /* rGraphicsBackend.cpp */; };
+		A1RCL016089EEC7D007E21DC /* rMetalBackend.mm in Sources */ = {isa = PBXBuildFile; fileRef = A1RCL012089EEC7D007E21DC /* rMetalBackend.mm */; };
+		A1RCL026089EEC7D007E21DC /* rMatrixState.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1RCL020089EEC7D007E21DC /* rMatrixState.cpp */; };
+		A1RCL027089EEC7D007E21DC /* rMetalGLCompat.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1RCL022089EEC7D007E21DC /* rMetalGLCompat.cpp */; };
+		A1RCL028089EEC7D007E21DC /* rMetalRender.mm in Sources */ = {isa = PBXBuildFile; fileRef = A1RCL024089EEC7D007E21DC /* rMetalRender.mm */; };
 		8CBA5F52089EEC7E007E21DC /* rModel.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E67089EEC7D007E21DC /* rModel.cpp */; };
 		8CBA5F54089EEC7E007E21DC /* rRender.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E69089EEC7D007E21DC /* rRender.cpp */; };
 		8CBA5F56089EEC7E007E21DC /* rScreen.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5E6B089EEC7D007E21DC /* rScreen.cpp */; };
@@ -253,6 +264,7 @@
 		8CBA5FDB089EEC7E007E21DC /* uInput.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EF6089EEC7D007E21DC /* uInput.cpp */; };
 		8CBA5FDD089EEC7E007E21DC /* uInputQueue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EF8089EEC7E007E21DC /* uInputQueue.cpp */; };
 		8CBA5FDF089EEC7E007E21DC /* uMenu.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8CBA5EFA089EEC7E007E21DC /* uMenu.cpp */; };
+		RCL00003089EEC7E007E21DC /* uRclTheme.cpp in Sources */ = {isa = PBXBuildFile; fileRef = RCL00002089EEC7E007E21DC /* uRclTheme.cpp */; };
 		8CBA6043089EF359007E21DC /* AUTHORS in Resources */ = {isa = PBXBuildFile; fileRef = 8CBA6039089EF359007E21DC /* AUTHORS */; };
 		8CBA6045089EF359007E21DC /* config in Resources */ = {isa = PBXBuildFile; fileRef = 8CBA603B089EF359007E21DC /* config */; };
 		8CBA6047089EF359007E21DC /* language in Resources */ = {isa = PBXBuildFile; fileRef = 8CBA603D089EF359007E21DC /* language */; };
@@ -397,6 +409,15 @@
 		8CBA5E64089EEC7D007E21DC /* rFont.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = rFont.h; sourceTree = "<group>"; };
 		8CBA5E65089EEC7D007E21DC /* rGL.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = rGL.h; sourceTree = "<group>"; };
 		8CBA5E66089EEC7D007E21DC /* rGLRender.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = rGLRender.cpp; sourceTree = "<group>"; };
+		A1RCL010089EEC7D007E21DC /* rGraphicsBackend.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = rGraphicsBackend.h; sourceTree = "<group>"; };
+		A1RCL011089EEC7D007E21DC /* rGraphicsBackend.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = rGraphicsBackend.cpp; sourceTree = "<group>"; };
+		A1RCL012089EEC7D007E21DC /* rMetalBackend.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; path = rMetalBackend.mm; sourceTree = "<group>"; };
+		A1RCL017089EEC7D007E21DC /* rMetalBackend.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = rMetalBackend.h; sourceTree = "<group>"; };
+		A1RCL018089EEC7D007E21DC /* rMatrixState.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = rMatrixState.h; sourceTree = "<group>"; };
+		A1RCL020089EEC7D007E21DC /* rMatrixState.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = rMatrixState.cpp; sourceTree = "<group>"; };
+		A1RCL019089EEC7D007E21DC /* rMetalGLCompat.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = rMetalGLCompat.h; sourceTree = "<group>"; };
+		A1RCL022089EEC7D007E21DC /* rMetalGLCompat.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = rMetalGLCompat.cpp; sourceTree = "<group>"; };
+		A1RCL024089EEC7D007E21DC /* rMetalRender.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; path = rMetalRender.mm; sourceTree = "<group>"; };
 		8CBA5E67089EEC7D007E21DC /* rModel.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = rModel.cpp; sourceTree = "<group>"; };
 		8CBA5E68089EEC7D007E21DC /* rModel.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = rModel.h; sourceTree = "<group>"; };
 		8CBA5E69089EEC7D007E21DC /* rRender.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = rRender.cpp; sourceTree = "<group>"; };
@@ -535,6 +556,8 @@
 		8CBA5EF9089EEC7E007E21DC /* uInputQueue.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = uInputQueue.h; sourceTree = "<group>"; };
 		8CBA5EFA089EEC7E007E21DC /* uMenu.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = uMenu.cpp; sourceTree = "<group>"; };
 		8CBA5EFB089EEC7E007E21DC /* uMenu.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = uMenu.h; sourceTree = "<group>"; };
+		RCL00002089EEC7E007E21DC /* uRclTheme.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = uRclTheme.cpp; sourceTree = "<group>"; };
+		RCL00004089EEC7E007E21DC /* uRclTheme.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = uRclTheme.h; sourceTree = "<group>"; };
 		8CBA6039089EF359007E21DC /* AUTHORS */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = AUTHORS; path = ../AUTHORS; sourceTree = SOURCE_ROOT; };
 		8CBA603B089EF359007E21DC /* config */ = {isa = PBXFileReference; lastKnownFileType = folder; name = config; path = ../config; sourceTree = SOURCE_ROOT; };
 		8CBA603D089EF359007E21DC /* language */ = {isa = PBXFileReference; lastKnownFileType = folder; name = language; path = ../language; sourceTree = SOURCE_ROOT; };
@@ -781,6 +804,15 @@
 				8CBA5E64089EEC7D007E21DC /* rFont.h */,
 				8CBA5E65089EEC7D007E21DC /* rGL.h */,
 				8CBA5E66089EEC7D007E21DC /* rGLRender.cpp */,
+				A1RCL010089EEC7D007E21DC /* rGraphicsBackend.h */,
+				A1RCL011089EEC7D007E21DC /* rGraphicsBackend.cpp */,
+				A1RCL012089EEC7D007E21DC /* rMetalBackend.mm */,
+				A1RCL017089EEC7D007E21DC /* rMetalBackend.h */,
+				A1RCL018089EEC7D007E21DC /* rMatrixState.h */,
+				A1RCL020089EEC7D007E21DC /* rMatrixState.cpp */,
+				A1RCL019089EEC7D007E21DC /* rMetalGLCompat.h */,
+				A1RCL022089EEC7D007E21DC /* rMetalGLCompat.cpp */,
+				A1RCL024089EEC7D007E21DC /* rMetalRender.mm */,
 				8CBA5E67089EEC7D007E21DC /* rModel.cpp */,
 				8CBA5E68089EEC7D007E21DC /* rModel.h */,
 				8CBA5E69089EEC7D007E21DC /* rRender.cpp */,
@@ -968,6 +1000,8 @@
 				8CBA5EF9089EEC7E007E21DC /* uInputQueue.h */,
 				8CBA5EFA089EEC7E007E21DC /* uMenu.cpp */,
 				8CBA5EFB089EEC7E007E21DC /* uMenu.h */,
+				RCL00002089EEC7E007E21DC /* uRclTheme.cpp */,
+				RCL00004089EEC7E007E21DC /* uRclTheme.h */,
 			);
 			name = ui;
 			path = ../src/ui;
@@ -1308,6 +1342,11 @@
 				8C11CA85095A2B6E007AE0EA /* rConsole.cpp in Sources */,
 				8C11CA87095A2B6E007AE0EA /* rFont.cpp in Sources */,
 				8C11CA88095A2B6E007AE0EA /* rGLRender.cpp in Sources */,
+				A1RCL013089EEC7D007E21DC /* rGraphicsBackend.cpp in Sources */,
+				A1RCL014089EEC7D007E21DC /* rMetalBackend.mm in Sources */,
+				A1RCL021089EEC7D007E21DC /* rMatrixState.cpp in Sources */,
+				A1RCL023089EEC7D007E21DC /* rMetalGLCompat.cpp in Sources */,
+				A1RCL025089EEC7D007E21DC /* rMetalRender.mm in Sources */,
 				8C11CA89095A2B6E007AE0EA /* rModel.cpp in Sources */,
 				8C11CA8A095A2B6E007AE0EA /* rRender.cpp in Sources */,
 				8C11CA8B095A2B6E007AE0EA /* rScreen.cpp in Sources */,
@@ -1342,6 +1381,7 @@
 				8C11CAA9095A2B6E007AE0EA /* uInput.cpp in Sources */,
 				8C11CAAA095A2B6E007AE0EA /* uInputQueue.cpp in Sources */,
 				8C11CAAB095A2B6E007AE0EA /* uMenu.cpp in Sources */,
+				RCL00001089EEC7E007E21DC /* uRclTheme.cpp in Sources */,
 				8CAD9141095A37DD00DA0ECC /* rConsoleCout.cpp in Sources */,
 				9B69F6270A63E1A700F5F2E4 /* eLagCompensation.cpp in Sources */,
 				64956AEF0D410F6A00C501B8 /* gFriends.cpp in Sources */,
@@ -1390,6 +1430,11 @@
 				8CBA5F4D089EEC7E007E21DC /* rConsoleGraph.cpp in Sources */,
 				8CBA5F4E089EEC7E007E21DC /* rFont.cpp in Sources */,
 				8CBA5F51089EEC7E007E21DC /* rGLRender.cpp in Sources */,
+				A1RCL015089EEC7D007E21DC /* rGraphicsBackend.cpp in Sources */,
+				A1RCL016089EEC7D007E21DC /* rMetalBackend.mm in Sources */,
+				A1RCL026089EEC7D007E21DC /* rMatrixState.cpp in Sources */,
+				A1RCL027089EEC7D007E21DC /* rMetalGLCompat.cpp in Sources */,
+				A1RCL028089EEC7D007E21DC /* rMetalRender.mm in Sources */,
 				8CBA5F52089EEC7E007E21DC /* rModel.cpp in Sources */,
 				8CBA5F54089EEC7E007E21DC /* rRender.cpp in Sources */,
 				8CBA5F56089EEC7E007E21DC /* rScreen.cpp in Sources */,
@@ -1457,6 +1502,7 @@
 				8CBA5FDB089EEC7E007E21DC /* uInput.cpp in Sources */,
 				8CBA5FDD089EEC7E007E21DC /* uInputQueue.cpp in Sources */,
 				8CBA5FDF089EEC7E007E21DC /* uMenu.cpp in Sources */,
+				RCL00003089EEC7E007E21DC /* uRclTheme.cpp in Sources */,
 				9B69F6230A63E1A700F5F2E4 /* eLagCompensation.cpp in Sources */,
 				64956AED0D410F6A00C501B8 /* gFriends.cpp in Sources */,
 				9B5FE82F0D57B2FC004AC137 /* nAuthentication.cpp in Sources */,
@@ -1580,6 +1626,10 @@
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"RCL_XCODE_METAL=1",
+					"DATA_DIR=\\\"$(SOURCE_ROOT)/..\\\"",
+				);
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "../src/macosx/Armagetron Advanced_Prefix.pch";
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
@@ -1611,6 +1661,10 @@
 					"SDL3_image",
 					"-framework",
 					"SDL3_mixer",
+					"-framework",
+					"Metal",
+					"-framework",
+					"QuartzCore",
 					"-lpng",
 					"-lxml2",
 					"-lz",
@@ -1635,6 +1689,10 @@
 				DEAD_CODE_STRIPPING = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_OPTIMIZATION_LEVEL = 3;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"RCL_XCODE_METAL=1",
+					"DATA_DIR=\\\"$(SOURCE_ROOT)/..\\\"",
+				);
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "../src/macosx/Armagetron Advanced_Prefix.pch";
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
@@ -1666,6 +1724,10 @@
 					"SDL3_image",
 					"-framework",
 					"SDL3_mixer",
+					"-framework",
+					"Metal",
+					"-framework",
+					"QuartzCore",
 					"-lpng",
 					"-lxml2",
 					"-lz",

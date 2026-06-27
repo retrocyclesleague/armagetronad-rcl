@@ -28,6 +28,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "tSysTime.h"
 #include "uMenu.h"
+#include "uRclTheme.h"
 #include "rSysdep.h"
 #include "rScreen.h"
 #include "rViewport.h"
@@ -58,7 +59,8 @@ bool uMenu::exitToMain=false;
 
 #ifdef SLOPPYLOCALE
 uMenu::uMenu(const char *t="",bool exit_item)
-        :exitFlag(0),spaceBelow(.4),title(t){
+        :exitFlag(0),spaceBelow(.4),title(t),rclLayout_(uRclLayout_Off),
+        hoverPending_(-1),hoverPendingSince_(0){
     if (exit_item) new uMenuItemExit(this);
     center=0;
     menuTop=.7;
@@ -69,7 +71,8 @@ uMenu::uMenu(const char *t="",bool exit_item)
 #endif
 
 uMenu::uMenu(const tOutput &t,bool exit_item)
-        :exitFlag(0),spaceBelow(.4),title(t){
+        :exitFlag(0),spaceBelow(.4),title(t),rclLayout_(uRclLayout_Off),
+        hoverPending_(-1),hoverPendingSince_(0){
     if (exit_item) new uMenuItemExit(this);
     center=0;
     menuTop=.7;
@@ -107,10 +110,24 @@ static REAL titlefac=1.2;
 #endif
 int menuentries=0;
 
-REAL uMenu::YPos(int num){
-    return yOffset-text_height*(menuentries-num);
-}
+#ifndef DEDICATED
+static bool menu_saved_relative_mouse = false;
 
+static void MenuScreenToNormalized( float px, float py, REAL & mx, REAL & my )
+{
+    mx = 2.0f * px / sr_screenWidth - 1.0f;
+    my = 1.0f - 2.0f * py / sr_screenHeight;
+}
+#endif
+
+REAL uMenu::YPos(int num){
+#ifndef DEDICATED
+    REAL h = RclTheme() ? uRclTheme::TextH() : text_height;
+#else
+    REAL h = text_height;
+#endif
+    return yOffset-h*(menuentries-num);
+}
 
 static inline void arrow(REAL x,REAL y,REAL dy,REAL size){
 #ifndef DEDICATED
@@ -144,6 +161,108 @@ bool uMenu::MenuActive()
 static rNoAutoDisplayAtNewlineCallback su_noNewline( uMenu::MenuActive );
 // static rSmallConsoleCallback su_smallConsole( su_InMenu );
 
+#ifndef DEDICATED
+int uMenu::ShortcutForItem(int itemIndex) const
+{
+    const int sk = items.Len() - itemIndex;
+    return ( sk >= 1 && sk <= 9 ) ? sk : 0;
+}
+
+int uMenu::ItemAt(REAL mx, REAL my)
+{
+    REAL rowHalf = RclTheme() ? uRclTheme::RowHalfH() : text_height * 0.55f;
+    REAL left = RclTheme() ? uRclTheme::MenuLeft() : -0.95f;
+    REAL right = RclTheme() ? uRclTheme::MenuRight() : 0.95f;
+
+    (void)rowHalf;
+    if ( mx < left || mx > right )
+        return -1;
+
+    int best = -1;
+    REAL bestDist = 1e9f;
+    for ( int i = 0; i < items.Len(); ++i )
+    {
+        const REAL cy = ItemDrawY( i ) + ItemRowHalf( i );
+        const REAL dist = fabsf( my - cy );
+        if ( dist < bestDist )
+        {
+            bestDist = dist;
+            best = i;
+        }
+    }
+
+    if ( best < 0 || bestDist > ItemRowHalf( best ) )
+        return -1;
+    return best;
+}
+
+REAL uMenu::ItemDrawY(int itemIndex)
+{
+    return YPos( itemIndex );
+}
+
+REAL uMenu::ItemRowHalf(int itemIndex)
+{
+    (void)itemIndex;
+    REAL h = RclTheme() ? uRclTheme::TextH() : text_height;
+    return h * 0.55f;
+}
+
+REAL uMenu::ShortcutGutterX() const
+{
+    if ( RclTheme() )
+        return uRclTheme::MenuLeft() - 0.07f;
+    return -0.90f * rTextField::AspectWidthMultiplier();
+}
+
+void uMenu::DrawItemShortcut(REAL y, int shortcutNum, REAL alpha)
+{
+    if ( shortcutNum < 1 || shortcutNum > 9 )
+        return;
+
+    tString label;
+    label << "[" << shortcutNum << "]";
+
+    const REAL w = text_width * 0.52f * rTextField::AspectWidthMultiplier();
+    const REAL h = text_height * 0.72f;
+
+    rTextField::SetDefaultColor( tColor( 0.5f, 0.55f, 0.65f, alpha ) );
+    rTextField::SetBlendColor( tColor( 1, 1, 1, alpha ) );
+    ::DisplayText( ShortcutGutterX(), y, w, h, label, -1 );
+}
+
+void uMenu::ActivateSelected()
+{
+    s_globalRepeat = false;
+    try
+    {
+        su_inMenu = false;
+        items[selected]->Enter();
+    }
+    catch ( tException const & e )
+    {
+        uMenu::SetIdle(NULL);
+        tConsole::Message( e.GetName(), e.GetDescription(), 20 );
+    }
+#ifdef _MSC_VER
+#pragma warning ( disable : 4286 )
+    catch ( tGenericException const & e )
+    {
+        try
+        {
+            tConsole::Message( e.GetName(), e.GetDescription(), 20 );
+        }
+        catch (...)
+        {
+        }
+    }
+#endif
+    su_inMenu = true;
+    s_globalRepeat = false;
+    lastkey = tSysTimeFloat();
+}
+#endif
+
 void uMenu::OnEnter(){
 #ifndef DEDICATED
     bool localRepeat = false;
@@ -163,14 +282,38 @@ void uMenu::OnEnter(){
     uCallbackMenuEnter::MenuEnter();
     su_inMenu = true;
 
+#ifndef DEDICATED
+    if ( sr_window )
+    {
+        menu_saved_relative_mouse = SDL_GetWindowRelativeMouseMode( sr_window );
+        SDL_SetWindowRelativeMouseMode( sr_window, false );
+        SDL_ShowCursor();
+    }
+#endif
+
     if (items.Len()<=0)
         return;
 
     exitFlag=0;
     yOffset=menuTop;
+    hoverPending_ = -1;
+    hoverPendingSince_ = 0;
     REAL lastt=0;
     REAL ts=0;
     bool snapScroll = false;
+
+#ifndef DEDICATED
+    REAL savedMenuTop = menuTop;
+    REAL savedMenuBot = menuBot;
+    REAL savedCenter = center;
+    if ( RclTheme() )
+    {
+        menuTop = ( rclLayout_ == uRclLayout_Full ) ? uRclTheme::FullMenuTop() : uRclTheme::MenuTop();
+        menuBot = ( rclLayout_ == uRclLayout_Full ) ? uRclTheme::FullMenuBot() : uRclTheme::MenuBot();
+        center = uRclTheme::MenuLabelX();
+        yOffset = menuTop;
+    }
+#endif
 
 #ifndef DEDICATED
     lastkey=tSysTimeFloat();
@@ -316,31 +459,74 @@ void uMenu::OnEnter(){
 
 #ifndef DEDICATED
         sr_ResetRenderState(true);
-        items[selected]->RenderBackground();
+        if ( RclTheme() )
+        {
+            if ( rclLayout_ == uRclLayout_Full )
+            {
+                uRclTheme::DrawBackground();
+                uRclTheme::DrawFullChrome();
+            }
+            else
+            {
+                if ( idle )
+                    GenericBackground();
+                else
+                    uRclTheme::DrawBackground();
+                uRclTheme::DrawGridOverlay( .25f );
+                uRclTheme::DrawCornerPluses( uRclTheme::MenuLeft(), uRclTheme::MenuRight(),
+                                             menuBot - .04f, menuTop + .06f );
+                uRclTheme::DrawHeaderTitle( tString( title ) );
+            }
+        }
+        else
+        {
+            items[selected]->RenderBackground();
+        }
 
         if (selected >= items.Len()) selected = items.Len()-1;
         if (items.Len() <= 0)
             return;
 
         if (sr_glOut && !exitFlag && !quickexit){
-            items[selected]->Render(center,YPos(selected),1,true);
-
-            for (int i=items.Len()-1;i>=0;i--)
-                if (i!=selected){
-                    REAL y=YPos(i);
-                    REAL alpha=1;
-                    const REAL b=.1;
-                    if (y<menuBot+b)
-                        alpha=(y-menuBot)/b;
-                    if (y>menuTop-b)
-                        alpha=(menuTop-y)/b;
-                    if (y>menuBot && y<menuTop)
+            if ( RclTheme() )
+            {
+                for ( int i = items.Len() - 1; i >= 0; --i )
+                {
+                    REAL y = YPos(i);
+                    if ( y <= menuBot + .1 || y >= menuTop - .1 )
+                        continue;
+                    bool sel = ( i == selected );
+                    if ( sel )
+                        uRclTheme::DrawBracketSelection( uRclTheme::MenuLeft() + .01f,
+                                                         uRclTheme::MenuRight(),
+                                                         y );
+                    items[i]->Render( uRclTheme::MenuLabelX(), y, 1, sel );
+                    if ( ShowItemShortcuts() )
+                        DrawItemShortcut( y, ShortcutForItem( i ), 1 );
+                    if ( uRclTheme::ShowInlineDesc( sel ) )
                     {
-                        rTextField::SetDefaultColor( tColor(1,1,1,1) );
-                        rTextField::SetBlendColor( tColor(1,1,1,1) );
-                        items[i]->Render(center,y,alpha,false);
+                        tString desc = uRclTheme::FirstLine( items[i]->Help() );
+                        if ( desc.Len() > 0 && items[i]->SpaceRight() <= 0 )
+                            uRclTheme::DrawDesc( uRclTheme::MenuDescX(), y, desc, sel, 1 );
                     }
                 }
+                disphelp = false;
+            }
+            else
+            {
+            for ( int i = items.Len() - 1; i >= 0; --i )
+            {
+                REAL y = YPos(i);
+                if ( y <= menuBot + .1 || y >= menuTop - .1 )
+                    continue;
+                REAL alpha = 1;
+                if ( i == selected )
+                    items[i]->Render( center, y, 1, true );
+                else
+                    items[i]->Render( center, y, alpha, false );
+                if ( ShowItemShortcuts() )
+                    DrawItemShortcut( y, ShortcutForItem( i ), alpha );
+            }
 
             rTextField::SetDefaultColor( tColor(1,1,1,1) );
             rTextField::SetBlendColor( tColor(1,1,1,1) );
@@ -351,7 +537,6 @@ void uMenu::OnEnter(){
                           title,0);
 
             glDisable(GL_TEXTURE_2D);
-            //glDisable(GL_TEXTURE);
             Color(1,.2,.2,.5);
             if (YPos(0)<menuBot+smallborder && (int(tSysTimeFloat()))%2)
                 arrow(.9,menuBot+.1,-1,.05);
@@ -378,6 +563,7 @@ void uMenu::OnEnter(){
                 c.SetWidth(static_cast<int>((1.9f-items[selected]->SpaceRight())/c.GetCWidth()));
                 c << items[selected]->Help();
             }
+            }
         }
         else
 #endif
@@ -394,8 +580,27 @@ void uMenu::OnEnter(){
 
     s_globalRepeat = false;
 
+#ifndef DEDICATED
+    if ( sr_window )
+    {
+        if ( menu_saved_relative_mouse )
+            SDL_SetWindowRelativeMouseMode( sr_window, true );
+        else
+            SDL_HideCursor();
+    }
+#endif
+
     uCallbackMenuLeave::MenuLeave();
     su_inMenu = false;
+
+#ifndef DEDICATED
+    if ( RclTheme() )
+    {
+        menuTop = savedMenuTop;
+        menuBot = savedMenuBot;
+        center = savedCenter;
+    }
+#endif
 }
 
 void uMenu::HandleEvent( SDL_Event event )
@@ -403,6 +608,67 @@ void uMenu::HandleEvent( SDL_Event event )
 #ifndef DEDICATED
     if (!items[selected]->Event(event))
     {
+        switch ( event.type )
+        {
+        case SDL_EVENT_MOUSE_MOTION:
+        {
+            static const double hoverDebounce = 0.07;
+
+            REAL mx, my;
+            MenuScreenToNormalized( event.motion.x, event.motion.y, mx, my );
+            int hit = ItemAt( mx, my );
+            if ( hit < 0 )
+            {
+                hoverPending_ = -1;
+                return;
+            }
+            if ( hit != hoverPending_ )
+            {
+                hoverPending_ = hit;
+                hoverPendingSince_ = tSysTimeFloat();
+                return;
+            }
+            if ( selected != hit && tSysTimeFloat() - hoverPendingSince_ >= hoverDebounce )
+            {
+                selected = hit;
+                items[selected]->DisplayHelp( false, 0, 0.0f );
+            }
+            return;
+        }
+        case SDL_EVENT_MOUSE_BUTTON_DOWN:
+            if ( event.button.button == 1 )
+            {
+                REAL mx, my;
+                MenuScreenToNormalized( event.button.x, event.button.y, mx, my );
+                int hit = ItemAt( mx, my );
+                if ( hit >= 0 )
+                {
+                    hoverPending_ = hit;
+                    hoverPendingSince_ = tSysTimeFloat();
+                    selected = hit;
+                    ActivateSelected();
+                }
+            }
+            return;
+        default:
+            break;
+        }
+
+        if ( event.type == SDL_EVENT_KEY_DOWN &&
+             event.key.key >= SDLK_1 && event.key.key <= SDLK_9 )
+        {
+            if ( !disphelp )
+                lastkey = tSysTimeFloat();
+            int num = event.key.key - SDLK_1 + 1;
+            int idx = items.Len() - num;
+            if ( idx >= 0 && idx < items.Len() )
+            {
+                selected = idx;
+                ActivateSelected();
+            }
+            return;
+        }
+
         switch (event.type){
         case SDL_EVENT_KEY_DOWN:
         {
@@ -453,36 +719,7 @@ void uMenu::HandleEvent( SDL_Event event )
                         case(SDLK_KP_ENTER):
                             case(SDLK_RETURN):
                                     s_globalRepeat = false;
-                try
-        {
-                    su_inMenu = false;
-                    items[selected]->Enter();
-                }
-                catch (tException const & e)
-                {
-                    uMenu::SetIdle(NULL);
-
-                    // inform user of generic errors
-                    tConsole::Message( e.GetName(), e.GetDescription(), 20 );
-                }
-#ifdef _MSC_VER
-#pragma warning ( disable : 4286 )
-                // GRR. Visual C++ dones not handle generic exceptions with the above general statement.
-                // A specialized version is needed. The best part: it warns about the code below being redundant.
-                catch ( tGenericException const & e )
-                {
-                    try
-                    {
-                        tConsole::Message( e.GetName(), e.GetDescription(), 20 );
-                    }
-                    catch (...)
-                    {
-                    }
-                }
-#endif
-
-                su_inMenu = true;
-
+                ActivateSelected();
                 s_globalRepeat = false;
                 lastkey=tSysTimeFloat();
                 break;
@@ -601,6 +838,16 @@ void uMenu::OnRender()
 
 void uMenuItem::SetColor( bool selected, REAL alpha )
 {
+    if ( menu->RclTheme() )
+    {
+        if ( selected )
+            rTextField::SetDefaultColor( tColor( 1, 1, 0, alpha ) );
+        else
+            rTextField::SetDefaultColor( tColor( .92f, .92f, .92f, alpha ) );
+        rTextField::SetBlendColor( tColor( 1, 1, 1, alpha ) );
+        return;
+    }
+
     //   rTextField::SetBlendColor( tColor(.8+.2*sin(time),.3-.1*sin(time),.3-.1*sin(time),alpha) );
     rTextField::SetDefaultColor( tColor(1,1,1,alpha) );
 
@@ -620,28 +867,20 @@ void uMenuItem::DisplayText(REAL x,REAL y,const char *text,
     if (sr_glOut){
         SetColor( selected, alpha );
 
-        REAL tw = text_width;
-        REAL th = text_height;
-        
-        //aspect ratio correction
+        REAL tw = menu->RclTheme() ? uRclTheme::TextW() : text_width;
+        REAL th = menu->RclTheme() ? uRclTheme::TextH() : text_height;
+
         tw *= (REAL(sr_screenHeight)/sr_screenWidth)*(4.0/3.0);
 
-        
-#if 0
-        // the function that is called takes care of that
-        REAL availw = 1.9f;
-        if (center < 0) availw = (.9f-x);
-        if (center > 0) availw = (x + .9f);
-
-        int len = strlen(text);
-        if (len * tw > availw)
+        if ( menu->RclTheme() )
         {
-            th *= availw/(len * tw);
-            tw  = availw/len;
+            ::DisplayText( x, y, tw, th, text, -1, 0, 0, rTextField::COLOR_IGNORE );
+            return;
         }
-#endif
 
-        ::DisplayText(x,y,tw,th,text,center,c,cp, colorMode );
+        int align = center;
+
+        ::DisplayText(x,y,tw,th,text,align,c,cp, colorMode );
     }
 #endif
 }
@@ -649,14 +888,15 @@ void uMenuItem::DisplayText(REAL x,REAL y,const char *text,
 void uMenuItem::DisplayTextSpecial(REAL x,REAL y,const char *text,
                                    bool selected,
                                    REAL alpha,int center){
-    /*
-     if(selected)
-       glColor3f(.9,.3,.3);
-     else
-       glColor3f(.7,.7,1);
-
-     ::DisplayText(x,y,text_width,text_height,text,center);
-     */
+#ifndef DEDICATED
+    if ( menu->RclTheme() )
+    {
+        tString label;
+        label << "> " << text;
+        DisplayText( x, y, label, selected, alpha, center ? center : 1 );
+        return;
+    }
+#endif
 
     DisplayText(x,y,text,selected,alpha,center);
 }

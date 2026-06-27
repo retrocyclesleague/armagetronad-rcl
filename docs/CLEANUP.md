@@ -68,6 +68,10 @@ Binary: `~/Library/Developer/Xcode/DerivedData/.../Debug/Armagetron Advanced.app
 | `_deps/SDL_image` | Keep vendored until SDL2 migration (no Homebrew 1.2 formula) |
 | ZThread | Replace with `std::thread` / pthread when auth is re-enabled |
 
+### Phase 4 — Metal renderer (started)
+
+See [MACOS-MODERN.md](MACOS-MODERN.md). Phase A landed: `rGraphicsBackend`, `rMetalBackend.mm` (present stub), `sr_PresentFrame()`. Default build stays OpenGL; define `RCL_METAL_SMOKE` in Xcode + `ARMAGETRON_GRAPHICS_BACKEND 1` to test Metal window clear.
+
 ### Phase 3 — structural (later)
 
 - SDL 1.2 → SDL 2 (touches all of `src/render/`, input, audio)

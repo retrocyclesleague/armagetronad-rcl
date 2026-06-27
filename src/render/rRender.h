@@ -240,5 +240,8 @@ inline void TranslateMatrix(REAL x1, REAL x2, REAL x3){
 
 void sr_RendererCleanup();
 void sr_glRendererInit();
+void sr_metalRendererInit();
+void sr_rendererInit();
+void sr_rendererEndFrame();
 
 #endif

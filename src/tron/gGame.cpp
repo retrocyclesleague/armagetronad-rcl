@@ -2977,7 +2977,7 @@ void MainMenu(bool ingame){
         se_UserShowScores( false );
     }
 
-    gLogo::SetDisplayed(true);
+    gLogo::SetDisplayed(!ingame);
 
     tOutput gametitle;
     if (!ingame)

@@ -42,6 +42,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // #include "../network/nNetwork.h"
 #include "rGL.h"
 #include "rSDL.h"
+#include "rGraphicsBackend.h"
+#include "rMetalBackend.h"
+#include "rMatrixState.h"
+#include "rMetalGLCompat.h"
 
 
 #ifdef POWERPAK_DEB
@@ -419,6 +423,8 @@ static void sr_SetGLAttributes( int rDepth, int gDepth, int bDepth, int zDepth )
 
 static bool lowlevel_sr_InitDisplay(){
 #ifndef DEDICATED
+    sr_ApplyGraphicsBackendSetting();
+
     rScreenSize & res = currentScreensetting.fullscreen ? currentScreensetting.res : currentScreensetting.windowSize;
 
     // update pixel aspect ratio
@@ -521,7 +527,7 @@ static bool lowlevel_sr_InitDisplay(){
         default: break;
         }
 
-        if (currentScreensetting.useSDL)
+        if (currentScreensetting.useSDL && !sr_UsingMetalBackend())
         {
             sr_SetGLAttributes( singleCD_R, singleCD_G, singleCD_B, zDepth );
         }
@@ -535,7 +541,11 @@ static bool lowlevel_sr_InitDisplay(){
 
         // SDL3: create window and GL context
         {
-             SDL_WindowFlags flags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
+             SDL_WindowFlags flags = SDL_WINDOW_RESIZABLE;
+             if (sr_UsingMetalBackend())
+                 flags |= SDL_WINDOW_METAL;
+             else
+                 flags |= SDL_WINDOW_OPENGL;
              int numDisplays = 0;
              SDL_DisplayID *displays = SDL_GetDisplays( &numDisplays );
              SDL_DisplayID displayID = displays && numDisplays > 0 ? displays[0] : 0;
@@ -616,36 +626,34 @@ static bool lowlevel_sr_InitDisplay(){
                      SDL_SetWindowIcon( sr_window, icon.GetSurface() );
              }
 
-             sr_glcontext = SDL_GL_CreateContext(sr_window);
-             if (!sr_glcontext)
+             if (!sr_CreateGraphicsContext())
              {
                  lastError.Clear();
-                 lastError << "Couldn't create GL context: ";
+                 lastError << "Couldn't create graphics context: ";
                  lastError << SDL_GetError();
                  std::cerr << lastError << '\n';
                  SDL_DestroyWindow(sr_window);
                  sr_window = NULL;
                  return false;
              }
-             SDL_GL_MakeCurrent(sr_window, sr_glcontext);  // ponytail: critical - makes GL context active for rendering
              SDL_StartTextInput(sr_window);
 
-             // apply vsync (SDL2: set after context creation, not via GL attribute)
-             switch (currentScreensetting.vSync)
+             if (!sr_UsingMetalBackend())
              {
-             case ArmageTron_VSync_On:
-                 // prefer adaptive/late-swap-tearing: best for variable-refresh
-                 // (G-Sync/FreeSync) displays. Falls back to plain vsync where
-                 // the driver doesn't support it.
-                 if ( !SDL_GL_SetSwapInterval( -1 ) )
-                     SDL_GL_SetSwapInterval( 1 );
-                 break;
-             case ArmageTron_VSync_Off:
-             case ArmageTron_VSync_MotionBlur:
-                 SDL_GL_SetSwapInterval( 0 );
-                 break;
-             case ArmageTron_VSync_Default:
-                 break;
+                 // apply vsync (SDL2: set after context creation, not via GL attribute)
+                 switch (currentScreensetting.vSync)
+                 {
+                 case ArmageTron_VSync_On:
+                     if ( !SDL_GL_SetSwapInterval( -1 ) )
+                         SDL_GL_SetSwapInterval( 1 );
+                     break;
+                 case ArmageTron_VSync_Off:
+                 case ArmageTron_VSync_MotionBlur:
+                     SDL_GL_SetSwapInterval( 0 );
+                     break;
+                 case ArmageTron_VSync_Default:
+                     break;
+                 }
              }
 
              int windowW = 0;
@@ -697,25 +705,29 @@ static bool lowlevel_sr_InitDisplay(){
     gl_extensions.SetLen(0);
     renderer_identification.SetLen(0);
 
-    gl_vendor     << reinterpret_cast<const char *>(glGetString(GL_VENDOR));
-    gl_renderer   << reinterpret_cast<const char *>(glGetString(GL_RENDERER));
-    gl_version    << reinterpret_cast<const char *>(glGetString(GL_VERSION));
-    gl_extensions << reinterpret_cast<const char *>(glGetString(GL_EXTENSIONS));
-
-    // display list blacklist
-    sr_blacklistDisplayLists=false;
-
-    if(strstr(gl_version,"Mesa 7.0") || strstr(gl_version,"Mesa 7.1"))
+    if (sr_UsingMetalBackend())
     {
-        // mesa DRI and software has problems in the 7.0/7.1 series
-        sr_blacklistDisplayLists=true;
+        gl_vendor << "Apple";
+        gl_renderer << "Metal (experimental)";
+        gl_version << "Metal";
+        gl_extensions << "";
+        sr_blacklistDisplayLists = true;
     }
-
-    if(strstr(gl_vendor,"SiS"))
+    else
     {
-        // almost nobody has those cards/chips, and we have
-        // at least one bluescreen problem reported.
-        sr_blacklistDisplayLists=true;
+        gl_vendor     << reinterpret_cast<const char *>(glGetString(GL_VENDOR));
+        gl_renderer   << reinterpret_cast<const char *>(glGetString(GL_RENDERER));
+        gl_version    << reinterpret_cast<const char *>(glGetString(GL_VERSION));
+        gl_extensions << reinterpret_cast<const char *>(glGetString(GL_EXTENSIONS));
+
+        // display list blacklist
+        sr_blacklistDisplayLists=false;
+
+        if(strstr(gl_version,"Mesa 7.0") || strstr(gl_version,"Mesa 7.1"))
+            sr_blacklistDisplayLists=true;
+
+        if(strstr(gl_vendor,"SiS"))
+            sr_blacklistDisplayLists=true;
     }
 
    
@@ -739,6 +751,9 @@ static bool lowlevel_sr_InitDisplay(){
 #endif
 #endif
     renderer_identification << rRenderIdCallback::RenderId() << ' ';
+    if (sr_UsingMetalBackend())
+        renderer_identification << "SDL 3 Metal (experimental)\n";
+    else
 #ifdef SDL_OPENGL
     renderer_identification << "SDL 2\n";
     renderer_identification << "USE_SDL=" << currentScreensetting.useSDL
@@ -921,8 +936,7 @@ void sr_ExitDisplay(){
         int displayIndex = (int)SDL_GetDisplayForWindow(sr_window);
         if (displayIndex >= 0)
             sr_lastDisplayIndex = displayIndex;
-        SDL_GL_DestroyContext(sr_glcontext);
-        sr_glcontext = NULL;
+        sr_DestroyGraphicsContext();
         SDL_DestroyWindow(sr_window);
         sr_window = NULL;
     }
@@ -1028,6 +1042,48 @@ void sr_ResetRenderState(bool menu){
     if(!sr_glOut)
         return;
 #ifndef DEDICATED
+    if (sr_UsingMetalBackend())
+    {
+        sr_MetalBeginFrame();
+        rMatrixState::ResetAll();
+
+        rTextureGroups::TextureMode[rTextureGroups::TEX_FONT] = GL_LINEAR;
+
+        if (menu)
+        {
+            sr_metal_glDisable(GL_DEPTH_TEST);
+            sr_metal_glViewport(0, 0, GLsizei(sr_screenWidth), GLsizei(sr_screenHeight));
+        }
+        else
+        {
+            sr_metal_glEnable(GL_DEPTH_TEST);
+            sr_metal_glDepthFunc(GL_LEQUAL);
+        }
+
+        sr_metal_glDisable(GL_TEXTURE_2D);
+
+        if (sr_alphaBlend)
+        {
+            sr_metal_glEnable(GL_ALPHA_TEST);
+            sr_metal_glAlphaFunc(GL_GREATER, 0);
+            sr_metal_glEnable(GL_BLEND);
+            sr_metal_glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        }
+        else
+        {
+            sr_metal_glDisable(GL_ALPHA_TEST);
+            sr_metal_glDisable(GL_BLEND);
+        }
+
+        sr_metal_glMatrixMode(GL_TEXTURE);
+        sr_metal_glLoadIdentity();
+        sr_metal_glMatrixMode(GL_PROJECTION);
+        sr_metal_glLoadIdentity();
+        sr_metal_glMatrixMode(GL_MODELVIEW);
+        sr_metal_glLoadIdentity();
+        return;
+    }
+
     // Z-Buffering and perspective correction
 
     if (menu){

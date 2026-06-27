@@ -64,6 +64,13 @@ After running the setup script:
    **Any Mac (arm64, x86\_64)**.
 2. Build normally.
 
+## Debug builds
+
+Xcode sets `DATA_DIR` to the repository root (`$(SOURCE_ROOT)/..`). Open the
+project from **this repo** (`armagetronad/MacOS/`), not the old `armagetronad-tom11w-macos`
+worktree. If the app crashes on launch with a locale error, run **Product → Clean
+Build Folder** or use `./build-macos.sh` from the repo root instead.
+
 ## Dedicated server
 
 Select the **Armagetron Advanced Dedicated** scheme in Xcode. The dedicated

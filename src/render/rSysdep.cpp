@@ -40,6 +40,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <iostream>
 #include "rScreen.h"
 #include "rGL.h"
+#include "rGraphicsBackend.h"
 #include "tCommandLine.h"
 #include "tConfiguration.h"
 #include "tRecorder.h"
@@ -581,7 +582,7 @@ void rSysDep::SwapGL(){
 
     if (lastSuccess.useSDL)
     {
-        SDL_GL_SwapWindow(sr_window);
+        sr_PresentFrame();
     }
     //#elif defined(HAVE_FXMESA)
     //fxMesaSwapBuffers();
