@@ -43,43 +43,14 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #ifndef DEDICATED
 #include "rRender.h"
 #include "rGL.h"
+#include "rGraphicsBackend.h"
+#include "rMetalBackend.h"
+#include "rMetalGLCompat.h"
 
-// Load the right SDL_IMAGE header
+static GLuint sr_metalNextTexId = 1;
 
-#ifdef _MSC_VER
-#include <SDL_image.h>
-#else
-#ifdef __MINGW32__
-#include <SDL_image.h>
-#else
-#ifdef HAVE_SDL_IMG_H
-#include <SDL_image.h>
-#else
-#ifdef HAVE_SDL_SDL_IMAGE_H
-#include <SDL/SDL_image.h>
-#else
-#ifdef HAVE_IMG_H
-#include <IMG.h>
-#else
-#ifdef HAVE_SDL_IMG_H
-#include <SDL/IMG.h>
-#else
-#ifdef HAVE_LIBSDL
-#include <SDL_image.h>
-#else
-#ifdef HAVE_LIBIMG
-#include <IMG.h>
-#else
-// if the following include ( or one of the earlier ones ) fails, you don't have SDL_image properly installed.
-#include <SDL_image.h>
-#endif
-#endif
-#endif
-#endif
-#endif
-#endif
-#endif
-#endif
+// Load SDL2_image
+#include <SDL3_image/SDL_image.h>
 #endif
 
 
@@ -194,7 +165,7 @@ void rSurface::Clear( void )
 #ifndef DEDICATED
     // delete surface
     if ( surface_ )
-        SDL_FreeSurface( surface_ );
+        SDL_DestroySurface( surface_ );
 
 #endif
     surface_ = 0;
@@ -213,20 +184,12 @@ void rSurface::Clear( void )
 void rSurface::Create( char const * fileName )
 {
 #ifndef DEDICATED
-    sr_LockSDL();
-
     // find path of image
-    // tString s = tResourceManager::locateResource("", fileName);
     tString s = tDirectories::Data().GetReadPath( fileName );
 
     // Load image
-    IMG_InvertAlpha(true);
+    // IMG_InvertAlpha(true); // SDL3-only, not needed for SDL2
     Create( IMG_Load(s) );
-
-    //if ( surface_ )
-    //    std::cerr << "loaded surface " << fileName << "\n";
-
-    sr_UnlockSDL();
 #endif
 }
 
@@ -252,7 +215,7 @@ void rSurface::Create( SDL_Surface * surface )
     // determine texture format
     if ( surface_ )
     {
-        switch (surface_->format->BytesPerPixel){
+        switch (SDL_GetPixelFormatDetails(surface_->format)->bytes_per_pixel){
         case 1:
             format_ = GL_LUMINANCE;
             break;
@@ -273,18 +236,11 @@ void rSurface::Create( SDL_Surface * surface )
             {
                 // fallback: convert the texture into a known format.
 
-                SDL_Surface *dummy =
-                    SDL_CreateRGBSurface(SDL_SWSURFACE, 1, 1,
-                                         32,
-                                         0x0000FF, 0x00FF00,
-                                         0xFF0000 ,0xFF000000);
-
                 SDL_Surface *convtex =
-                    SDL_ConvertSurface(surface_, dummy->format, SDL_SWSURFACE);
+                    SDL_ConvertSurface(surface_, SDL_PIXELFORMAT_RGBA8888);
 
-                SDL_FreeSurface(surface_);
+                SDL_DestroySurface(surface_);
                 surface_ = convtex;
-                SDL_FreeSurface(dummy);
 
                 format_ = GL_RGBA;
             }
@@ -311,7 +267,7 @@ void rSurface::CopyFrom( rSurface const & other )
     tASSERT( other.surface_ );
 
     // copy surface
-    surface_ = SDL_ConvertSurface(other.surface_, other.surface_->format, SDL_SWSURFACE);
+    surface_ = SDL_ConvertSurface(other.surface_, other.surface_->format);
 
     // copy flags
     format_ = other.format_;
@@ -447,7 +403,10 @@ rISurfaceTexture::~rISurfaceTexture( void )
     {
         rDisplayList::ClearAll();
 
-        glDeleteTextures(1,&tint_);
+        if (sr_UsingMetalBackend())
+            sr_MetalDeleteTexture(tint_);
+        else
+            glDeleteTextures(1,&tint_);
         tint_ = 0;
     }
 #endif
@@ -480,19 +439,33 @@ void rISurfaceTexture::ProcessImage( SDL_Surface * surface )
 void rISurfaceTexture::Upload( rSurface & surface )
 {
 #ifndef DEDICATED
-#ifndef GL_CLAMP_TO_EDGE
-// GL_CLAMP_TO_EDGE was observed undefined in Windows; should be the same as GL_CLAMP.
-#define GL_CLAMP_TO_EDGE GL_CLAMP
-#endif
-
-    sr_LockSDL();
     GLenum texformat = surface.GetFormat();
     SDL_Surface * tex = surface.GetSurface();
     tASSERT( tex );
 
-    bool texalpha=tex->format->Amask;
+    bool texalpha = SDL_GetPixelFormatDetails(tex->format)->Amask;
 
     ProcessImage(tex);
+
+    if (sr_UsingMetalBackend())
+    {
+        SDL_Surface *upload = tex;
+        bool rgba = SDL_GetPixelFormatDetails(tex->format)->bytes_per_pixel >= 4;
+        if (!rgba)
+        {
+            upload = SDL_ConvertSurface(tex, SDL_PIXELFORMAT_RGBA8888);
+            rgba = true;
+        }
+        sr_MetalUploadTexture(tint_, upload->pixels, upload->w, upload->h, rgba);
+        if (upload != tex)
+            SDL_DestroySurface(upload);
+        return;
+    }
+
+#ifndef GL_CLAMP_TO_EDGE
+// GL_CLAMP_TO_EDGE was observed undefined in Windows; should be the same as GL_CLAMP.
+#define GL_CLAMP_TO_EDGE GL_CLAMP
+#endif
 
     if(repx_)
         glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT);
@@ -517,8 +490,6 @@ void rISurfaceTexture::Upload( rSurface & surface )
 
     gluBuild2DMipmaps(GL_TEXTURE_2D,format,tex->w,tex->h,
                       texformat,GL_UNSIGNED_BYTE,tex->pixels);
-
-    sr_UnlockSDL();
  #endif
 }
 
@@ -554,56 +525,59 @@ void rISurfaceTexture::OnSelect( bool enforce )
                 // don't generate textures inside display lists
                 rDisplayList::Cancel();
 
-                glGenTextures(1, &tint_);
-                glBindTexture(GL_TEXTURE_2D,tint_);
+                if (sr_UsingMetalBackend())
+                {
+                    if (!tint_)
+                        tint_ = sr_metalNextTexId++;
+                }
+                else
+                    glGenTextures(1, &tint_);
+
+                sr_metal_glBindTexture(GL_TEXTURE_2D, tint_);
 
                 if (textureModeLast_<0)
                 {
                     // delegate core loading work to derived class
-                    OnSelectCore();
+                    OnSelect();
                 }
 
-                //glEnable(GL_TEXTURE);
-                glEnable(GL_TEXTURE_2D);
-
-                glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,
-                                texmod);
-
-                switch(texmod)
-                {
-                case GL_NEAREST:
-                case GL_NEAREST_MIPMAP_NEAREST:
-                    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,
-                                    GL_NEAREST);
-                    break;
-                default:
-                    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,
-                                    GL_LINEAR);
-                    break;
-                }
-
+                if (texmod>0)
+                    sr_metal_glEnable(GL_TEXTURE_2D);
+                else
+                    sr_metal_glDisable(GL_TEXTURE_2D);
             }
             else
             {
-                glDisable(GL_TEXTURE_2D);
+                sr_metal_glDisable(GL_TEXTURE_2D);
             }
         }
         else
         {
-            glBindTexture(GL_TEXTURE_2D,tint_);
+            sr_metal_glBindTexture(GL_TEXTURE_2D, tint_);
             if (texmod>0)
-            {
-                glEnable(GL_TEXTURE_2D);
-            }
+                sr_metal_glEnable(GL_TEXTURE_2D);
             else
-            {
-                glDisable(GL_TEXTURE_2D);
-            }
+                sr_metal_glDisable(GL_TEXTURE_2D);
         }
         textureModeLast_=texmod;
     }
     rITexture::OnSelect(enforce);
 #endif
+}
+
+// ******************************************************************************************
+// *
+// * OnSelect
+// *
+// ******************************************************************************************
+//!
+//!  In derived classes, this routine is supposed to do the work of loading the texture
+//!  into memory and using the Upload() function to upload it to OpenGL.
+//!
+// ******************************************************************************************
+
+void rISurfaceTexture::OnSelect()
+{
 }
 
 // ******************************************************************************************
@@ -622,8 +596,10 @@ void rISurfaceTexture::OnUnload( void )
     {
         rDisplayList::ClearAll();
 
-        // std::cerr << "unloading texture " << fileName << ':' << tint_ << "\n";
-        glDeleteTextures(1,&tint_);
+        if (sr_UsingMetalBackend())
+            sr_MetalDeleteTexture(tint_);
+        else
+            glDeleteTextures(1,&tint_);
         tint_ = 0;
     }
 
@@ -681,14 +657,14 @@ rFileTexture::~rFileTexture( void )
 
 // ******************************************************************************************
 // *
-// *	OnSelectCore
+// *	OnSelect
 // *
 // ******************************************************************************************
 //!
 //!
 // ******************************************************************************************
 
-void rFileTexture::OnSelectCore()
+void rFileTexture::OnSelect()
 {
 #ifndef DEDICATED
     // std::cerr << "loading texture " << fileName_ << "\n";
@@ -701,6 +677,7 @@ void rFileTexture::OnSelectCore()
     {
         throw tGenericException( tOutput( "$texture_error_filenotfound", fileName_ ), tOutput("$texture_error_filenotfound_title") );
     }
+    rISurfaceTexture::OnSelect();
 #endif
 }
 
@@ -739,14 +716,14 @@ rSurfaceTexture::~rSurfaceTexture( void )
 
 // ******************************************************************************************
 // *
-// *	OnSelectCore
+// *	OnSelect
 // *
 // ******************************************************************************************
 //!
 //!
 // ******************************************************************************************
 
-void rSurfaceTexture::OnSelectCore()
+void rSurfaceTexture::OnSelect()
 {
 #ifndef DEDICATED
     // upload a copy of the surface ( it may get modified )
@@ -754,6 +731,7 @@ void rSurfaceTexture::OnSelectCore()
     {
         rSurface copy( surface_ );
         this->Upload( copy );
+        rISurfaceTexture::OnSelect();
     }
 #endif
 }

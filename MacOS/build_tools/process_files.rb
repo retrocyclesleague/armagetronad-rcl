@@ -85,7 +85,7 @@ module BuildTools
     
     # Determine if the source is checked out from CVS or it is a Release source
     def determine_source_kind
-      if FileTest.directory?("#{TOP_LEVEL}/.svn") || FileTest.directory?("#{TOP_LEVEL}/.bzr")
+      if FileTest.directory?("#{TOP_LEVEL}/.svn") || FileTest.directory?("#{TOP_LEVEL}/.bzr") || FileTest.directory?("#{TOP_LEVEL}/.git")
         @build_information[:kind] = "CVS"
       else
         @build_information[:kind] = "Release"
@@ -130,7 +130,7 @@ module BuildTools
       @files.each do |file|
         puts "Processing #{file[:file]}"
         file[:file] = self.process_in_file(file[:file]) if file.has_key?(:in) and file[:in]
-        file[:tags].each { |tag| self.replace_tag(file[:file], tag, @build_information[tag.to_sym]) } if file.has_key?(:tags)
+        Array(file[:tags]).each { |tag| self.replace_tag(file[:file], tag, @build_information[tag.to_sym]) } if file.has_key?(:tags)
       end      
     end
   end

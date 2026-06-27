@@ -95,7 +95,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #ifndef DEDICATED
 #include "rSDL.h"
-#include <SDL_thread.h>
+#include <SDL3/SDL_thread.h>
 
 #ifdef DEBUG
 #ifndef WIN32
@@ -2633,13 +2633,13 @@ void net_options(){
     uMenuItemInt out_rate
     (&net_menu,"$network_opts_outrate_text",
      "$network_opts_outrate_help",
-     sn_maxRateOut,2,32);
+     sn_maxRateOut,2,16384);
 
 
     uMenuItemInt in_rate
     (&net_menu,"$network_opts_inrate_text",
      "$network_opts_inrate_help",
-     sn_maxRateIn,3,64);
+     sn_maxRateIn,3,16384);
 
 
     uMenuItemToggle po2
@@ -2700,23 +2700,6 @@ void sg_HostGameMenu(){
     sg_HostMenu = NULL;
 }
 
-#ifndef DEDICATED
-class gNetIdler: public rSysDep::rNetIdler
-{
-public:
-    virtual bool Wait() //!< wait for something to do, return true if there is work
-    {
-        return sn_BasicNetworkSystem.Select( 0.1 );
-    }
-    virtual void Do()  //!< do the work.
-    {
-        tAdvanceFrame();
-        sg_Receive();
-        sn_SendPlanned();
-    }
-};
-#endif
-
 void net_game(){
 #ifndef DEDICATED
     uMenu net_menu("$network_menu_text");
@@ -2755,10 +2738,7 @@ void net_game(){
     (&net_menu,"$network_menu_internet_text",
      "$network_menu_internet_help",&gServerBrowser::BrowseMaster);
 
-    gNetIdler idler;
-    // rSysDep::StartNetSyncThread( &idler );
     net_menu.Enter();
-    rSysDep::StopNetSyncThread();
 #endif
 }
 
@@ -2997,7 +2977,7 @@ void MainMenu(bool ingame){
         se_UserShowScores( false );
     }
 
-    gLogo::SetDisplayed(true);
+    gLogo::SetDisplayed(!ingame);
 
     tOutput gametitle;
     if (!ingame)
@@ -5372,10 +5352,10 @@ bool gGame::GameLoop(bool input){
 
             if (!su_HandleEvent(tEvent, false))
                 switch (tEvent.type){
-                case SDL_MOUSEBUTTONDOWN:
+                case SDL_EVENT_MOUSE_BUTTON_DOWN:
                     break;
-                case SDL_KEYDOWN:
-                    switch (tEvent.key.keysym.sym){
+                case SDL_EVENT_KEY_DOWN:
+                    switch (tEvent.key.key){
 
                     case(27):
                                     //                                case('q'):

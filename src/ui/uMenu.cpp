@@ -28,6 +28,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "tSysTime.h"
 #include "uMenu.h"
+#include "uRclTheme.h"
 #include "rSysdep.h"
 #include "rScreen.h"
 #include "rViewport.h"
@@ -58,7 +59,7 @@ bool uMenu::exitToMain=false;
 
 #ifdef SLOPPYLOCALE
 uMenu::uMenu(const char *t="",bool exit_item)
-        :exitFlag(0),spaceBelow(.4),title(t){
+        :exitFlag(0),spaceBelow(.4),title(t),rclLayout_(uRclLayout_Off){
     if (exit_item) new uMenuItemExit(this);
     center=0;
     menuTop=.7;
@@ -69,7 +70,7 @@ uMenu::uMenu(const char *t="",bool exit_item)
 #endif
 
 uMenu::uMenu(const tOutput &t,bool exit_item)
-        :exitFlag(0),spaceBelow(.4),title(t){
+        :exitFlag(0),spaceBelow(.4),title(t),rclLayout_(uRclLayout_Off){
     if (exit_item) new uMenuItemExit(this);
     center=0;
     menuTop=.7;
@@ -107,10 +108,24 @@ static REAL titlefac=1.2;
 #endif
 int menuentries=0;
 
-REAL uMenu::YPos(int num){
-    return yOffset-text_height*(menuentries-num);
-}
+#ifndef DEDICATED
+static bool menu_saved_relative_mouse = false;
 
+static void MenuScreenToNormalized( float px, float py, REAL & mx, REAL & my )
+{
+    mx = 2.0f * px / sr_screenWidth - 1.0f;
+    my = 1.0f - 2.0f * py / sr_screenHeight;
+}
+#endif
+
+REAL uMenu::YPos(int num){
+#ifndef DEDICATED
+    REAL h = RclTheme() ? uRclTheme::TextH() : text_height;
+#else
+    REAL h = text_height;
+#endif
+    return yOffset-h*(menuentries-num);
+}
 
 static inline void arrow(REAL x,REAL y,REAL dy,REAL size){
 #ifndef DEDICATED
@@ -144,6 +159,109 @@ bool uMenu::MenuActive()
 static rNoAutoDisplayAtNewlineCallback su_noNewline( uMenu::MenuActive );
 // static rSmallConsoleCallback su_smallConsole( su_InMenu );
 
+#ifndef DEDICATED
+int uMenu::ShortcutForItem(int itemIndex) const
+{
+    const int sk = items.Len() - itemIndex;
+    return ( sk >= 1 && sk <= 9 ) ? sk : 0;
+}
+
+int uMenu::ItemAt(REAL mx, REAL my)
+{
+    REAL rowHalf = RclTheme() ? uRclTheme::RowHalfH() : text_height * 0.55f;
+    REAL left = RclTheme() ? uRclTheme::MenuLeft() : -0.95f;
+    REAL right = RclTheme() ? uRclTheme::MenuRight() : 0.95f;
+
+    (void)rowHalf;
+    if ( mx < left || mx > right )
+        return -1;
+
+    int best = -1;
+    REAL bestDist = 1e9f;
+    for ( int i = 0; i < items.Len(); ++i )
+    {
+        const REAL cy = ItemDrawY( i );
+        const REAL dist = fabsf( my - cy );
+        if ( dist < bestDist )
+        {
+            bestDist = dist;
+            best = i;
+        }
+    }
+
+    if ( best < 0 || bestDist > ItemRowHalf( best ) )
+        return -1;
+    return best;
+}
+
+REAL uMenu::ItemDrawY(int itemIndex)
+{
+    return YPos( itemIndex );
+}
+
+REAL uMenu::ItemRowHalf(int itemIndex)
+{
+    (void)itemIndex;
+    REAL h = RclTheme() ? uRclTheme::TextH() : text_height;
+    // Row pitch is h (YPos spacing); stay inside so adjacent rows don't overlap.
+    return h * 0.48f;
+}
+
+REAL uMenu::ShortcutGutterX() const
+{
+    if ( RclTheme() )
+        return uRclTheme::MenuLeft() - 0.07f;
+    return -0.90f * rTextField::AspectWidthMultiplier();
+}
+
+void uMenu::DrawItemShortcut(REAL y, int shortcutNum, REAL alpha)
+{
+    if ( shortcutNum < 1 || shortcutNum > 9 )
+        return;
+
+    tString label;
+    label << "[" << shortcutNum << "]";
+
+    const REAL w = text_width * 0.52f * rTextField::AspectWidthMultiplier();
+    const REAL h = text_height * 0.72f;
+
+    rTextField::SetDefaultColor( tColor( 0.5f, 0.55f, 0.65f, alpha ) );
+    rTextField::SetBlendColor( tColor( 1, 1, 1, alpha ) );
+    ::DisplayText( ShortcutGutterX(), y, w, h, label, -1 );
+}
+
+void uMenu::ActivateSelected()
+{
+    s_globalRepeat = false;
+    try
+    {
+        su_inMenu = false;
+        items[selected]->Enter();
+    }
+    catch ( tException const & e )
+    {
+        uMenu::SetIdle(NULL);
+        tConsole::Message( e.GetName(), e.GetDescription(), 20 );
+    }
+#ifdef _MSC_VER
+#pragma warning ( disable : 4286 )
+    catch ( tGenericException const & e )
+    {
+        try
+        {
+            tConsole::Message( e.GetName(), e.GetDescription(), 20 );
+        }
+        catch (...)
+        {
+        }
+    }
+#endif
+    su_inMenu = true;
+    s_globalRepeat = false;
+    lastkey = tSysTimeFloat();
+}
+#endif
+
 void uMenu::OnEnter(){
 #ifndef DEDICATED
     bool localRepeat = false;
@@ -163,6 +281,15 @@ void uMenu::OnEnter(){
     uCallbackMenuEnter::MenuEnter();
     su_inMenu = true;
 
+#ifndef DEDICATED
+    if ( sr_window )
+    {
+        menu_saved_relative_mouse = SDL_GetWindowRelativeMouseMode( sr_window );
+        SDL_SetWindowRelativeMouseMode( sr_window, false );
+        SDL_ShowCursor();
+    }
+#endif
+
     if (items.Len()<=0)
         return;
 
@@ -173,12 +300,22 @@ void uMenu::OnEnter(){
     bool snapScroll = false;
 
 #ifndef DEDICATED
-    lastkey=tSysTimeFloat();
-    static const REAL timeout=0;
+    REAL savedMenuTop = menuTop;
+    REAL savedMenuBot = menuBot;
+    REAL savedCenter = center;
+    if ( RclTheme() )
+    {
+        menuTop = ( rclLayout_ == uRclLayout_Full ) ? uRclTheme::FullMenuTop() : uRclTheme::MenuTop();
+        menuBot = ( rclLayout_ == uRclLayout_Full ) ? uRclTheme::FullMenuBot() : uRclTheme::MenuBot();
+        center = uRclTheme::MenuLabelX();
+        yOffset = menuTop;
+    }
 #endif
 
-    // inverted logic (0 = last item! prev(0) = top most item)
-    selected = GetPrevSelectable(0);
+#ifndef DEDICATED
+    lastkey=tSysTimeFloat();
+    static const REAL timeout=.5;
+#endif
 
     while (!exitFlag && !quickexit && !exitToMain){
         st_DoToDo();
@@ -232,8 +369,8 @@ void uMenu::OnEnter(){
 
                 switch (tEvent.type)
                 {
-                case SDL_KEYDOWN:
-                    if ( tEvent.key.keysym.sym == SDLK_UNKNOWN )
+                case SDL_EVENT_KEY_DOWN:
+                    if ( tEvent.key.key == SDLK_UNKNOWN )
                     {
                         // don't repeat unknown syms. They come from multi-key compositions and
                         // don't send keyup events when released.
@@ -243,7 +380,7 @@ void uMenu::OnEnter(){
                     memcpy( &tEventRepeat, &tEvent, sizeof( SDL_Event ) );
                     nextrepeat = tSysTimeFloat() + repeatdelay;
                     break;
-                case SDL_KEYUP:
+                case SDL_EVENT_KEY_UP:
                     localRepeat = s_globalRepeat = false;
                     repeatrate = repeatrateStart;
                     break;
@@ -319,31 +456,74 @@ void uMenu::OnEnter(){
 
 #ifndef DEDICATED
         sr_ResetRenderState(true);
-        items[selected]->RenderBackground();
+        if ( RclTheme() )
+        {
+            if ( rclLayout_ == uRclLayout_Full )
+            {
+                uRclTheme::DrawBackground();
+                uRclTheme::DrawFullChrome();
+            }
+            else
+            {
+                if ( idle )
+                    GenericBackground();
+                else
+                    uRclTheme::DrawBackground();
+                uRclTheme::DrawGridOverlay( .25f );
+                uRclTheme::DrawCornerPluses( uRclTheme::MenuLeft(), uRclTheme::MenuRight(),
+                                             menuBot - .04f, menuTop + .06f );
+                uRclTheme::DrawHeaderTitle( tString( title ) );
+            }
+        }
+        else
+        {
+            items[selected]->RenderBackground();
+        }
 
         if (selected >= items.Len()) selected = items.Len()-1;
         if (items.Len() <= 0)
             return;
 
         if (sr_glOut && !exitFlag && !quickexit){
-            items[selected]->Render(center,YPos(selected),1,true);
-
-            for (int i=items.Len()-1;i>=0;i--)
-                if (i!=selected){
-                    REAL y=YPos(i);
-                    REAL alpha=1;
-                    const REAL b=.1;
-                    if (y<menuBot+b)
-                        alpha=(y-menuBot)/b;
-                    if (y>menuTop-b)
-                        alpha=(menuTop-y)/b;
-                    if (y>menuBot && y<menuTop)
+            if ( RclTheme() )
+            {
+                for ( int i = items.Len() - 1; i >= 0; --i )
+                {
+                    REAL y = YPos(i);
+                    if ( y <= menuBot + .1 || y >= menuTop - .1 )
+                        continue;
+                    bool sel = ( i == selected );
+                    if ( sel )
+                        uRclTheme::DrawBracketSelection( uRclTheme::MenuLeft() + .01f,
+                                                         uRclTheme::MenuRight(),
+                                                         y );
+                    items[i]->Render( uRclTheme::MenuLabelX(), y, 1, sel );
+                    if ( ShowItemShortcuts() )
+                        DrawItemShortcut( y, ShortcutForItem( i ), 1 );
+                    if ( uRclTheme::ShowInlineDesc( sel ) )
                     {
-                        rTextField::SetDefaultColor( tColor(1,1,1,1) );
-                        rTextField::SetBlendColor( tColor(1,1,1,1) );
-                        items[i]->Render(center,y,alpha,false);
+                        tString desc = uRclTheme::FirstLine( items[i]->Help() );
+                        if ( desc.Len() > 0 && items[i]->SpaceRight() <= 0 )
+                            uRclTheme::DrawDesc( uRclTheme::MenuDescX(), y, desc, sel, 1 );
                     }
                 }
+                disphelp = false;
+            }
+            else
+            {
+            for ( int i = items.Len() - 1; i >= 0; --i )
+            {
+                REAL y = YPos(i);
+                if ( y <= menuBot + .1 || y >= menuTop - .1 )
+                    continue;
+                REAL alpha = 1;
+                if ( i == selected )
+                    items[i]->Render( center, y, 1, true );
+                else
+                    items[i]->Render( center, y, alpha, false );
+                if ( ShowItemShortcuts() )
+                    DrawItemShortcut( y, ShortcutForItem( i ), alpha );
+            }
 
             rTextField::SetDefaultColor( tColor(1,1,1,1) );
             rTextField::SetBlendColor( tColor(1,1,1,1) );
@@ -354,7 +534,6 @@ void uMenu::OnEnter(){
                           title,0);
 
             glDisable(GL_TEXTURE_2D);
-            //glDisable(GL_TEXTURE);
             Color(1,.2,.2,.5);
             if (YPos(0)<menuBot+smallborder && (int(tSysTimeFloat()))%2)
                 arrow(.9,menuBot+.1,-1,.05);
@@ -366,13 +545,21 @@ void uMenu::OnEnter(){
             {
                 helpAlpha = 1;
             }
-
+            
             disphelp = helpAlpha > 0;
             if ( items[selected]->DisplayHelp( disphelp, menuBot, helpAlpha ) )
             {
+                if (sr_alphaBlend)
+                    glColor4f(1,.8,.8, helpAlpha );
+                else
+                    Color(helpAlpha,
+                          .8*helpAlpha,
+                          .8*helpAlpha);
+
                 rTextField c(-.95f,menuBot-.04f,rCWIDTH_NORMAL*rTextField::AspectWidthMultiplier());
                 c.SetWidth(static_cast<int>((1.9f-items[selected]->SpaceRight())/c.GetCWidth()));
                 c << items[selected]->Help();
+            }
             }
         }
         else
@@ -390,8 +577,27 @@ void uMenu::OnEnter(){
 
     s_globalRepeat = false;
 
+#ifndef DEDICATED
+    if ( sr_window )
+    {
+        if ( menu_saved_relative_mouse )
+            SDL_SetWindowRelativeMouseMode( sr_window, true );
+        else
+            SDL_HideCursor();
+    }
+#endif
+
     uCallbackMenuLeave::MenuLeave();
     su_inMenu = false;
+
+#ifndef DEDICATED
+    if ( RclTheme() )
+    {
+        menuTop = savedMenuTop;
+        menuBot = savedMenuBot;
+        center = savedCenter;
+    }
+#endif
 }
 
 void uMenu::HandleEvent( SDL_Event event )
@@ -399,12 +605,58 @@ void uMenu::HandleEvent( SDL_Event event )
 #ifndef DEDICATED
     if (!items[selected]->Event(event))
     {
+        switch ( event.type )
+        {
+        case SDL_EVENT_MOUSE_MOTION:
+        {
+            REAL mx, my;
+            MenuScreenToNormalized( event.motion.x, event.motion.y, mx, my );
+            int hit = ItemAt( mx, my );
+            if ( hit >= 0 && selected != hit )
+            {
+                selected = hit;
+                items[selected]->DisplayHelp( false, 0, 0.0f );
+            }
+            return;
+        }
+        case SDL_EVENT_MOUSE_BUTTON_DOWN:
+            if ( event.button.button == 1 )
+            {
+                REAL mx, my;
+                MenuScreenToNormalized( event.button.x, event.button.y, mx, my );
+                int hit = ItemAt( mx, my );
+                if ( hit >= 0 )
+                {
+                    selected = hit;
+                    ActivateSelected();
+                }
+            }
+            return;
+        default:
+            break;
+        }
+
+        if ( event.type == SDL_EVENT_KEY_DOWN &&
+             event.key.key >= SDLK_1 && event.key.key <= SDLK_9 )
+        {
+            if ( !disphelp )
+                lastkey = tSysTimeFloat();
+            int num = event.key.key - SDLK_1 + 1;
+            int idx = items.Len() - num;
+            if ( idx >= 0 && idx < items.Len() )
+            {
+                selected = idx;
+                ActivateSelected();
+            }
+            return;
+        }
+
         switch (event.type){
-        case SDL_KEYDOWN:
+        case SDL_EVENT_KEY_DOWN:
         {
             if (!disphelp)
                 lastkey=tSysTimeFloat();
-            switch (event.key.keysym.sym){
+            switch (event.key.key){
 
             case(SDLK_ESCAPE):
                 s_globalRepeat = false;
@@ -414,13 +666,27 @@ void uMenu::HandleEvent( SDL_Event event )
 
             case(SDLK_UP):
                 lastkey=tSysTimeFloat();
-                selected = GetNextSelectable(selected);
+                selected++;
+                if (selected>=items.Len())
+                {
+                    if (wrap)
+                        selected=0;
+                    else
+                        selected=items.Len()-1;
+                }
                 items[selected]->DisplayHelp(false, 0, 0.0f);
                 break;
 
             case(SDLK_DOWN):
                 lastkey=tSysTimeFloat();
-                selected = GetPrevSelectable(selected);
+                selected--;
+                if (selected<0)
+                {
+                    if (wrap)
+                        selected=items.Len()-1;
+                    else
+                        selected=0;
+                }
                 items[selected]->DisplayHelp(false, 0, 0.0f);
                 break;
 
@@ -435,36 +701,7 @@ void uMenu::HandleEvent( SDL_Event event )
                         case(SDLK_KP_ENTER):
                             case(SDLK_RETURN):
                                     s_globalRepeat = false;
-                try
-        {
-                    su_inMenu = false;
-                    items[selected]->Enter();
-                }
-                catch (tException const & e)
-                {
-                    uMenu::SetIdle(NULL);
-
-                    // inform user of generic errors
-                    tConsole::Message( e.GetName(), e.GetDescription(), 20 );
-                }
-#ifdef _MSC_VER
-#pragma warning ( disable : 4286 )
-                // GRR. Visual C++ dones not handle generic exceptions with the above general statement.
-                // A specialized version is needed. The best part: it warns about the code below being redundant.
-                catch ( tGenericException const & e )
-                {
-                    try
-                    {
-                        tConsole::Message( e.GetName(), e.GetDescription(), 20 );
-                    }
-                    catch (...)
-                    {
-                    }
-                }
-#endif
-
-                su_inMenu = true;
-
+                ActivateSelected();
                 s_globalRepeat = false;
                 lastkey=tSysTimeFloat();
                 break;
@@ -485,48 +722,6 @@ void uMenu::HandleEvent( SDL_Event event )
 
     su_inMenu = true;
 #endif
-}
-
-int uMenu::GetPrevSelectable(int start)
-{
-    int prev = start-1;
-    while (prev!=start)
-    {
-        if (prev<0)
-        {
-            if (wrap)
-                prev = items.Len()-1;
-            else
-                break;
-        }
-        if (items[prev]->IsSelectable())
-        {
-            return prev;
-        }
-        prev--;
-    }
-    return -1;
-}
-
-int uMenu::GetNextSelectable(int start)
-{
-    int next = start+1;
-    while (next!=start)
-    {
-        if (next>=items.Len())
-        {
-            if (this->wrap)
-                next = 0;
-            else
-                break;
-        }
-        if (items[next]->IsSelectable())
-        {
-            return next;
-        }
-        next++;
-    }
-    return -1;
 }
 
 #ifndef DEDICATED
@@ -552,7 +747,7 @@ void uMenu::GenericBackground(REAL top){
             }
 
             // fade everything rendered so far to black
-            if( sr_alphaBlend && sr_chatLayer > 0 )
+            if( sr_alphaBlend )
             {
                 sr_ResetRenderState(true);
 
@@ -567,7 +762,7 @@ void uMenu::GenericBackground(REAL top){
                 else
                 {
                     alpha += timePassed;
-                    REAL limit = sr_chatLayer;
+                    static const REAL limit = .5;
 
                     if( alpha > limit )
                     {
@@ -625,6 +820,16 @@ void uMenu::OnRender()
 
 void uMenuItem::SetColor( bool selected, REAL alpha )
 {
+    if ( menu->RclTheme() )
+    {
+        if ( selected )
+            rTextField::SetDefaultColor( tColor( 1, 1, 0, alpha ) );
+        else
+            rTextField::SetDefaultColor( tColor( .92f, .92f, .92f, alpha ) );
+        rTextField::SetBlendColor( tColor( 1, 1, 1, alpha ) );
+        return;
+    }
+
     //   rTextField::SetBlendColor( tColor(.8+.2*sin(time),.3-.1*sin(time),.3-.1*sin(time),alpha) );
     rTextField::SetDefaultColor( tColor(1,1,1,alpha) );
 
@@ -644,28 +849,20 @@ void uMenuItem::DisplayText(REAL x,REAL y,const char *text,
     if (sr_glOut){
         SetColor( selected, alpha );
 
-        REAL tw = text_width;
-        REAL th = text_height;
-        
-        //aspect ratio correction
+        REAL tw = menu->RclTheme() ? uRclTheme::TextW() : text_width;
+        REAL th = menu->RclTheme() ? uRclTheme::TextH() : text_height;
+
         tw *= (REAL(sr_screenHeight)/sr_screenWidth)*(4.0/3.0);
 
-
-#if 0
-        // the function that is called takes care of that
-        REAL availw = 1.9f;
-        if (center < 0) availw = (.9f-x);
-        if (center > 0) availw = (x + .9f);
-
-        int len = strlen(text);
-        if (len * tw > availw)
+        if ( menu->RclTheme() )
         {
-            th *= availw/(len * tw);
-            tw  = availw/len;
+            ::DisplayText( x, y, tw, th, text, -1, 0, 0, rTextField::COLOR_IGNORE );
+            return;
         }
-#endif
 
-        ::DisplayText(x,y,tw,th,text,center,c,cp, colorMode );
+        int align = center;
+
+        ::DisplayText(x,y,tw,th,text,align,c,cp, colorMode );
     }
 #endif
 }
@@ -673,14 +870,15 @@ void uMenuItem::DisplayText(REAL x,REAL y,const char *text,
 void uMenuItem::DisplayTextSpecial(REAL x,REAL y,const char *text,
                                    bool selected,
                                    REAL alpha,int center){
-    /*
-     if(selected)
-       glColor3f(.9,.3,.3);
-     else
-       glColor3f(.7,.7,1);
-
-     ::DisplayText(x,y,text_width,text_height,text,center);
-     */
+#ifndef DEDICATED
+    if ( menu->RclTheme() )
+    {
+        tString label;
+        label << "> " << text;
+        DisplayText( x, y, label, selected, alpha, center ? center : 1 );
+        return;
+    }
+#endif
 
     DisplayText(x,y,text,selected,alpha,center);
 }
@@ -856,79 +1054,103 @@ void uMenuItemString::Render(REAL x,REAL y,
 
 bool uMenuItemString::Event(SDL_Event &e){
 #ifndef DEDICATED
-    if (e.type!=SDL_KEYDOWN)
+    if (e.type == SDL_EVENT_TEXT_INPUT)
+    {
+        bool inserted = false;
+        for (int i = 0; e.text.text[i] && content->Len() < maxLength_; ++i)
+        {
+            unsigned char c = static_cast<unsigned char>( e.text.text[i] );
+            if ( c < 32 )
+                continue;
+
+            for (int j=content->Len()-1;j>=cursorPos;j--)
+                (*content)[j+1]=(*content)[j];
+
+            (*content)[content->Len()-1]='\0';
+            (*content)[cursorPos]=c;
+            cursorPos++;
+            inserted = true;
+        }
+
+        if (cursorPos<0)    cursorPos=0;
+        if (cursorPos > content->Len()-1) cursorPos=content->Len()-1;
+        return inserted;
+    }
+
+    if (e.type!=SDL_EVENT_KEY_DOWN)
         return false;
+
     bool ret=true;
-    SDL_keysym &c=e.key.keysym;
-    SDLMod mod = c.mod;
-    bool moveWordLeft, moveWordRight, deleteWordLeft, deleteWordRight, moveBeginning, moveEnd, killForwards, pasteText;
-    moveWordLeft = moveWordRight = deleteWordLeft = deleteWordRight = moveBeginning = moveEnd = killForwards = pasteText = false;
+    auto & c = e.key;
+    SDL_Keymod mod = c.mod;
+    bool moveWordLeft, moveWordRight, deleteWordLeft, deleteWordRight, moveBeginning, moveEnd, killForwards, doPaste;
+    moveWordLeft = moveWordRight = deleteWordLeft = deleteWordRight = moveBeginning = moveEnd = killForwards = doPaste = false;
 
 #if defined (MACOSX)
     // For moving over/deleting words
-    if (mod & KMOD_ALT) {
-        if (c.sym == SDLK_LEFT) {
+    if (mod & SDL_KMOD_ALT) {
+        if (c.key == SDLK_LEFT) {
             moveWordLeft = true;
         }
-        else if (c.sym == SDLK_RIGHT) {
+        else if (c.key == SDLK_RIGHT) {
             moveWordRight = true;
         }
-        else if (c.sym == SDLK_DELETE) {
+        else if (c.key == SDLK_DELETE) {
             deleteWordRight = true;
         }
-        else if (c.sym == SDLK_BACKSPACE) {
+        else if (c.key == SDLK_BACKSPACE) {
             deleteWordLeft = true;
         }
     }
     // For moving to extremes of the line
-    else if (mod & KMOD_META) {
-        if (c.sym == SDLK_LEFT) {
+    else if (mod & SDL_KMOD_GUI) {
+        if (c.key == SDLK_LEFT) {
             moveBeginning = true;
         }
-        else if (c.sym == SDLK_RIGHT) {
+        else if (c.key == SDLK_RIGHT) {
             moveEnd = true;
         }
-        else if (c.sym == SDLK_v) {
-            pasteText = true;
+        else if (c.key == SDLK_V) {
+            doPaste = true;
         }
     }
     // Linux and Windows
 #else
     // Word operations
-    if (mod & KMOD_CTRL) {
-        if (c.sym == SDLK_LEFT) {
+    if (mod & SDL_KMOD_CTRL) {
+        if (c.key == SDLK_LEFT) {
             moveWordLeft = true;
         }
-        else if (c.sym == SDLK_RIGHT) {
+        else if (c.key == SDLK_RIGHT) {
             moveWordRight = true;
         }
-        else if (c.sym == SDLK_DELETE) {
+        else if (c.key == SDLK_DELETE) {
             deleteWordRight = true;
         }
-        else if (c.sym == SDLK_BACKSPACE) {
+        else if (c.key == SDLK_BACKSPACE) {
             deleteWordLeft = true;
         }
-        else if (c.sym == SDLK_v) {
-            pasteText = true;
-        }
     }
-    else if (c.sym == SDLK_HOME) {
+    else if (c.key == SDLK_HOME) {
         moveBeginning = true;
     }
-    else if (c.sym == SDLK_END) {
+    else if (c.key == SDLK_END) {
         moveEnd = true;
     }
 #endif
     // "bash" keys
-    if (mod & KMOD_CTRL) {
-        if (c.sym == SDLK_a) {
+    if (mod & SDL_KMOD_CTRL) {
+        if (c.key == SDLK_A) {
             moveBeginning = true;
         }
-        else if (c.sym == SDLK_e) {
+        else if (c.key == SDLK_E) {
             moveEnd = true;
         }
-        else if (c.sym == SDLK_k) {
+        else if (c.key == SDLK_K) {
             killForwards = true;
+        }
+        else if (c.key == SDLK_V) {
+            doPaste = true;
         }
     }
     // moveWordLeft = moveWordRight = deleteWordLeft = deleteWordRight = moveBeginning = moveEnd = killForwards
@@ -954,100 +1176,50 @@ bool uMenuItemString::Event(SDL_Event &e){
     else if (killForwards) {
         content->RemoveSubStr(cursorPos,content->Len()-1-cursorPos);
     }
-    else if (pasteText) {
-#ifndef WIN32
-        #ifdef MACOSX
-            #define CMD_CLIPBOARD_PASTE "pbpaste"
-        #else
-            #define CMD_CLIPBOARD_PASTE "xclip -selection clipboard -o"
-        #endif
-        std::unique_ptr<FILE, decltype(&pclose)> clip(popen(CMD_CLIPBOARD_PASTE, "r"), pclose);
-        if( clip )
-#else
-        if (OpenClipboard(0))
-#endif
-        {
-#ifdef WIN32
-            HANDLE hClipboardData = GetClipboardData(CF_TEXT);
-            char *pchData = (char*)GlobalLock(hClipboardData);
-            tString cData(pchData);
-#else
-            tString cData;
-            char buf[128];
-            while( std::fgets(buf, 128, clip.get()) )
-            {
-                cData << buf;
-            }
-            
-            cData = st_UTF8ToLatin1( cData );
-#endif
-
-            tString oContent(*content);
-            tString aContent = oContent.SubStr(0, cursorPos);
-            tString bContent = oContent.SubStr(cursorPos);
-
-            tString nContent = aContent + cData + bContent;
-
-            *content = nContent;
-            cursorPos += cData.Len()-1;
-
-#ifdef WIN32
-            GlobalUnlock(hClipboardData);
-            CloseClipboard();
-#endif
-        }
-    }
-    else if (c.sym == SDLK_LEFT) {
+    else if (c.key == SDLK_LEFT) {
         if (cursorPos > 0) {
             cursorPos--;
         }
     }
-    else if (c.sym == SDLK_RIGHT) {
+    else if (c.key == SDLK_RIGHT) {
         if (cursorPos < content->Len()-1) {
             cursorPos++;
         }
     }
-    else if (c.sym == SDLK_DELETE) {
+    else if (c.key == SDLK_DELETE) {
         if (cursorPos < content->Len()-1) {
             content->RemoveSubStr(cursorPos,1);
         }
     }
-    else if (c.sym == SDLK_BACKSPACE) {
+    else if (c.key == SDLK_BACKSPACE) {
         if (cursorPos > 0) {
             content->RemoveSubStr(cursorPos,-1);
             cursorPos--;
         }
     }
-    else if (c.sym == SDLK_KP_ENTER || c.sym == SDLK_RETURN) {
+    else if (c.key == SDLK_KP_ENTER || c.key == SDLK_RETURN) {
         ret = false;
-        //        c.sym = SDLK_DOWN;
+        //        c.key = SDLK_DOWN;
     }
-    else {
-        if (32 <= c.unicode  && c.unicode < 256)
-        {
-            ret=true;
-
-            int len;
-            if( dynamic_cast<uMenuItemColorLine *>(this) )
-                len = tColoredString::RemoveColors(*content).Len();
-            else
-                len = content->Len();
-            
-            // insert character if there is room
-            if (len < maxLength_)
-            {
-                for (int i = content->Len() - 1; i>= cursorPos; i--)
-                    (*content)[i+1]=(*content)[i];
-
-                // guarantee proper null termination
-                (*content)[content->Len()-1]='\0';
-                (*content)[cursorPos]=c.unicode;
+    else if (doPaste) {
+        char *clip = SDL_GetClipboardText();
+        if (clip) {
+            for (int i = 0; clip[i] && content->Len() < maxLength_; ++i) {
+                unsigned char ch = static_cast<unsigned char>(clip[i]);
+                if (ch < 32) continue;
+                for (int j = content->Len()-1; j >= cursorPos; j--)
+                    (*content)[j+1] = (*content)[j];
+                (*content)[content->Len()-1] = '\0';
+                (*content)[cursorPos] = ch;
                 cursorPos++;
             }
+            SDL_free(clip);
         }
-        else {
-            ret=false;
-        }
+    }
+    else {
+        // ponytail: text comes through SDL_EVENT_TEXT_INPUT in SDL2, consume text-like keydowns so they don't trigger binds
+        ret = !(mod & (SDL_KMOD_CTRL | SDL_KMOD_ALT | SDL_KMOD_GUI))
+              && (c.key == SDLK_UNKNOWN || (c.key >= SDLK_SPACE && c.key < SDLK_DELETE));
     }
 
     if (cursorPos<0)    cursorPos=0;
@@ -1058,9 +1230,6 @@ bool uMenuItemString::Event(SDL_Event &e){
     return false;
 #endif
 }
-
-// *****************************************************
-
 
 uMenuItemStringWithHistory::uMenuItemStringWithHistory(uMenu *M,const tOutput& desc, const tOutput& help,tString &c, int maxLength, std::deque<tString> &history, int limit ):
         uMenuItemString(M, desc,help,c, maxLength ),
@@ -1093,18 +1262,14 @@ uMenuItemStringWithHistory::~uMenuItemStringWithHistory()
         m_History.pop_back();
 }
 
-//! @param e the event to process
-/// @returns true if the event was handled, false if it wasn't
 bool uMenuItemStringWithHistory::Event(SDL_Event &e)
 {
     // flag indicating that the event was handled
     bool ret = false;
 #ifndef DEDICATED
-    SDLMod mod = e.key.keysym.mod;
-
-    if (e.type == SDL_KEYDOWN
-            && ((e.key.keysym.sym == SDLK_UP)
-                || (e.key.keysym.sym == SDLK_p && mod & KMOD_CTRL)))
+    if (e.type == SDL_EVENT_KEY_DOWN
+            && ((e.key.key == SDLK_UP)
+                || (e.key.key == SDLK_P && (e.key.mod & SDL_KMOD_CTRL))))
     {
         if (m_History.size() - 1 > m_HistoryPos)
         {
@@ -1118,9 +1283,9 @@ bool uMenuItemStringWithHistory::Event(SDL_Event &e)
 
         ret = true;
     }
-    else if (e.type == SDL_KEYDOWN
-             && ((e.key.keysym.sym == SDLK_DOWN)
-                 || (e.key.keysym.sym == SDLK_n && mod & KMOD_CTRL)))
+    else if (e.type == SDL_EVENT_KEY_DOWN
+             && ((e.key.key == SDLK_DOWN)
+                 || (e.key.key == SDLK_N && (e.key.mod & SDL_KMOD_CTRL))))
     {
         if (m_HistoryPos > 0)
         {
@@ -1279,20 +1444,18 @@ bool uMenu::IdleInput( bool processInput )
 #ifndef DEDICATED
     if( !processInput )
     {
-        sr_LockSDL();
         SDL_PumpEvents();
-        sr_UnlockSDL();
         return uMenu::quickexit != uMenu::QuickExit_Off;
     }
 
     SDL_Event event;
     uInputProcessGuard inputProcessGuard;
     while (!s_idleBackground && su_GetSDLInput(event))
-    {
+    {   
         switch (event.type)
         {
-        case SDL_KEYDOWN:
-            switch (event.key.keysym.sym)
+        case SDL_EVENT_KEY_DOWN:
+            switch (event.key.key)
             {
             case(SDLK_ESCAPE):
                 s_globalRepeat = false;
@@ -1301,11 +1464,11 @@ bool uMenu::IdleInput( bool processInput )
                 break;
             default:
                 break;
-            }
+            }   
         default:
             break;
         }
-    }
+    }   
 
     return uMenu::quickexit != uMenu::QuickExit_Off;
 #endif
@@ -1369,10 +1532,10 @@ bool uMenu::Message(const tOutput& message, const tOutput& interpretation, REAL 
         }
         while (  !quickexit &&
                  (to < 0 || tSysTimeFloat() < timeout)){
-            //while(  !quickexit && ( !su_GetSDLInput(tEvent) || tEvent.type!=SDL_KEYDOWN) &&
+            //while(  !quickexit && ( !su_GetSDLInput(tEvent) || tEvent.type!=SDL_EVENT_KEY_DOWN) &&
             //        (to < 0 || tSysTimeFloat() < timeout)){
-            if ( su_GetSDLInput(tEvent) && tEvent.type==SDL_KEYDOWN) {
-                switch (tEvent.key.keysym.sym) {
+            if ( su_GetSDLInput(tEvent) && tEvent.type==SDL_EVENT_KEY_DOWN) {
+                switch (tEvent.key.key) {
                 case SDLK_UP:
                     if (offset > 0)
                         offset -= 1;
@@ -1398,7 +1561,7 @@ bool uMenu::Message(const tOutput& message, const tOutput& interpretation, REAL 
                 GenericBackground();
 
                 //16*3/640.0, 32*3/480.0
-                REAL w=0.1*(REAL(sr_screenHeight)/sr_screenWidth),h=0.17;
+                REAL w=0.1*(REAL(sr_screenHeight)/sr_screenWidth),h=0.2;
 
                 //REAL middle=-.6;
 
@@ -1413,9 +1576,9 @@ bool uMenu::Message(const tOutput& message, const tOutput& interpretation, REAL 
                 Color(1,1,1);
                 DisplayText(0,.8,w,h, message);
 
-                //16/640.0, 32/480.0
+                //16/640.0
                 w = 1/30.0*(REAL(sr_screenHeight)/sr_screenWidth);
-                h = 0.06;
+                h = 32/480.0;
 
                 if (offset >= lines.size()) offset = lines.size() - 1;
                 {
@@ -1446,4 +1609,3 @@ bool uMenu::Message(const tOutput& message, const tOutput& interpretation, REAL 
 
     return ret;
 }
-

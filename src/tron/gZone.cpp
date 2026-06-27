@@ -118,7 +118,7 @@ REAL sg_cycleZonesApproach = 2000.0;
 static tSettingItem<REAL>sg_cycleZoneApprochConf("CYCLE_ZONES_APPROCH", sg_cycleZonesApproach);
 static tSettingItem<REAL>sg_cycleZoneApproachConf("CYCLE_ZONES_APPROACH", sg_cycleZonesApproach);
 
-static int sg_zoneSegments = 11;
+static int sg_zoneSegments = 22;
 static tSettingItem<int> sg_zoneSegmentsConf( "ZONE_SEGMENTS", sg_zoneSegments );
 
 static REAL sg_zoneSegLength = .5;
@@ -130,7 +130,7 @@ static tSettingItem<int> sg_zoneSegStepsConf( "ZONE_SEG_STEPS", sg_zoneSegSteps 
 static REAL sg_zoneBottom = 0.0f;
 static tSettingItem<REAL> sg_zoneBottomConf( "ZONE_BOTTOM", sg_zoneBottom );
 
-static REAL sg_zoneHeight = 5.0f;
+static REAL sg_zoneHeight = 2.0f;
 static tSettingItem<REAL> sg_zoneHeightConf( "ZONE_HEIGHT", sg_zoneHeight );
 
 // FIXME: allow more zone types in a more flexible system later
@@ -2063,7 +2063,7 @@ REAL gZone::Radius( void ) const
 
 
 // extra alpha blending factors
-static REAL sg_zoneAlpha = 1.0, sg_zoneAlphaServer = 1.0;
+static REAL sg_zoneAlpha = 0.2, sg_zoneAlphaServer = 0.2;
 static tSettingItem< REAL > sg_zoneAlphaConf( "ZONE_ALPHA", sg_zoneAlpha );
 static nSettingItem< REAL > sg_zoneAlphaConfServer( "ZONE_ALPHA_SERVER", sg_zoneAlphaServer );
 

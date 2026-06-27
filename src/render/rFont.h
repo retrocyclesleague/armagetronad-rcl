@@ -119,7 +119,7 @@ public:
     void SetLeft( REAL l ){
         top = l;
     }
-
+    
     REAL GetTop() const{
         return top;
     }

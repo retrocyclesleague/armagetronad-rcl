@@ -1,0 +1,13 @@
+-xc++
+-std=c++17
+-I.
+-Isrc
+-Isrc/tools
+-Isrc/engine
+-Isrc/network
+-Isrc/render
+-Isrc/tron
+-Isrc/ui
+-Isrc/thirdparty
+-Isrc/macosx
+-I/opt/homebrew/include

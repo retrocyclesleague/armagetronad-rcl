@@ -2562,6 +2562,8 @@ first_setup_leave_help      Don't change this.
 
 first_setup_keys            Controls:
 first_setup_keys_help       Select your startup keyboard layout here. It can be customized later, individual bindings can be changed. Select with cursor left and cursor right.
+first_setup_keys_rcl        RCL (S/D/F and J/K/L)
+first_setup_keys_rcl_help   Turn left with S, D or F; turn right with J, K or L. Space and down-arrow to brake; arrow keys for glance.
 first_setup_keys_cursor     Cursor Keys
 first_setup_keys_cursor_help Control your cycle with the cursor keys, bulk of keyboard used for camera control, special actions and the second player. Good for right handed people and our general recommendation.
 first_setup_keys_cursor_single     Cursor Keys, Single Player

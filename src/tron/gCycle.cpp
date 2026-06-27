@@ -266,7 +266,7 @@ void gTextureCycle::ProcessImage(SDL_Surface *im)
 {
 #ifndef DEDICATED
     // blend transparent texture parts with cycle color
-    tVERIFY(im->format->BytesPerPixel == 4);
+    tVERIFY(SDL_GetPixelFormatDetails(im->format)->bytes_per_pixel == 4);
     GLubyte R=int(color_.r*255);
     GLubyte G=int(color_.g*255);
     GLubyte B=int(color_.b*255);

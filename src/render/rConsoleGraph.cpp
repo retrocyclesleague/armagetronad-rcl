@@ -59,6 +59,7 @@ static void sr_ConsolePerFrame(){
 
 static rPerFrameTask console_pf(&sr_ConsolePerFrame);
 
+
 void rConsole::DisplayAtNewline(){
     bool sw=autoDisplayAtSwap;
     autoDisplayAtSwap=true;
@@ -78,9 +79,6 @@ static tConfItem<int> sr_columnsConf("CONSOLE_COLUMNS",sr_columns);
 
 static int sr_indent = 3;
 static tConfItem<int> sr_indentConf("CONSOLE_INDENT",sr_indent);
-
-float sr_chatLayer = 0.5;
-static tConfItem<float> sr_chatLayerConf("CHAT_LAYER",sr_chatLayer);
 
 namespace
 {
@@ -137,9 +135,7 @@ void rConsole::Render(){
     else
     {
         // show big font in its native pixel size
-        //rCHEIGHT_CON=31*2.0/H;
-        //nelg: with +ap's font, the narrower font was very noticeable. Tweaked below.
-        rCHEIGHT_CON=31*1.75/H;
+        rCHEIGHT_CON=31*2.0/H;
         rCWIDTH_CON=15*2.0/W;
 
         // but don't make it more than MAX_ROWS of text rows for the whole screen, more may be too small for hires small screens
@@ -163,7 +159,7 @@ void rConsole::Render(){
             rTextField::SetBlendColor(tColor(1,1,1,alpha));
 
             REAL space = 1.6;
-            REAL needed = rCWIDTH_CON * 4 * tColoredString::RemoveColorsLoose(sr_centerString).Len();
+            REAL needed = rCWIDTH_CON * 4 * tColoredString::RemoveColors(sr_centerString).Len();
             REAL fak = 1;
             if (needed > space)
                 fak = space/needed;
@@ -205,11 +201,11 @@ void rConsole::Render(){
 
             out.SetIndent(sr_indent);
 
-            if( sr_alphaBlend && sr_chatLayer > 0 && predictBottom < out.GetTop() )
+            if( sr_alphaBlend )
             {
                 RenderEnd();
-                glColor4f(0, 0, 0, sr_chatLayer);
-                glRectf(-1,predictBottom-.4*out.GetCHeight(),1,1);
+                glColor4f(0, 0, 0, .5f);
+                glRectf(-1,predictBottom,1,1);
             }
 
             int i;
@@ -230,7 +226,7 @@ void rConsole::Render(){
                 lastTimeout=Time;
                 currentTop+=(over+1)/2;
             }
-
+           
             // check for mispredictions of console height
             lastBottom = out.GetBottom();
             if( fabs(predictBottom - lastBottom) > .0001 )
@@ -269,7 +265,6 @@ bool rConsole::CenterDisplayActive()
 {
     return tSysTimeFloat() - center_fadetime < 1.5;
 }
-
 
 // passes ladderlog output to external scripts (do nothing here)
 void sr_InputForScripts( char const * input )

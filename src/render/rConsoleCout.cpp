@@ -88,7 +88,7 @@ public:
 
     rInputStream()
     {
-        descriptor_ =
+        descriptor_ = 
 #ifdef WIN32
         GetStdHandle(STD_INPUT_HANDLE);
 #else
@@ -201,9 +201,8 @@ private:
 };
 #endif
 
-
 void rConsole::DoCenterDisplay(const tString &s,REAL timeout,REAL r,REAL g,REAL b){
-    std::cout << tColoredString::RemoveColorsLoose(s) << '\n';
+    std::cout << tColoredString::RemoveColors(s) << '\n';
     DisplayAtNewline();
 }
 
@@ -223,7 +222,7 @@ static void sr_HandleSigCont( int signal )
 static void sr_HandleSigChild( int signal )
 {
     int stat;
-
+ 
     /*Kills all the zombie processes*/
     while(waitpid(-1, &stat, WNOHANG) > 0) {}
 }
@@ -414,7 +413,6 @@ bool rInputStream::HandleInput()
 void rConsole::DisplayAtNewline(){
 }
 
-
 #ifdef HAVE_UNISTD_H
 
 #define READ 0
@@ -470,7 +468,7 @@ static rScriptStream * sr_FindScriptStream( tString const & name )
             return script;
         }
     }
-
+    
     return NULL;
 }
 
@@ -501,9 +499,8 @@ private:
 class rEnvironment
 {
 public:
-
     rEnvironment()
-    :env_()
+        :env_()
     {
     }
     
@@ -550,7 +547,7 @@ static tAccessLevelSetter sr_scriptEnvALS( sr_scriptEnvConf, tAccessLevel_Owner 
 
 static void sr_SpawnScript( tString const & command )
 {
-    // yes, rincludes are the one bit where CASACL is forbidden. And Maps, which
+    // yes, rincludes are the one bit where CASACL is forbidden. And Maps, which 
     // are equivalent to RINCLUDES.
     // change that assumption and hopefully, the name of this
     // function will tip you off something needs to be changed here.
@@ -591,7 +588,7 @@ static void sr_SpawnScript( tString const & command )
             stream >> arg;
             arguments.data.Insert( arg );
         }
-
+        
         // FIXME show parsed arguments in this message
         con << "Launching external command \'" << script << "\'...\n";
 
@@ -621,8 +618,8 @@ static void sr_SpawnScript( tString const & command )
 
         rEnvironment env;
         tString newPath=
-        tDirectories::Data().GetPaths("/scripts:","/scripts:") +
-        tDirectories::Config().GetPaths(":",":") +
+        tDirectories::Data().GetPaths("/scripts:","/scripts:") + 
+        tDirectories::Config().GetPaths(":",":") + 
         getenv("PATH");
         env.Add( "PATH", newPath );
 
@@ -655,7 +652,7 @@ static void sr_SpawnScript( tString const & command )
                 // yeah, well, password storage. Not really an issue, unlikely to be
                 // set on the server anyway, the script can read the config directly
                 // just as well, but we don't want script authors ot freak out when they
-                // notice it in the environment.
+                // notice it in the environment. 
                 continue;
             }
 
@@ -679,7 +676,7 @@ static void sr_SpawnScriptCommand( std::istream & s )
 {
     tString command;
     command.ReadLine(s);
-
+    
     sr_SpawnScript( command );
 }
 
@@ -691,7 +688,7 @@ static void sr_RespawnScriptCommand( std::istream & s )
 {
     tString command;
     command.ReadLine(s);
-
+    
     if( !sr_FindScriptStream( command ) )
     {
         sr_SpawnScript( command );
@@ -720,7 +717,7 @@ static void sr_ForceRespawnScriptCommand( std::istream & s )
 {
     tString command;
     command.ReadLine(s);
-
+    
     sr_KillScript( command, false );
     sr_SpawnScript( command );
 }
@@ -733,33 +730,12 @@ static void sr_KillScriptCommand( std::istream & s )
 {
     tString command;
     command.ReadLine(s);
-
+    
     sr_KillScript( command );
 }
 
 static tConfItemFunc sr_killScript( "KILL_SCRIPT", sr_KillScriptCommand );
 static tAccessLevelSetter sr_killScriptALS( sr_killScript, tAccessLevel_Owner );
-
-void se_KillAllScripts()
-{
-    for( int i = sr_inputStreams.Len()-1; i >= 0; --i )
-    {
-        rScriptStream * script = dynamic_cast< rScriptStream * >( (rStream*)sr_inputStreams[i] );
-        if( script )
-        {
-            script->Close();
-        }
-    }
-}
-
-// kills all scripts
-static void sr_KillAllScriptsCommand( std::istream & s )
-{
-    se_KillAllScripts();
-}
-
-static tConfItemFunc sr_killAllScriptsConf( "KILL_ALL_SCRIPTS", sr_KillAllScriptsCommand );
-static tAccessLevelSetter sr_killScriptALLALS( sr_killAllScriptsConf, tAccessLevel_Owner );
 
 void sr_ListScriptsCommand( std::istream & s )
 {

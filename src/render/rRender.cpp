@@ -26,6 +26,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 
 #include "rRender.h"
+#include "rGraphicsBackend.h"
+#include "rMetalBackend.h"
+#include "rMatrixState.h"
 
 rRenderer *renderer;
 
@@ -77,6 +80,24 @@ void rRenderer::SetFlag(flag f, bool c)
 
 void rRenderer::ChangeFlags(int before, int after) const{
 
+}
+
+void sr_rendererInit()
+{
+#ifndef DEDICATED
+    if (sr_UsingMetalBackend())
+        sr_metalRendererInit();
+    else
+        sr_glRendererInit();
+#endif
+}
+
+void sr_rendererEndFrame()
+{
+#ifndef DEDICATED
+    if (renderer)
+        renderer->End( true );
+#endif
 }
 
 

@@ -432,7 +432,7 @@ void gWallRim::RenderReal(const eCamera *cam){
         }
 
         //eWall::Render_helper(edge,(p1->x+p1->y)/SCALE,(p2->x+p2->y)/SCALE,40,height);
-
+            
         if ( transparency )
             glEnable( GL_DEPTH_TEST );
     }
@@ -596,7 +596,7 @@ void sg_TopologyPoliceKill( gCycle* cycle )
         message << "$player_topologypolice";
         sn_ConsoleOut( message );
 
-        cycle->Kill("TOPOLOGY_POLICE");
+        cycle->Kill();
     }
 }
 
@@ -960,7 +960,7 @@ void gNetPlayerWall::RenderList(bool list, gWallRenderMode renderMode ){
             if ( bool(cycle_) && gCycle::WallsLength() > 0 )
             {
                 REAL denom = pa-pe;
-                if( denom > 0 )
+                if( denom >= 0 )
                 {
                     continue;
                 }
@@ -984,15 +984,25 @@ void gNetPlayerWall::RenderList(bool list, gWallRenderMode renderMode ){
                 }
                 else if( ta+gBEG_LEN_GIVEUP <= time )
                 {
-                    REAL denom = te - ta;
-                    if( denom <= 0 )
+                    // For completed walls the endpoint is fixed — render fully so the
+                    // corner joins cleanly with the next wall.  Only cut back the tip
+                    // on the live growing wall.
+                    if ( this != cycle_->currentWall )
                     {
-                        continue;
+                        RenderNormal(p1,p2,ta,te,r,g,b,a,renderMode);
                     }
+                    else
+                    {
+                        REAL denom = te - ta;
+                        if( denom <= 0 )
+                        {
+                            continue;
+                        }
 
-                    REAL s=((time-gBEG_LEN_GIVEUP)-ta)/denom;
-                    eCoord pm=p1+(p2-p1)*s;
-                    RenderNormal(p1,pm,ta,ta+(te-ta)*s,r,g,b,a,renderMode);
+                        REAL s=((time-gBEG_LEN_GIVEUP)-ta)/denom;
+                        eCoord pm=p1+(p2-p1)*s;
+                        RenderNormal(p1,pm,ta,ta+(te-ta)*s,r,g,b,a,renderMode);
+                    }
                 }
             }
             else if (te+gBEG_LEN<=time){
@@ -1125,15 +1135,15 @@ void gNetPlayerWall::RenderNormal(const eCoord &p1,const eCoord &p2,REAL ta,REAL
             glColor4f(r,g,b,1);
             glTexCoord2f(ta,hfrac);
             glVertex3f(p1.x,p1.y,extrarise);
-
+            
             glColor4f(r,g,b,1);
             glTexCoord2f(ta,0);
             glVertex3f(p1.x,p1.y,extrarise + h*hfrac);
-
+            
             glColor4f(r,g,b,1);
             glTexCoord2f(te,0);
             glVertex3f(p2.x,p2.y,extrarise + h*hfrac);
-
+            
             glColor4f(r,g,b,1);
             glTexCoord2f(te,hfrac);
             glVertex3f(p2.x,p2.y,extrarise);
@@ -1198,7 +1208,7 @@ void gNetPlayerWall::RenderBegin(const eCoord &p1,const eCoord &pp2,REAL ta,REAL
         !good(ta)   || !good(te) ||
         !good(h)   || !good(hfrac) ||
         !good(cycle_->dir.x)   || !good(cycle_->dir.y) ||
-        !good(cycle_->skew) ||
+        !good(cycle_->skew) || 
         !good(r)   || !good(g) || !good(b) || !good(a)
         )
     {
@@ -1217,7 +1227,7 @@ void gNetPlayerWall::RenderBegin(const eCoord &p1,const eCoord &pp2,REAL ta,REAL
 #define segs 5
 #define seginv (1/float(segs))
             BeginLineStrip();
-
+            
             // upperlinecolor(r,g,b,a);//a*afunc(rat));
 
             for (int i=0;i<=segs;i++){
@@ -2121,8 +2131,7 @@ bool gNetPlayerWall::ClearToTransmit(int user) const{
 #endif
 
     return GridIsReady(user) && nNetObject::ClearToTransmit(user)
-           && bool(this->cycle_) && this->cycle_->HasBeenTransmitted(user) && inGrid
-           && this->IsDangerousAnywhere( se_GameTime() - 1.f );
+           && bool(this->cycle_) && this->cycle_->HasBeenTransmitted(user) && inGrid;
 }
 
 void gNetPlayerWall::WriteSync(nMessage &m){

@@ -80,7 +80,7 @@ libengine_a_SOURCES=engine/eAdvWall.cpp engine/eAdvWall.h engine/eAuthentication
 	engine/eAuthentication.h engine/eAxis.cpp	engine/eAxis.h engine/eCamera.cpp engine/eCamera.h\
 	engine/eCoord.h engine/eDebugLine.cpp engine/eDebugLine.h engine/eDisplay.cpp engine/eFloor.cpp\
 	engine/eFloor.h \
-	engine/eKrawall.cpp engine/eKrawall.h engine/eNetGameObject.cpp engine/eNetGameObject.h\
+	engine/eNetGameObject.cpp engine/eNetGameObject.h\
 	engine/ePath.cpp engine/ePath.h engine/ePlayer.cpp engine/ePlayer.h engine/eSensor.cpp\
 	engine/eSensor.h engine/eSound.cpp engine/eSound.h engine/eTeam.cpp engine/eTeam.h engine/eTess2.h\
 	engine/eTimer.cpp engine/eTimer.h engine/eVoter.cpp engine/eVoter.h engine/eWall.cpp engine/eWall.h\
@@ -90,15 +90,14 @@ libengine_a_SOURCES=engine/eAdvWall.cpp engine/eAdvWall.h engine/eAuthentication
     engine/eBannedWords.cpp engine/eBannedWords.h
 
 if MACOSX
-# put extra Objective C files here, like so:
-#render_extra=render/rScreenHelper.h render/rScreenHelper.m
+# Metal .mm sources are built only via Xcode (MacOS/); autotools uses rMetalStub.cpp.
 render_extra=
 else
 render_extra=
 endif
 
 librender_a_SOURCES=${render_extra} render/rConsole.cpp render/rConsoleGraph.cpp render/rConsole.h render/rFont.cpp\
-	render/rFont.h render/rGL.h render/rGL.cpp render/rGLRender.cpp render/rModel.cpp render/rModel.h render/rRender.cpp\
+	render/rFont.h render/rGL.h render/rGL.cpp render/rGLRender.cpp render/rGraphicsBackend.cpp render/rGraphicsBackend.h render/rMatrixState.cpp render/rMatrixState.h render/rMetalStub.cpp render/rMetalBackend.h render/rMetalGLCompat.cpp render/rMetalGLCompat.h render/rModel.cpp render/rModel.h render/rRender.cpp\
     render/rDisplayList.h render/rDisplayList.cpp \
 	render/rRender.h render/rScreen.cpp render/rScreen.h render/rSDL.h render/rSysdep.cpp render/rSysdep.h\
 	render/rTexture.cpp render/rTexture.h render/rViewport.cpp render/rViewport.h
@@ -118,7 +117,7 @@ libtron_a_SOURCES=tron/gAIBase.cpp tron/gAIBase.h tron/gAICharacter.cpp tron/gAI
   tron/gHudMap.cpp tron/gHudMap.h\
   tron/gRace.h tron/gRace.cpp
 
-libui_a_SOURCES=ui/uInput.cpp ui/uInput.h ui/uInputQueue.cpp ui/uInputQueue.h ui/uMenu.cpp ui/uMenu.h
+libui_a_SOURCES=ui/uInput.cpp ui/uInput.h ui/uInputQueue.cpp ui/uInputQueue.h ui/uMenu.cpp ui/uMenu.h ui/uRclTheme.cpp ui/uRclTheme.h
 endif
 
 # library include dependency structure. Watch out, don't create circular include dependencies.
@@ -186,3 +185,13 @@ endif
 ## armagetronad is a C++ project.
 
 ## Note 2: Libraries must be listed in reverse dependency order.
+
+.PHONY: run
+run:
+	@bin="$(abs_srcdir)/armagetronad_main$(EXEEXT)"; \
+	if test ! -x "$$bin"; then bin="$(abs_srcdir)/armagetronad_main"; fi; \
+	if test ! -x "$$bin"; then \
+		echo "No game binary — run ./build-macos.sh from the repo root first."; \
+		exit 1; \
+	fi; \
+	cd "$(abs_top_srcdir)" && exec "$$bin"
