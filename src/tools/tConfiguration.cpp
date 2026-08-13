@@ -1233,7 +1233,7 @@ void tConfItemBase::LoadAll(std::ifstream &s, bool record )
 //! @param filename name of the file to open
 //! @param path     whether to look in var directory
 //! @return success flag
-bool tConfItemBase::OpenFile( std::ifstream & s, tString const & filename, SearchPath path )
+bool tConfItemBase::OpenFile( std::ifstream & s, tString const & filename, ConfigSearchPath path )
 {
     bool ret = ( ( path & Config ) && tDirectories::Config().Open(s, filename ) ) || ( ( path & Var ) && st_StringEndsWith(filename, ".cfg") && tDirectories::Var().Open(s, filename ) );
 

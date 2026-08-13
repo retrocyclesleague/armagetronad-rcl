@@ -298,14 +298,16 @@ public:
     static void DownloadConfig_To(tString file, int peer);
 
     // helper functions for files (use these, they manage recording and playback properly)
-    enum SearchPath
+    // Avoid the Win32 generic-name macro SearchPath, which expands to
+    // SearchPathA or SearchPathW depending on the including translation unit.
+    enum ConfigSearchPath
     {
         Config = 1,
         Var    = 2,
         All    = 3
     };
 
-    static bool OpenFile( std::ifstream & s, tString const & filename, SearchPath path ); //! opens a file stream for configuration reading
+    static bool OpenFile( std::ifstream & s, tString const & filename, ConfigSearchPath path ); //! opens a file stream for configuration reading
     static void ReadFile( std::ifstream & s ); //! loads configuration from a file
 
     virtual void ReadVal(std::istream &s)=0;
