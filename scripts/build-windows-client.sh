@@ -108,7 +108,10 @@ if ! test -f "${BUILD}/Makefile"; then
   )
 fi
 
-make -C "${BUILD}" -j"${JOBS}" all debug
+# The top-level all target regenerates command documentation by launching the
+# GUI client with --doc; that process does not terminate under MSYS2 CI.
+make -C "${BUILD}/src" -j"${JOBS}" armagetronad_main.exe
+make -C "${BUILD}/resource" included
 
 BIN=""
 for candidate in \
