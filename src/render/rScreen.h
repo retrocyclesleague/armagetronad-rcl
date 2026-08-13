@@ -95,7 +95,14 @@ extern rScreenSettings lastSuccess;
 struct SDL_Surface;
 extern SDL_Surface *sr_screen;
 
+// SDL 1.2 reports window/input coordinates in logical pixels. On a HiDPI
+// display, the OpenGL drawable can be larger; keep both so input and layout
+// remain stable while rendering uses every physical pixel.
 extern int sr_screenWidth,sr_screenHeight;
+extern int sr_renderWidth,sr_renderHeight;
+
+//! Refresh physical drawable dimensions after SDL creates a GL context.
+void sr_UpdateRenderDimensions();
 
 extern bool sr_alphaBlend;
 extern bool sr_screenshotIsPlanned;

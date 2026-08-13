@@ -276,20 +276,20 @@ static void SDL_SavePNG(SDL_Surface *image, tString filename){
 
     png_init_io(png_ptr, fp);
 
-    png_set_IHDR(png_ptr, info_ptr, sr_screenWidth, sr_screenHeight,
+    png_set_IHDR(png_ptr, info_ptr, image->w, image->h,
                  SCREENSHOT_PNG_BITDEPTH, PNG_COLOR_TYPE_RGB,
                  PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT,
                  PNG_FILTER_TYPE_DEFAULT);
     png_write_info(png_ptr, info_ptr);
 
     // get pointers
-    if(!(row_ptrs = (png_byte**) malloc(sr_screenHeight * sizeof(png_byte*)))) {
+    if(!(row_ptrs = (png_byte**) malloc(image->h * sizeof(png_byte*)))) {
         png_destroy_write_struct(&png_ptr, &info_ptr);
         return;
     }
 
-    for(i = 0; i < sr_screenHeight; i++) {
-        row_ptrs[i] = (png_byte *)image->pixels + (sr_screenHeight - i - 1)
+    for(i = 0; i < image->h; i++) {
+        row_ptrs[i] = (png_byte *)image->pixels + (image->h - i - 1)
                       * image->pitch;
     }
 
@@ -311,22 +311,22 @@ static void make_screenshot(){
     SDL_Surface *image;
     SDL_Surface *temp;
     int idx;
-    image = SDL_CreateRGBSurface(SDL_SWSURFACE, sr_screenWidth, sr_screenHeight,
+    image = SDL_CreateRGBSurface(SDL_SWSURFACE, sr_renderWidth, sr_renderHeight,
                                  24, 0x0000FF, 0x00FF00, 0xFF0000 ,0);
-    temp = SDL_CreateRGBSurface(SDL_SWSURFACE, sr_screenWidth, sr_screenHeight,
+    temp = SDL_CreateRGBSurface(SDL_SWSURFACE, sr_renderWidth, sr_renderHeight,
                                 24, 0x0000FF, 0x00FF00, 0xFF0000, 0);
 
     // make upside down screenshot
-    glReadPixels(0,0,sr_screenWidth, sr_screenHeight, GL_RGB,
+    glReadPixels(0,0,sr_renderWidth, sr_renderHeight, GL_RGB,
                  GL_UNSIGNED_BYTE, image->pixels);
 
     // turn image around
-    for (idx = 0; idx < sr_screenHeight; idx++)
+    for (idx = 0; idx < sr_renderHeight; idx++)
     {
         memcpy(reinterpret_cast<char *>(temp->pixels) + temp->pitch * idx,
                reinterpret_cast<char *>(image->pixels)
-               + image->pitch*(sr_screenHeight - idx-1),
-               3*sr_screenWidth); // Optionally, use the pitch of either surface here
+               + image->pitch*(sr_renderHeight - idx-1),
+               3*sr_renderWidth); // Optionally, use the pitch of either surface here
     }
 
     // save screenshot in unused slot
@@ -766,5 +766,4 @@ void  rSysDep::ClearGL(){
     }
 }
 #endif
-
 

@@ -5404,6 +5404,9 @@ static void do_chat()
         se_SetShowScoresAuto(false);
 
         uMenu chat_menu("",false);
+        // Chat is a compact in-game prompt, not a full settings panel.  The
+        // prompt style retains the game/scores context behind the text field.
+        chat_menu.SetStyle(uMenuStyle_RclPrompt);
         eMenuItemChat s(&chat_menu,se_say,se_chatter);
         chat_menu.SetCenter(-.75);
         chat_menu.SetBot(-2);

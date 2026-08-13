@@ -32,6 +32,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "rTexture.h"
 #include "rDisplayList.h"
 #include "tString.h"
+#include "tConfiguration.h"
 #include "rScreen.h"
 #include "tDirectories.h"
 #include "tLocale.h"
@@ -39,6 +40,21 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "tResourceManager.h"
 
 #include <sstream>
+#include <string.h>
+
+// These tokens are part of GL_EXT_texture_filter_anisotropic.  Older OpenGL
+// SDK headers used by the SDL 1.2 client do not always declare them even when
+// the runtime driver supports the extension.
+#ifndef GL_TEXTURE_MAX_ANISOTROPY_EXT
+#define GL_TEXTURE_MAX_ANISOTROPY_EXT 0x84FE
+#endif
+#ifndef GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT
+#define GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT 0x84FF
+#endif
+
+static float sr_textureAnisotropy = 8.0f;
+static tSettingItem<float> sr_textureAnisotropyConf(
+    "TEXTURE_ANISOTROPY", sr_textureAnisotropy );
 
 #ifndef DEDICATED
 #include "rRender.h"
@@ -502,6 +518,28 @@ void rISurfaceTexture::Upload( rSurface & surface )
         glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_REPEAT);
     else
         glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
+
+    // Trilinear mipmaps remove minification shimmer, but the arena floor and
+    // walls are normally viewed at a steep angle where they still blur early.
+    // Use anisotropic filtering when the driver advertises it, clamped to both
+    // the requested value and hardware limit. Fonts stay bilinear and are not
+    // affected by this material-quality setting.
+    if ( group_ != rTextureGroups::TEX_FONT && sr_textureAnisotropy > 1.0f )
+    {
+        char const * extensions =
+            reinterpret_cast<char const *>( glGetString( GL_EXTENSIONS ) );
+        if ( extensions && strstr( extensions, "GL_EXT_texture_filter_anisotropic" ) )
+        {
+            GLfloat maximum = 1.0f;
+            glGetFloatv( GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maximum );
+            GLfloat requested = sr_textureAnisotropy;
+            if ( requested > maximum )
+                requested = maximum;
+            if ( requested < 1.0f )
+                requested = 1.0f;
+            glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, requested );
+        }
+    }
 
     int format;
     if (sr_texturesTruecolor)

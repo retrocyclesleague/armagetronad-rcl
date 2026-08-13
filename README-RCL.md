@@ -1,9 +1,14 @@
-# Armagetron Advanced — RCL fork
+# Retrocycles RCL client and server
 
-Retrocycles League custom game build. Base: **sty+ct+ap** on branch `hack-0.2.8-sty+ct+ap`.
+Retrocycles League's protocol-compatible Armagetron Advanced distribution.
+The `main` branch carries the modern player client and the existing RCL
+dedicated-server extensions on the **sty+ct+ap** gameplay baseline.
+
+Current release line: **`0.2.9+sty+ct+ap+rcl`**.
 
 - **Repo:** https://github.com/retrocyclesleague/armagetronad-rcl
 - **Version policy:** [docs/VERSION_POLICY.md](docs/VERSION_POLICY.md)
+- **Client product architecture:** [docs/CLIENT_ARCHITECTURE.md](docs/CLIENT_ARCHITECTURE.md)
 - **Upstream developer guide:** [README-DEVELOPER](README-DEVELOPER)
 
 ## Quick build (dedicated server)

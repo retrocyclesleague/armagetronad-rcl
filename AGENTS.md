@@ -5,9 +5,9 @@ Custom Armagetron Advanced build for [Retrocycles League](https://retrocycleslea
 ## Stack
 
 - **Language:** C++ (autotools: `configure.ac`, `Makefile.am`)
-- **Branch:** `hack-0.2.8-sty+ct+ap` (default)
-- **Display version:** `0.2.9-sty+ct+ap+rcl` (`major_version`)
-- **Target binary:** `armagetronad-dedicated` (server — always `--disable-glout`)
+- **Branch:** `main` (default; protocol-compatible sty+ct+ap line)
+- **Display version:** `0.2.9+sty+ct+ap+rcl` (`major_version`)
+- **Targets:** player client plus `armagetronad-dedicated` (`--disable-glout`)
 
 ## Setup (exact commands)
 
@@ -78,7 +78,7 @@ See [docs/VERSION_POLICY.md](docs/VERSION_POLICY.md).
 
 - **Always** on default branch: protocol-compatible changes only
 - **Never** bump protocol or remove fleet settings without a `rcl/0.3` branch plan
-- **Tag** fleet releases: `v0.2.9-sty+ct+ap+rcl.N`
+- **Tag** releases: `v0.2.9+sty+ct+ap+rcl.N`
 
 ## Always do
 
@@ -96,7 +96,7 @@ See [docs/VERSION_POLICY.md](docs/VERSION_POLICY.md).
 ## Never do
 
 - Commit secrets, `.env`, or compiled binaries under `docker/build/context/debian/bin/`
-- Force-push `hack-0.2.8-sty+ct+ap`
+- Force-push `main` or `hack-0.2.8-sty+ct+ap`
 - Build client-only deps on CI unless adding a client job explicitly
 - Deploy untagged binaries to ranked pickup without ops sign-off
 

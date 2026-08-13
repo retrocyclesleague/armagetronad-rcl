@@ -66,10 +66,19 @@ static size_t my_strnlen(char const *c, size_t i) {
 }
 #endif
 
-static rFont sr_lowerPartFont("textures/font_extra.png");
-rFont rFont::s_defaultFont("textures/font.png", &sr_lowerPartFont);
-//rFont rFont::s_defaultFontSmall("textures/font_s.png",32,5/128.0,9/128.0,1/128.0, -1);
-rFont rFont::s_defaultFontSmall("textures/font_s.png",32,5/128.0,9/128.0,1/128.0);
+// RCL keeps the original Armagetronad typeface and atlas addressing, but
+// rasterizes it at 1024x1024.  The legacy atlases only provided 32x64 pixels
+// per regular glyph (and 20x36 for the small font), which becomes visibly
+// soft on modern high-density displays.
+static REAL const sr_rclFontPixel = 1.0f / 1024.0f;
+static rFont sr_lowerPartFont("textures/font_extra_rcl.png", 0,
+                             1/16.0f, 1/8.0f, sr_rclFontPixel);
+rFont rFont::s_defaultFont("textures/font_rcl.png", 0,
+                           1/16.0f, 1/8.0f, sr_rclFontPixel,
+                           1, &sr_lowerPartFont);
+rFont rFont::s_defaultFontSmall("textures/font_rcl.png", 0,
+                                1/16.0f, 1/8.0f, sr_rclFontPixel,
+                                1, &sr_lowerPartFont);
 //rFont rFont::s_defaultFontSmall("textures/Font.png",0,16/256.0,32/256.0);
 //rFont rFont::s_defaultFontSmall("textures/Font.png",0,1/16.0,1/8.0);
 
@@ -751,4 +760,3 @@ void rTextField::SetBlendColor( tColor const & blendColor )
 
 tColor rTextField::defaultColor_;
 tColor rTextField::blendColor_;
-

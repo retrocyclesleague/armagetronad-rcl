@@ -6,6 +6,13 @@
 
 srcdir="$1"
 
+# GitHub Actions exposes tag builds through these variables.  Use the tag as
+# the complete immutable version instead of appending a development suffix.
+if test "${GITHUB_REF_TYPE}" = "tag" && ! test -z "${GITHUB_REF_NAME}"; then
+    echo "${GITHUB_REF_NAME}" | sed -e s/^v//
+    exit 0
+fi
+
 # if we're building via CI from a protected tag, that is our version
 if test "${CI_COMMIT_REF_PROTECTED}" = "true" && ! test -z "${CI_COMMIT_TAG}"; then
     echo "${CI_COMMIT_TAG}" | sed -e s/^v//

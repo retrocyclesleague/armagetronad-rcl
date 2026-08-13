@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build Armagetron Advanced client binaries on macOS (no .app bundle / DMG).
+# Build the native Retrocycles RCL client binary on macOS.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
@@ -99,6 +99,7 @@ bootstrap_if_needed() {
 configure_and_build() {
     cd "${ROOT}"
     ./configure \
+        --disable-binreloc \
         --disable-restoreold \
         --enable-automakedefaults \
         --disable-useradd \
@@ -126,3 +127,4 @@ echo "Build complete."
 echo "  Client binary: ${ROOT}/src/armagetronad_main"
 echo "  Run from tree: make run"
 echo "  Install to:    ${PREFIX} (make install)"
+echo "  Package .app:  bash scripts/package-macos-app.sh"

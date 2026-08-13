@@ -1,3 +1,14 @@
-All the documentation for Armagetron is now in the doc/ directory and in HTML.
-Starting point is, of course, doc/index.html.
-The directory is usually located in /usr/local/games/armagetronad.
+Retrocycles RCL client and server
+=================================
+
+Retrocycles League's modern, protocol-compatible Armagetron Advanced
+distribution. The `main` branch contains the player client and RCL dedicated
+server on the established **sty+ct+ap** gameplay baseline.
+
+Current release line: 0.2.9+sty+ct+ap+rcl.
+
+Start with README-RCL.md for build instructions and RCL changes,
+docs/CLIENT_BETA.md for player packages, and README-DEVELOPER for the upstream
+engine build guide.
+
+This fork remains licensed under the GNU GPL; see COPYING.txt.

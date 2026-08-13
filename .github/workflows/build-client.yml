@@ -2,42 +2,60 @@ name: build-client
 
 on:
   push:
-    branches: [hack-0.2.8-sty+ct+ap, "rcl/**"]
-    tags: ["v0.2.9-sty+ct+ap+rcl.*"]
+    branches: [main, 'hack-0.2.8-sty\+ct\+ap', "rcl/**"]
+    tags: ['v0.2.9\+sty\+ct\+ap\+rcl.*']
   pull_request:
-    branches: [hack-0.2.8-sty+ct+ap, "rcl/**"]
+    branches: [main, 'hack-0.2.8-sty\+ct\+ap', "rcl/**"]
   workflow_dispatch:
 
 jobs:
+  validate-ref:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Validate release tag
+        if: github.ref_type == 'tag'
+        run: |
+          if [[ ! "$GITHUB_REF_NAME" =~ ^v0\.2\.9\+sty\+ct\+ap\+rcl\.[0-9]+$ ]]; then
+            echo "Invalid RCL release tag: $GITHUB_REF_NAME" >&2
+            exit 1
+          fi
+
   build-macos:
-    runs-on: macos-latest
+    needs: validate-ref
+    runs-on: macos-15
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+
+      - name: Verify Apple Silicon runner
+        run: test "$(uname -m)" = arm64
 
       - name: Build macOS client
         run: bash build-macos.sh
 
       - name: Smoke client
-        env:
-          CLIENT_BIN: src/armagetronad_main
-        run: bash scripts/smoke-client.sh
-
-      - name: Package macOS tarball
         run: |
-          VERSION="$(tr -d '\n' < major_version)"
-          bash scripts/package-client.sh \
+          EXPECTED_VERSION="$(sh batch/make/version .)"
+          CLIENT_BIN=src/armagetronad_main \
+            EXPECTED_VERSION="$EXPECTED_VERSION" \
+            bash scripts/smoke-client.sh
+
+      - name: Package macOS app
+        run: |
+          VERSION="$(sh batch/make/version .)"
+          bash scripts/package-macos-app.sh \
             --binary src/armagetronad_main \
-            --platform macos-universal \
             --version "$VERSION" \
+            --bundle-build "$GITHUB_RUN_NUMBER" \
             --out-dir dist
 
       - uses: actions/upload-artifact@v4
         with:
-          name: client-macos-universal
-          path: dist/Retrocycles-RCL-*.tar.gz*
+          name: client-macos-arm64
+          path: dist/Retrocycles-RCL-*-macos-arm64.zip*
 
   build-linux:
+    needs: validate-ref
     runs-on: ubuntu-22.04
     timeout-minutes: 45
     steps:
@@ -55,11 +73,13 @@ jobs:
         run: bash scripts/build-linux-client.sh
 
       - name: Smoke client
-        run: bash scripts/smoke-client.sh
+        run: |
+          EXPECTED_VERSION="$(sh batch/make/version .)"
+          EXPECTED_VERSION="$EXPECTED_VERSION" bash scripts/smoke-client.sh
 
       - name: Package Linux tarball
         run: |
-          VERSION="$(tr -d '\n' < major_version)"
+          VERSION="$(sh batch/make/version .)"
           bash scripts/package-client.sh \
             --binary build-client/src/armagetronad_main \
             --platform linux-x86_64 \
@@ -72,6 +92,7 @@ jobs:
           path: dist/Retrocycles-RCL-*.tar.gz*
 
   build-windows:
+    needs: validate-ref
     runs-on: windows-latest
     timeout-minutes: 60
     defaults:
@@ -109,12 +130,13 @@ jobs:
         run: |
           BIN="build-client/src/armagetronad_main.exe"
           test -f "$BIN" || BIN="build-client/src/armagetronad_main"
-          MAJOR="$(tr -d '\n' < major_version)"
-          strings "$BIN" | grep -q "$MAJOR"
+          EXPECTED_VERSION="$(sh batch/make/version .)"
+          CLIENT_BIN="$BIN" EXPECTED_VERSION="$EXPECTED_VERSION" \
+            bash scripts/smoke-client.sh
 
       - name: Package Windows tarball
         run: |
-          VERSION="$(tr -d '\n' < major_version)"
+          VERSION="$(sh batch/make/version .)"
           BIN="build-client/src/armagetronad_main.exe"
           test -f "$BIN" || BIN="build-client/src/armagetronad_main"
           bash scripts/package-client.sh \
@@ -129,7 +151,7 @@ jobs:
           path: dist/Retrocycles-RCL-*.tar.gz*
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v0.2.9-sty+ct+ap+rcl.')
+    if: startsWith(github.ref, 'refs/tags/v0.2.9+sty+ct+ap+rcl.')
     needs: [build-macos, build-linux, build-windows]
     runs-on: ubuntu-22.04
     permissions:
@@ -143,6 +165,7 @@ jobs:
       - name: Create prerelease
         uses: softprops/action-gh-release@v2
         with:
+          draft: true
           prerelease: true
           generate_release_notes: true
           files: artifacts/**

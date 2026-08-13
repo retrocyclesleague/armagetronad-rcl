@@ -813,6 +813,9 @@ void do_con(){
     tString c;
 
     uMenu con_menu("",false);
+    // Command entry is a compact in-game prompt, not a full settings panel.
+    // Keep the RCL presentation while preserving the console behind it.
+    con_menu.SetStyle(uMenuStyle_RclPrompt);
     gMemuItemConsole s(&con_menu,c);
     con_menu.SetCenter(-.75);
     con_menu.SetBot(-2);
@@ -847,6 +850,17 @@ void sg_ConsoleInput(){
 
 
 class ArmageTron_viewport_menuitem:public uMenuItemInt{
+    void RenderPreview(bool rclStyle)
+    {
+        tString titles[MAX_VIEWPORTS];
+
+        for(int i=MAX_VIEWPORTS-1;i>=0;i--)
+            titles[i] << i+1;
+#ifndef DEDICATED
+        rViewportConfiguration::DemonstrateViewport(titles, rclStyle);
+#endif
+    }
+
 public:
     ArmageTron_viewport_menuitem(uMenu *m):
             uMenuItemInt(m,"$viewport_menu_title",
@@ -865,13 +879,16 @@ public:
         if (rViewportConfiguration::next_conf_num>=rViewportConfiguration::s_viewportNumConfigurations)
             rViewportConfiguration::next_conf_num=rViewportConfiguration::s_viewportNumConfigurations-1;
 
-        tString  titles[MAX_VIEWPORTS];
+        // Classic menus draw previews as part of their background.  RCL menus
+        // draw their shared shell afterwards, so defer the diagram until the
+        // foreground pass there.
+        if (!menu->RclStyle())
+            RenderPreview(false);
+    }
 
-        for(int i=MAX_VIEWPORTS-1;i>=0;i--)
-            titles[i] << i+1;
-#ifndef DEDICATED
-        rViewportConfiguration::DemonstrateViewport(titles);
-#endif
+    virtual void RenderForeground(){
+        if (menu->RclStyle())
+            RenderPreview(true);
     }
 
     virtual void Render(REAL x,REAL y,REAL alpha=1,bool selected=0){
@@ -893,6 +910,21 @@ public:
 
 class ArmageTronPlayer_to_viewport_menuitem:public uMenuItemInt{
     int    vp;
+
+    void RenderPreview(bool rclStyle)
+    {
+        tString titles[MAX_VIEWPORTS];
+        for(int i=MAX_VIEWPORTS-1;i>=0;i--){
+            titles[i] << s_newViewportBelongsToPlayer[i]+1;
+            titles[i] << " (";
+            titles[i] << ePlayer::PlayerConfig(s_newViewportBelongsToPlayer[i])->Name();
+            titles[i] << ")";
+        }
+#ifndef DEDICATED
+        rViewportConfiguration::DemonstrateViewport(titles, rclStyle);
+#endif
+    }
+
 public:
     ArmageTronPlayer_to_viewport_menuitem(uMenu *m,int v):
             uMenuItemInt(m,"",
@@ -914,16 +946,13 @@ public:
 
         uMenuItem::RenderBackground();
 
-        tString titles[MAX_VIEWPORTS];
-        for(int i=MAX_VIEWPORTS-1;i>=0;i--){
-            titles[i] << s_newViewportBelongsToPlayer[i]+1;
-            titles[i] << " (";
-            titles[i] << ePlayer::PlayerConfig(s_newViewportBelongsToPlayer[i])->Name();
-            titles[i] << ")";
-        }
-#ifndef DEDICATED
-        rViewportConfiguration::DemonstrateViewport(titles);
-#endif
+        if (!menu->RclStyle())
+            RenderPreview(false);
+    }
+
+    virtual void RenderForeground(){
+        if (menu->RclStyle())
+            RenderPreview(true);
     }
 
     virtual void Render(REAL x,REAL y,REAL alpha=1,bool selected=0){
@@ -948,6 +977,34 @@ class ArmageTron_color_menuitem:public uMenuItemInt{
 protected:
     int *rgb;
     unsigned short me;
+
+    void RenderPreview()
+    {
+#ifndef DEDICATED
+        if (!sr_glOut)
+            return;
+        REAL r = rgb[0]/15.0;
+        REAL g = rgb[1]/15.0;
+        REAL b = rgb[2]/15.0;
+        se_MakeColorValid(r, g, b, 1.0f);
+        RenderEnd();
+        glColor3f(r, g, b);
+        if (menu->RclStyle())
+        {
+            glRectf(.69f,-.62f,.82f,-.49f);
+            glColor3f(0,.82f,.88f);
+            BeginLineLoop();
+            Vertex(.68f,-.63f);
+            Vertex(.83f,-.63f);
+            Vertex(.83f,-.48f);
+            Vertex(.68f,-.48f);
+            RenderEnd();
+        }
+        else
+            glRectf(.8,-.8,.98,-.98);
+#endif
+    }
+
 public:
     ArmageTron_color_menuitem(uMenu *m,const char *tit,
                               const char *help, int *RGB,int Me)
@@ -974,16 +1031,14 @@ public:
         */
 #ifndef DEDICATED
         uMenuItem::RenderBackground();
-        if (!sr_glOut)
-            return;
-        REAL r = rgb[0]/15.0;
-        REAL g = rgb[1]/15.0;
-        REAL b = rgb[2]/15.0;
-        se_MakeColorValid(r, g, b, 1.0f);
-        RenderEnd();
-        glColor3f(r, g, b);
-        glRectf(.8,-.8,.98,-.98);
+        if (!menu->RclStyle())
+            RenderPreview();
 #endif
+    }
+
+    virtual void RenderForeground(){
+        if (menu->RclStyle())
+            RenderPreview();
     }
 
 };

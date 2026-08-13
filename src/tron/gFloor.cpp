@@ -59,6 +59,47 @@ fb("FLOOR_BLUE",floor_blue);
 #include "tSysTime.h"
 
 #include "nConfig.h"
+
+// RCL's detailed graphite floor is the single-texture floor. Classic high
+// detail defaults selected the orthogonal two-strip grid instead, so existing
+// profiles never sampled textures/floor.png during gameplay. Run this command
+// from settings_client.cfg after user.cfg has loaded. The persisted marker
+// makes the conversion one-time and preserves every later user choice.
+static bool sg_rclFloorHdMigrated = false;
+static tConfItem<bool> sg_rclFloorHdMigratedConf(
+    "RCL_FLOOR_HD_MIGRATED", sg_rclFloorHdMigrated);
+
+static bool sg_rclFloorHdMigrationPending = false;
+
+static void sg_ApplyRclHdFloorMigration()
+{
+    if (!sg_rclFloorHdMigrationPending || sg_rclFloorHdMigrated)
+        return;
+
+    if (sr_floorDetail == rFLOOR_TWOTEXTURE)
+        sr_floorDetail = rFLOOR_TEXTURE;
+
+    sg_rclFloorHdMigrated = true;
+    sg_rclFloorHdMigrationPending = false;
+}
+
+static void sg_MigrateRclHdFloor(std::istream &)
+{
+    if (sg_rclFloorHdMigrated)
+        return;
+
+    sg_rclFloorHdMigrationPending = true;
+
+    // First-use display setup applies its high-detail defaults after config
+    // loading. Defer that case until the floor menu background is rendered;
+    // existing profiles can be migrated immediately.
+    if (!st_FirstUse)
+        sg_ApplyRclHdFloorMigration();
+}
+
+static tConfItemFunc sg_migrateRclHdFloorConf(
+    "RCL_APPLY_FLOOR_HD_MIGRATION", &sg_MigrateRclHdFloor);
+
 /*
 static tString lala_floor_a("Anonymous/original/textures/floor_a.png");
 static nSettingItem<tString> lalala_floor_a("TEXTURE_FLOOR_A", lala_floor_a);
@@ -159,6 +200,10 @@ public:
 static gFloor GFLOOR;
 
 static void MenuBackground(){
+    // On a fresh profile, welcome() has now finished applying its display
+    // defaults, so FLOOR_DETAIL can safely be migrated and persisted.
+    sg_ApplyRclHdFloorMigration();
+
     if (rTextureGroups::TextureMode[rTextureGroups::TEX_FLOOR]>=0){
         se_glFloorTexture();
         se_glFloorColor(1,1);

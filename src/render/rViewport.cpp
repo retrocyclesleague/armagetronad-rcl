@@ -43,16 +43,16 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #ifndef DEDICATED
 void rViewport::Select(){
     if (sr_glOut)
-        glViewport (GLsizei(sr_screenWidth*left),
-                    GLsizei(sr_screenHeight*bottom),
-                    GLsizei(sr_screenWidth*width),
-                    GLsizei(sr_screenHeight*height));
+        glViewport (GLsizei(sr_renderWidth*left),
+                    GLsizei(sr_renderHeight*bottom),
+                    GLsizei(sr_renderWidth*width),
+                    GLsizei(sr_renderHeight*height));
 }
 #endif
 
 
 REAL rViewport::UpDownFOV(REAL fov){
-    REAL ratio=currentScreensetting.aspect*(width*sr_screenWidth)/(height*sr_screenHeight);
+    REAL ratio=currentScreensetting.aspect*(width*sr_renderWidth)/(height*sr_renderHeight);
 
     // clamp ratio to 5/3
     REAL maxratio = 5.0/3.0;
@@ -71,7 +71,7 @@ void rViewport::Perspective(REAL fov,REAL nnear,REAL ffar){
     // Jonathan's improved version (fixed again)
 
     // the true aspect ratio of the viewport. 16/9, 16/10, 4/3, 5/4 (or halves of that for splitscreen)
-    REAL aspectratio = (width * sr_screenWidth * currentScreensetting.aspect)/(height * sr_screenHeight);
+    REAL aspectratio = (width * sr_renderWidth * currentScreensetting.aspect)/(height * sr_renderHeight);
 
     // usually, fov is the horizontal fov. However, for widescreen, we want to expand the
     // horizontal fov without distorting the image in such a way that we don't sacrifice too much of
@@ -89,7 +89,7 @@ void rViewport::Perspective(REAL fov,REAL nnear,REAL ffar){
 #endif
 
 #if 0 // Z-Man's old and clumsy version
-    REAL ratio=currentScreensetting.aspect*(width*sr_screenWidth)/(height*sr_screenHeight);
+    REAL ratio=currentScreensetting.aspect*(width*sr_renderWidth)/(height*sr_renderHeight);
     // REAL udfov=360*atan(tan(M_PI*fov/360)/ratio)/M_PI;
     REAL udfov=UpDownFOV(fov);
     glMatrixMode(GL_PROJECTION);
@@ -220,12 +220,17 @@ rViewportConfiguration *rViewportConfiguration::CurrentViewportConfiguration(){
 }
 
 #ifndef DEDICATED
-void rViewportConfiguration::DemonstrateViewport(tString *titles){
+void rViewportConfiguration::DemonstrateViewport(tString *titles, bool rclStyle){
     if (!sr_glOut)
         return;
 
+    rViewport rclDemonstration(.55,.18,.28,.28);
+    rViewport &demonstration = rclStyle
+                               ? rclDemonstration
+                               : rViewport::s_viewportDemonstation;
+
     for(int i=s_viewportConfigurations[next_conf_num]->num_viewports-1;i>=0;i--){
-        rViewport sub(rViewport::s_viewportDemonstation,*(s_viewportConfigurations[next_conf_num]->Port(i)));
+        rViewport sub(demonstration,*(s_viewportConfigurations[next_conf_num]->Port(i)));
         sub.Select();
 
         RenderEnd();
@@ -233,17 +238,26 @@ void rViewportConfiguration::DemonstrateViewport(tString *titles){
         glDisable(GL_TEXTURE_2D);
         glDisable(GL_DEPTH_TEST);
 
-        glColor3f(.1,.1,.4);
+        if (rclStyle)
+            glColor3f(.015f,.022f,.028f);
+        else
+            glColor3f(.1,.1,.4);
         glRectf(-.9,-.9,.9,.9);
 
-        glColor3f(.6,.6,.6);
+        if (rclStyle)
+            glColor3f(0,.82f,.88f);
+        else
+            glColor3f(.6,.6,.6);
         BeginLineLoop();
         glVertex2f(-1,-1);
         glVertex2f(-1,1);
         glVertex2f(1,1);
         glVertex2f(1,-1);
 
-        glColor3f(1,1,1);
+        if (rclStyle)
+            glColor3f(1,1,0);
+        else
+            glColor3f(1,1,1);
         DisplayText(0,0,.15,.5,titles[i]);
     }
 
@@ -370,5 +384,3 @@ rViewport rViewport::CorrectAspectBottom( void ) const
 
     return ret;
 }
-
-

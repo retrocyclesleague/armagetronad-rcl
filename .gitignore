@@ -107,6 +107,7 @@ autogen.sh
 autogen.sh
 *.o
 *.a
+.dirstamp
 *.dmg
 *.tar.gz
 *.zip
@@ -121,3 +122,5 @@ fingerprint
 wget-log*
 /_deps/
 /_inst/
+/dist/
+/desktop/armagetronad.appdata.xml

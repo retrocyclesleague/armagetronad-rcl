@@ -12,9 +12,21 @@ modeldir=${armadatadir}
 include $(top_srcdir)/Makefile.manual
 
 # what goes into the distribution
-EXTRA_DIST = README-DEVELOPER README-Subversion README-SDL \
+EXTRA_DIST = README-DEVELOPER README-Subversion README-SDL README-RCL.md \
+AGENTS.md COPYING.txt THIRD_PARTY_NOTICES.md \
 armagetron.kdevelop armagetron.kdevelop.pcs armagetron.kdevses tron.ico \
-models sound textures bootstrap.sh accustomdir.m4 fingerprint Dockerfile language
+models sound textures bootstrap.sh accustomdir.m4 fingerprint Dockerfile language \
+docs/CLIENT_ARCHITECTURE.md docs/CLIENT_BETA.md docs/DEVLOG.md docs/INDEX.md \
+docs/VERSION_POLICY.md resources/client-beta/manifest.example.json \
+build-macos.sh scripts/build-linux-client.sh scripts/build-windows-client.sh \
+scripts/package-client.sh scripts/package-macos-app.sh \
+scripts/smoke-client.sh scripts/smoke-dedicated.sh \
+scripts/generate-cycle-wheel-models.py scripts/generate-rcl-font-atlas.py \
+scripts/generate-rcl-audio.sh scripts/generate-rcl-audio.py \
+scripts/generate-rcl-textures.py scripts/assets/rcl-textures/floor.png \
+scripts/assets/rcl-textures/floor_a.png scripts/assets/rcl-textures/floor_b.png \
+scripts/assets/rcl-textures/rim_wall.png scripts/assets/rcl-textures/dir_wall.png \
+scripts/assets/rcl-textures/cycle_body.png scripts/assets/rcl-textures/cycle_wheel.png
 # language/update.py
 
 # resource is included as a subdir for the purpose of keeping this makefile short and delegating
@@ -39,10 +51,14 @@ if NEEDDATA
 # install media data only when it is needed
 nobase_texture_DATA=textures/cycle_body.png textures/cycle_wheel.png textures/dir_wall.png\
 	textures/floor_a.png textures/floor_b.png textures/floor.png textures/font_extra.png\
-	textures/font.png textures/font_s.png textures/icon.png textures/rim_wall.png\
-	textures/shadow.png textures/sky.png textures/title.jpg
+	textures/font.png textures/font_s.png textures/font_rcl.png textures/font_extra_rcl.png\
+	textures/icon.png textures/rim_wall.png\
+	textures/shadow.png textures/sky.png textures/title.jpg textures/title.png
 
-nobase_sound_DATA=sound/cyclrun.wav sound/expl.wav
+nobase_sound_DATA=sound/cyclrun.wav sound/expl.wav \
+	sound/turn.wav sound/scrape.wav \
+	sound/ui_hover.wav sound/ui_activate.wav sound/ui_back.wav \
+	sound/README-RCL.md
 
 nobase_model_DATA=models/cycle_body.mod models/cycle_front.mod models/cycle_rear.mod
 endif
@@ -150,4 +166,3 @@ distclean-local:
 distcheck-clean:
 	chmod 755 -R @progname@-$(VERSION)*
 	rm -rf @progname@-$(VERSION)*
-

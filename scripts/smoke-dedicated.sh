@@ -24,8 +24,20 @@ cd "$BUILD"
 
 echo "Smoke: starting $BIN from build/ (5s timeout)..."
 set +e
-timeout 5 "$BIN" > /tmp/rcl-arma-smoke.log 2>&1
-status=$?
+if command -v timeout >/dev/null 2>&1; then
+  timeout 5 "$BIN" > /tmp/rcl-arma-smoke.log 2>&1
+  status=$?
+elif command -v gtimeout >/dev/null 2>&1; then
+  gtimeout 5 "$BIN" > /tmp/rcl-arma-smoke.log 2>&1
+  status=$?
+else
+  "$BIN" > /tmp/rcl-arma-smoke.log 2>&1 &
+  pid=$!
+  sleep 5
+  kill "$pid" 2>/dev/null || true
+  wait "$pid" 2>/dev/null
+  status=$?
+fi
 set -e
 
 head -15 /tmp/rcl-arma-smoke.log

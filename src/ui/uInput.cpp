@@ -443,6 +443,13 @@ public:
 
                 if (sym>0)
                     active=0;
+
+                // While this item is capturing a new binding, even tiny
+                // mouse movements belong to the capture.  Letting them fall
+                // through to uMenu would move selection to another row and
+                // strand this item in its active state.
+                if (active)
+                    return true;
             }
 
             break;

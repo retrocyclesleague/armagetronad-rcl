@@ -87,7 +87,7 @@ public:
                            rViewport *forth);
 #ifndef DEDICATED
     void Select(int i);
-    static void DemonstrateViewport(tString *titles);
+    static void DemonstrateViewport(tString *titles, bool rclStyle = false);
 #endif
     rViewport * Port(int i);
 
@@ -103,6 +103,5 @@ public:
 };
 
 #endif
-
 
 

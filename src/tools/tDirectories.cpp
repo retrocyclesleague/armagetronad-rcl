@@ -1432,6 +1432,15 @@ static tString st_RelocatePath( tString const & original )
 static void FindDataPath()
 {
 #ifndef MACOSX_XCODE
+#ifdef MACOSX
+    // A packaged client keeps its runtime data beside the executable under
+    // Contents/Resources. Detect that layout before applying the traditional
+    // prefix/bin relocation rule; an .app executable lives in Contents/MacOS,
+    // not in a Unix "bin" directory.
+    tString bundleResources = GetParent( st_pathToExecutable.Get(), 1 );
+    bundleResources += "/../Resources";
+    if ( TestDataPath( bundleResources ) ) return;
+#endif
 #ifdef WIN32
     // look for data in the same directory as the executable
     if ( TestDataPath(GetParent(st_pathToExecutable.Get(), 1) ) ) return;

@@ -2971,6 +2971,9 @@ static void PlayerLogIn()
 
 void sg_DisplayVersionInfo() {
     tOutput versionInfo;
+    // Keep the complete technical build identifier in About, where it is
+    // useful for support, without forcing it into the main menu title.
+    versionInfo.SetTemplateParameter( 1, sn_programVersion );
     versionInfo << "$version_info_version" << "\n";
     st_PrintPathInfo(versionInfo);
     versionInfo << "$version_info_misc_stuff";
@@ -3006,6 +3009,7 @@ void MainMenu(bool ingame){
         gametitle << "$game_menu_ingame_text";
 
     uMenu game_menu(gametitle);
+    game_menu.SetStyle(uMenuStyle_RclPanel);
 
     uMenuItemFunction *reset=NULL;
 
@@ -3045,13 +3049,13 @@ void MainMenu(bool ingame){
     }
 
     tOutput title;
-    title.SetTemplateParameter( 1, sn_programVersion );
     if (!ingame)
-        title << "$main_menu_text";
+        title << "$rcl_main_menu_text";
     else
         title << "$ingame_menu_text";
 
     uMenu MainMenu(title,false);
+    MainMenu.SetStyle(ingame ? uMenuStyle_RclPanel : uMenuStyle_RclFull);
 
     if (ingame)
         sg_IngameMenu = &MainMenu;
@@ -3117,6 +3121,7 @@ void MainMenu(bool ingame){
 #endif
 
     uMenu Settings("$system_settings_menu_text");
+    Settings.SetStyle(uMenuStyle_RclPanel);
 
     uMenuItemSubmenu subm_settings
     (&MainMenu,&Settings,
@@ -3151,6 +3156,7 @@ void MainMenu(bool ingame){
     }
 
     uMenu misc("$misc_menu_text");
+    misc.SetStyle(uMenuStyle_RclPanel);
 
     //  misc.SetCenter(.25);
 
@@ -3196,6 +3202,7 @@ void MainMenu(bool ingame){
     uMenuItemSubmenu subm
     (&Settings,&sg_screenMenu,
      "$display_settings_menu_help");
+    sg_screenMenu.SetStyle(uMenuStyle_RclPanel);
 
     uMenuItemSubmenu *gamemenuitem = NULL;
     if (sn_GetNetState() != nCLIENT)

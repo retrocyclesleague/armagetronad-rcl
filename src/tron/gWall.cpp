@@ -847,6 +847,59 @@ void gPlayerWall::RenderList(bool list)
 bool sg_simpleTrail = false;
 static tConfItem< bool > sgc_simpleTrail( "SIMPLE_TRAIL", sg_simpleTrail );
 
+// Client-side presentation only. The dangerous wall coordinates and the crisp
+// textured wall pass remain unchanged; this controls a later additive pass.
+static bool sg_trailGlow = true;
+static REAL sg_trailGlowIntensity = 1.0f;
+static tConfItem< bool > sgc_trailGlow( "RCL_TRAIL_GLOW", sg_trailGlow );
+static tConfItem< REAL > sgc_trailGlowIntensity( "RCL_TRAIL_GLOW_INTENSITY", sg_trailGlowIntensity );
+
+bool gNetPlayerWall::TrailGlowEnabled()
+{
+    return sg_trailGlow && sr_alphaBlend && TrailGlowIntensity() > 0;
+}
+
+REAL gNetPlayerWall::TrailGlowIntensity()
+{
+    // A finite positive range keeps malformed configuration from washing out
+    // the arena. NaN compares false and therefore disables the pass.
+    if ( !( sg_trailGlowIntensity > 0 ) )
+        return 0;
+    if ( sg_trailGlowIntensity > 4 )
+        return 4;
+    return sg_trailGlowIntensity;
+}
+
+namespace
+{
+static const REAL sg_trailGlowHalfWidth = .035f;
+static const REAL sg_trailGlowBaseRise = .012f;
+static const REAL sg_trailGlowTopRise = .10f;
+
+bool sg_TrailGlowSide( const eCoord &p1, const eCoord &p2, eCoord &side )
+{
+    eCoord delta = p2 - p1;
+    REAL lengthSquared = delta.NormSquared();
+    if ( !( lengthSquared > 0 ) )
+        return false;
+
+    REAL scale = sg_trailGlowHalfWidth / sqrt( lengthSquared );
+    side = eCoord( -delta.y * scale, delta.x * scale );
+    return true;
+}
+
+void sg_TrailGlowPlane( const eCoord &p1, const eCoord &p2,
+                        const eCoord &offset, REAL bottom, REAL top,
+                        REAL r, REAL g, REAL b, REAL alpha )
+{
+    glColor4f( r, g, b, alpha );
+    glVertex3f( p1.x + offset.x, p1.y + offset.y, bottom );
+    glVertex3f( p1.x + offset.x, p1.y + offset.y, top );
+    glVertex3f( p2.x + offset.x, p2.y + offset.y, top );
+    glVertex3f( p2.x + offset.x, p2.y + offset.y, bottom );
+}
+}
+
 void gNetPlayerWall::RenderList(bool list, gWallRenderMode renderMode ){
     if ( !cycle_ )
     {
@@ -1000,7 +1053,11 @@ void gNetPlayerWall::RenderList(bool list, gWallRenderMode renderMode ){
             }
             else{ // complicated
                 // can't squeeze that into a display list
-                ClearDisplayList();
+                // Cache invalidation belongs to the original core passes. The
+                // cosmetic glow is rendered after the core and must not reset
+                // display-list inhibition every frame for the live tip.
+                if ( !( renderMode & gWallRenderMode_Glow ) )
+                    ClearDisplayList();
 
                 if (ta+gBEG_LEN>=time){
                     RenderBegin(p1,p2,ta,te,
@@ -1075,7 +1132,11 @@ void gNetPlayerWall::RenderNormal(const eCoord &p1,const eCoord &p2,REAL ta,REAL
         if (dt>1)
         {
             // remove from rendering lists
-            Remove();
+            // The original line/quad pass owns list mutation. Glow traversal
+            // is deliberately read-only so cached/live list membership cannot
+            // change between the core and cosmetic passes.
+            if ( !( mode & gWallRenderMode_Glow ) )
+                Remove();
             return;
         }
 
@@ -1094,6 +1155,41 @@ void gNetPlayerWall::RenderNormal(const eCoord &p1,const eCoord &p2,REAL ta,REAL
         }
     }
     REAL h=1;
+
+    if ( mode & gWallRenderMode_Glow )
+    {
+        if ( hfrac > 0 && TrailGlowEnabled() )
+        {
+            eCoord side;
+            if ( sg_TrailGlowSide( p1, p2, side ) )
+            {
+                REAL glow = a * TrailGlowIntensity();
+                REAL bottom = sg_trailGlowBaseRise * hfrac;
+                REAL top = h * hfrac + sg_trailGlowTopRise * hfrac;
+                eCoord opposite( -side.x, -side.y );
+
+                BeginQuads();
+
+                // Two narrow offset planes and a top ribbon form the visible
+                // shell. There is intentionally no center plane: drawing one
+                // over the depth-writing core made cached and immediate-mode
+                // copies alternate at sub-pixel precision and visibly flash.
+                // The width is deliberately smaller than gameplay-scale
+                // distances so it cannot suggest a different collision wall.
+                sg_TrailGlowPlane( p1, p2, side, bottom, top,
+                                   r, g, b, glow * .10f );
+                sg_TrailGlowPlane( p1, p2, opposite, bottom, top,
+                                   r, g, b, glow * .10f );
+
+                glColor4f( r, g, b, glow * .16f );
+                glVertex3f( p1.x + opposite.x, p1.y + opposite.y, top );
+                glVertex3f( p1.x + side.x, p1.y + side.y, top );
+                glVertex3f( p2.x + side.x, p2.y + side.y, top );
+                glVertex3f( p2.x + opposite.x, p2.y + opposite.y, top );
+            }
+        }
+        return;
+    }
 
 
     if (hfrac>0){
@@ -1206,6 +1302,73 @@ void gNetPlayerWall::RenderBegin(const eCoord &p1,const eCoord &pp2,REAL ta,REAL
         con << "Bad wall data!\n";
         st_Breakpoint();
 #endif
+        return;
+    }
+
+    if ( mode & gWallRenderMode_Glow )
+    {
+        if ( hfrac > 0 && TrailGlowEnabled() )
+        {
+            eCoord side;
+            if ( !sg_TrailGlowSide( p1, p2, side ) )
+            {
+                // A just-created tip can briefly have coincident endpoints.
+                // Cycle direction is unit length and provides the same wall
+                // normal without changing the tip's simulated position.
+                side = eCoord( -cycle_->dir.y * sg_trailGlowHalfWidth,
+                                cycle_->dir.x * sg_trailGlowHalfWidth );
+            }
+
+            static const int glowSegments = 5;
+            static const REAL glowSegmentInverse = 1.0f / glowSegments;
+            REAL glow = a * TrailGlowIntensity();
+
+            // Offset sides follow the same five-segment live-tip curve.
+            for ( int sign = -1; sign <= 1; sign += 2 )
+            {
+                eCoord offset = side * REAL( sign );
+                BeginQuadStrip();
+                for ( int i = 0; i <= glowSegments; ++i )
+                {
+                    REAL frag = i * glowSegmentInverse;
+                    REAL rat = ra + frag * ( re - ra );
+                    REAL x = ( p1.x + frag * ( p2.x - p1.x ) ) * ( 1 - xfunc( rat ) ) + ppos.x * xfunc( rat );
+                    REAL y = ( p1.y + frag * ( p2.y - p1.y ) ) * ( 1 - xfunc( rat ) ) + ppos.y * xfunc( rat );
+                    REAL H = h * hfrac * hfunc( rat );
+                    REAL bottom = sg_trailGlowBaseRise * hfrac * afunc( rat );
+                    REAL rise = sg_trailGlowTopRise * hfrac * afunc( rat );
+                    REAL alpha = glow * afunc( rat ) * .10f;
+
+                    glColor4f( r + cfunc( rat ), g + cfunc( rat ), b + cfunc( rat ), alpha );
+                    glVertex3f( x + offset.x, y + offset.y, bottom );
+                    glVertex3f( x + H * cycle_->skew * sfunc( rat ) * cycle_->dir.y + offset.x,
+                                y - H * cycle_->skew * sfunc( rat ) * cycle_->dir.x + offset.y,
+                                H + rise );
+                }
+                RenderEnd();
+            }
+
+            // Top ribbon completes the shell and is especially visible from
+            // the classic raised cameras.
+            BeginQuadStrip();
+            for ( int i = 0; i <= glowSegments; ++i )
+            {
+                REAL frag = i * glowSegmentInverse;
+                REAL rat = ra + frag * ( re - ra );
+                REAL x = ( p1.x + frag * ( p2.x - p1.x ) ) * ( 1 - xfunc( rat ) ) + ppos.x * xfunc( rat );
+                REAL y = ( p1.y + frag * ( p2.y - p1.y ) ) * ( 1 - xfunc( rat ) ) + ppos.y * xfunc( rat );
+                REAL H = h * hfrac * hfunc( rat );
+                REAL rise = sg_trailGlowTopRise * hfrac * afunc( rat );
+                REAL topX = x + H * cycle_->skew * sfunc( rat ) * cycle_->dir.y;
+                REAL topY = y - H * cycle_->skew * sfunc( rat ) * cycle_->dir.x;
+                REAL alpha = glow * afunc( rat ) * .16f;
+
+                glColor4f( r + cfunc( rat ), g + cfunc( rat ), b + cfunc( rat ), alpha );
+                glVertex3f( topX - side.x, topY - side.y, H + rise );
+                glVertex3f( topX + side.x, topY + side.y, H + rise );
+            }
+            RenderEnd();
+        }
         return;
     }
 
@@ -2681,5 +2844,3 @@ static void login_callback(){
 }
 
 static nCallbackLoginLogout sg_LoginLogout(&login_callback);
-
-

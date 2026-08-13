@@ -45,9 +45,23 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "defs.h"
 
 class uMenuItem;
+#ifndef DEDICATED
+class uMenuMouseGuard;
+#endif
+
+enum uMenuStyle
+{
+    uMenuStyle_Classic = 0,
+    uMenuStyle_RclPanel,
+    uMenuStyle_RclFull,
+    uMenuStyle_RclPrompt
+};
 
 class uMenu{
     friend class uMenuItem;
+#ifndef DEDICATED
+    friend class uMenuMouseGuard;
+#endif
 
 protected:
     tList<uMenuItem>      items;
@@ -62,9 +76,23 @@ protected:
     REAL                 spaceBelow;
     REAL                 center;
 
+    uMenuStyle           style_;
     int                  selected;
 
     REAL YPos(int num);
+#ifndef DEDICATED
+    virtual REAL ItemDrawY(int itemIndex);
+    virtual REAL ItemRowHalf(int itemIndex);
+    int ItemAt(REAL mouseY);
+    void ActivateSelected();
+    void EnterMenuMouseMode();
+    void LeaveMenuMouseMode();
+
+    int                  savedCursorState_;
+    int                  savedMouseGrab_;
+    bool                 menuMouseMode_;
+    REAL                 styleEnterTime_;
+#endif
 public:
     static bool          wrap;
 
@@ -93,6 +121,9 @@ public:
     REAL GetTop() const {return menuTop;}
     REAL GetBot() const {return menuBot;}
     void SetSelected(int s) {selected = s;}
+    void SetStyle(uMenuStyle style) {style_ = style;}
+    uMenuStyle GetStyle() const {return style_;}
+    bool RclStyle() const {return style_ != uMenuStyle_Classic;}
     int  NumItems()         {return items.Len();}
     uMenuItem* Item(int i)  { return items[i]; }
     void AddItem(uMenuItem* item);
@@ -185,6 +216,7 @@ public:
     virtual bool DisplayHelp( bool display, REAL y, REAL alpha ){return display;}
 
     virtual tString Help(){return tString(helpText);}
+    virtual tString GetLabel(){return tString();}
     // displays the menuitem at position x,y. set selected to true
     // if the item is currently under the cursor
     virtual void Render(REAL ,REAL ,REAL =1,bool =0){}
@@ -192,6 +224,11 @@ public:
     virtual void RenderBackground(){
         menu->GenericBackground();
     }
+
+    // Optional presentation drawn after the shared menu shell. Preview-style
+    // items use this for viewport diagrams and colour swatches that would
+    // otherwise be hidden underneath the RCL panel.
+    virtual void RenderForeground(){}
 
     // if the user presses left/right on menuitem
     virtual void LeftRight(int ){} //lr=-1:left lr=+1: right
@@ -238,6 +275,7 @@ public:
     }
 
     virtual void Enter(){menu->Exit();}
+    virtual tString GetLabel(){return tString(t);}
     // if the user presses enter/space on menu
 };
 
@@ -326,6 +364,8 @@ public:
         return ret;
     }
 
+    virtual tString GetLabel(){return tString(title);}
+
 };
 
 template<class T> class uSelectEntry{
@@ -380,6 +420,8 @@ public:
 
     ~uMenuItemInt(){}
 
+    virtual tString GetLabel(){return tString(title);}
+
     virtual void LeftRight(int);
 
     virtual void Render(REAL x,REAL y,REAL alpha=1,bool selected=0);
@@ -407,6 +449,8 @@ public:
 
     ~uMenuItemReal(){}
 
+    virtual tString GetLabel(){return tString(title);}
+
     virtual void LeftRight(int);
 
     virtual void Render(REAL x,REAL y,REAL alpha=1,bool selected=0);
@@ -430,6 +474,8 @@ public:
     uMenuItemString(uMenu *M,const tOutput& desc,
                     const tOutput& help,tString &c, int maxLength = 1024 );
     virtual ~uMenuItemString(){}
+
+    virtual tString GetLabel(){return tString(description);}
 
     virtual void Render(REAL x,REAL y,REAL alpha=1,bool selected=0);
 
@@ -487,6 +533,8 @@ public:
                      const tOutput& help);
     virtual ~uMenuItemSubmenu(){}
 
+    virtual tString GetLabel(){return tString(submenu->title);}
+
     virtual void Render(REAL x,REAL y,REAL alpha=1,bool selected=0);
 
     virtual void Enter();
@@ -503,6 +551,8 @@ public:
                     const tOutput& help );
 
     virtual ~uMenuItemAction(){}
+
+    virtual tString GetLabel(){return tString(name_);}
 
     virtual void Render(REAL x,REAL y,REAL alpha=1,bool selected=0);
 
@@ -628,4 +678,3 @@ inline void uMenu::AddItem(uMenuItem* item)     { items.Add(item, item->idnum); 
 inline void uMenu::RemoveItem(uMenuItem* item)  { items.Remove(item, item->idnum); }
 
 #endif
-

@@ -147,7 +147,10 @@ void gLogo::Display()
     else
     {
 #ifndef KRAWALL
-        sg_LogoMPTitle = tNEW(rFileTexture)(rTextureGroups::TEX_FONT, "textures/title.jpg",0,0,1);
+        // The bundled macOS SDL_image is deliberately PNG-only.  Keeping the
+        // default title in PNG avoids drawing an uninitialised white texture
+        // during startup while retaining the original artwork and geometry.
+        sg_LogoMPTitle = tNEW(rFileTexture)(rTextureGroups::TEX_FONT, "textures/title.png",0,0,1);
         // sg_LogoMPTitle = tNEW(rFileTexture)(rTextureGroups::TEX_FONT, sg_title,0,0,1);
 
         sg_DisplayStatus = 1;

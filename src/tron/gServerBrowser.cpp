@@ -41,6 +41,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "uMenu.h"
 #include "uInputQueue.h"
+#include "uRclTheme.h"
 
 #include "tMemManager.h"
 #include "tSysTime.h"
@@ -106,6 +107,12 @@ nServerInfo* CreateGServer()
 class gServerMenu: public uMenu
 {
     int sortKey_;
+#ifndef DEDICATED
+    bool headerDrawn_;
+
+    void RenderColumnHeader( REAL alpha );
+    void EnsureColumnHeader( REAL alpha );
+#endif
 
 public:
     virtual void OnRender();
@@ -117,15 +124,25 @@ public:
 
     virtual void HandleEvent( SDL_Event event );
 
+#ifndef DEDICATED
+    virtual REAL ItemDrawY(int itemIndex);
+    virtual REAL ItemRowHalf(int itemIndex);
+#endif
+
     void Render(REAL y,
                 const tString &servername, const tOutput &score,
-                const tOutput &users     , const tOutput &ping);
+                const tOutput &users     , const tOutput &ping,
+                bool selected = false, REAL alpha = 1);
 
     void Render(REAL y,
                 const tString &servername, const tString &score,
-                const tString &users     , const tString &ping);
+                const tString &users     , const tString &ping,
+                bool selected = false, REAL alpha = 1);
+
+    void RenderDetails( gServerInfo *server, REAL alpha );
     
-    void Render(REAL x, REAL y, tString &c, int center, int cursor, int cursorPos);
+    void Render(REAL x, REAL y, tString &c, int center, int cursor,
+                int cursorPos, REAL alpha, REAL right);
 };
 
 
@@ -399,6 +416,12 @@ void gServerMenu::OnRender()
 {
     uMenu::OnRender();
 
+#ifndef DEDICATED
+    // Keep a compact table above a persistent information panel.
+    SetBot( -.40f );
+    headerDrawn_ = false;
+#endif
+
     // next time the server list is to be resorted
     static double sg_serverMenuRefreshTimeout=-1E+32f;
 
@@ -549,7 +572,12 @@ void gServerMenu::Update()
 gServerMenu::gServerMenu(const char *title)
         : uMenu(title, false)
         , sortKey_( nServerInfo::KEY_SCORE )
+#ifndef DEDICATED
+        , headerDrawn_( false )
+#endif
 {
+    SetStyle( uMenuStyle_RclFull );
+
     nServerInfo *run = nServerInfo::GetFirstServer();
     while (run)
     {
@@ -584,21 +612,116 @@ static int resW=1, resH=1;
 
 static REAL shrink = .6f;
 static REAL displace = .15;
+REAL gServerMenu::ItemDrawY(int itemIndex)
+{
+    if ( RclStyle() )
+        return YPos(itemIndex);
 
-void gServerMenu::Render(REAL x,REAL y, tString &c, int center = 0, int cursor = 0, int cursorPos = 0)
+    return YPos(itemIndex) * shrink + displace;
+}
+
+REAL gServerMenu::ItemRowHalf(int itemIndex)
+{
+    (void)itemIndex;
+    if ( RclStyle() )
+        return uRclTheme::RowHalfHeight();
+
+    return text_height * shrink * 0.48f;
+}
+
+static void sg_DrawBrowserText( REAL left, REAL right, REAL y,
+                                tString const &text, REAL height,
+                                int cursor = 0, int cursorPos = 0 )
+{
+    if ( !sr_glOut || text.Len() <= 1 || right <= left )
+        return;
+
+    int const characters = std::max( 1,
+        tColoredString::RemoveColors( text, false ).Len() - 1 );
+    REAL width = height * ( rCWIDTH_NORMAL / rCHEIGHT_NORMAL )
+                 * rTextField::AspectWidthMultiplier();
+    REAL const available = right - left;
+    if ( width * characters > available )
+        width = available / characters;
+
+    ::DisplayText( left, y, width, height, text, -1,
+                   cursor, cursorPos, rTextField::COLOR_USE );
+}
+
+void gServerMenu::RenderColumnHeader( REAL alpha )
+{
+    // Leave the strip immediately below the chrome divider for headings; rows
+    // begin at MenuTop() and therefore never collide with it.
+    REAL const y = uRclTheme::MenuTop() + .008f;
+    REAL const height = .027f;
+
+    tString name, ping, users, score;
+    name << tOutput( "$network_master_servername" );
+    ping << tOutput( "$network_master_ping" );
+    users << tOutput( "$network_master_users" );
+    score << tOutput( "$network_master_score" );
+
+    uRclTheme::SetLabelColor( sortKey_ == nServerInfo::KEY_NAME, alpha );
+    sg_DrawBrowserText( -.78f, .27f, y, name, height );
+    uRclTheme::SetLabelColor( sortKey_ == nServerInfo::KEY_PING, alpha );
+    sg_DrawBrowserText( .31f, .49f, y, ping, height );
+    uRclTheme::SetLabelColor( sortKey_ == nServerInfo::KEY_USERS, alpha );
+    sg_DrawBrowserText( .52f, .69f, y, users, height );
+    uRclTheme::SetLabelColor( sortKey_ == nServerInfo::KEY_SCORE, alpha );
+    sg_DrawBrowserText( .72f, .83f, y, score, height );
+}
+
+void gServerMenu::EnsureColumnHeader( REAL alpha )
+{
+    if ( !RclStyle() || headerDrawn_ || alpha <= .01f )
+        return;
+
+    // Item rendering happens after uMenu paints the shared RCL background.
+    // Drawing on the first rendered item keeps these labels above that layer.
+    RenderColumnHeader( alpha );
+    headerDrawn_ = true;
+}
+
+void gServerMenu::Render(REAL x,REAL y, tString &c, int center = 0,
+                         int cursor = 0, int cursorPos = 0, REAL alpha = 1,
+                         REAL right = .83f)
 {
     if (sr_glOut)
     {
-        DisplayTextAutoWidth(x, y, c, text_height, -1, cursor, cursorPos);
+        if ( RclStyle() )
+        {
+            EnsureColumnHeader( alpha );
+            sg_DrawBrowserText( x, right, y, c, .052f,
+                                cursor, cursorPos );
+        }
+        else
+        {
+            DisplayTextAutoWidth(x, y, c, text_height, -1, cursor, cursorPos);
+        }
     }
 }
 
 void gServerMenu::Render(REAL y,
                          const tString &servername, const tString &score,
-                         const tString &users     , const tString &ping)
+                         const tString &users     , const tString &ping,
+                         bool selected, REAL alpha)
 {
     if (sr_glOut)
     {
+        if ( RclStyle() )
+        {
+            EnsureColumnHeader( alpha );
+            REAL const height = .052f;
+
+            uRclTheme::SetLabelColor( selected, alpha );
+            sg_DrawBrowserText( -.78f, .27f, y, servername, height );
+            uRclTheme::SetValueColor( selected, alpha );
+            sg_DrawBrowserText( .31f, .49f, y, ping, height );
+            sg_DrawBrowserText( .52f, .69f, y, users, height );
+            sg_DrawBrowserText( .72f, .83f, y, score, height );
+            return;
+        }
+
         rTextField c(-.9f, y+text_height*.5, text_width, text_height);
         c.SetWidth(1000);
 
@@ -643,8 +766,23 @@ void gServerMenu::Render(REAL y,
 
 void gServerMenu::Render(REAL y,
                          const tString &servername, const tOutput &score,
-                         const tOutput &users     , const tOutput &ping)
+                         const tOutput &users     , const tOutput &ping,
+                         bool selected, REAL alpha)
 {
+    if ( RclStyle() )
+    {
+        // The RCL table communicates sort state in its column header.  Keep
+        // row text free of the legacy red inline color codes so the shared
+        // white/cyan/yellow selection palette remains authoritative.
+        tString sn, s, u, p;
+        sn << servername;
+        s << score;
+        u << users;
+        p << ping;
+        Render( y, sn, s, u, p, selected, alpha );
+        return;
+    }
+
     tColoredString highlight, normal;
     highlight << tColoredString::ColorString( 1,.7,.7 );
     normal << tColoredString::ColorString( .7,.3,.3 );
@@ -679,7 +817,46 @@ void gServerMenu::Render(REAL y,
     u  << users;
     p  << ping;
 
-    Render(y, sn, s, u, p);
+    Render(y, sn, s, u, p, selected, alpha);
+}
+
+void gServerMenu::RenderDetails( gServerInfo *server, REAL alpha )
+{
+    if ( !sr_glOut || !RclStyle() || !server )
+        return;
+
+    tString players;
+    if ( server->UserNamesOneLine().Len() > 2 )
+        players << server->UserNamesOneLine();
+    else
+        players << tOutput( "$network_master_players_empty" );
+
+    tString endpoint;
+    endpoint << server->Release() << "  //  " << server->Url();
+
+    tString options;
+    options << server->Options();
+
+    REAL const labelHeight = .028f;
+    REAL const valueHeight = .036f;
+
+    uRclTheme::SetLabelColor( false, alpha );
+    sg_DrawBrowserText( -.78f, -.58f, -.535f,
+                        tString( "PLAYERS" ), labelHeight );
+    uRclTheme::SetValueColor( false, alpha );
+    sg_DrawBrowserText( -.55f, .83f, -.535f, players, valueHeight );
+
+    uRclTheme::SetLabelColor( false, alpha );
+    sg_DrawBrowserText( -.78f, -.58f, -.605f,
+                        tString( "SERVER" ), labelHeight );
+    uRclTheme::SetValueColor( false, alpha );
+    sg_DrawBrowserText( -.55f, .83f, -.605f, endpoint, valueHeight );
+
+    uRclTheme::SetLabelColor( false, alpha );
+    sg_DrawBrowserText( -.78f, -.58f, -.675f,
+                        tString( "OPTIONS" ), labelHeight );
+    uRclTheme::SetValueColor( false, alpha );
+    sg_DrawBrowserText( -.55f, .83f, -.675f, options, valueHeight );
 }
 
 #endif /* DEDICATED */
@@ -766,18 +943,26 @@ void gServerMenuItem::Render(REAL x,REAL y,REAL alpha, bool selected)
             name << server->GetName();
         }
 
-        serverMenu->Render(y*shrink + displace,
+        REAL const drawY = serverMenu->RclStyle()
+                           ? y : y*shrink + displace;
+        serverMenu->Render(drawY,
                            name,
-                           score, users, ping);
+                           score, users, ping, selected, alpha);
+
+        if ( selected )
+            serverMenu->RenderDetails( server, alpha );
     }
     else
     {
         tOutput o("$network_master_noserver");
         tString s;
         s << o;
-        serverMenu->Render(y*shrink + displace,
+        REAL const drawY = serverMenu->RclStyle()
+                           ? y : y*shrink + displace;
+        serverMenu->Render(drawY,
                            s,
-                           tString(""), tString(""), tString(""));
+                           tString(""), tString(""), tString(""),
+                           selected, alpha);
 
     }
 #endif
@@ -789,6 +974,15 @@ static REAL sg_requestBottom = -.9;
 void gServerMenuItem::RenderBackground()
 {
 #ifndef DEDICATED
+    if ( menu->RclStyle() )
+    {
+        // The shared RCL pass paints its background after this callback. Keep
+        // the polling work here; the selected-server summary is painted later
+        // with the selected row so it remains visible.
+        gBrowserMenuItem::RenderBackground();
+        return;
+    }
+
     REAL helpTopReal = sg_requestBottom*shrink + displace - .05;;
 
     gBrowserMenuItem::RenderBackground();
@@ -944,7 +1138,7 @@ void gBrowserMenuItem::RenderBackground()
     }
 #endif
     
-    if( menu )
+    if( menu && !menu->RclStyle() )
     {
         double now = tSysTimeFloat();
         static double lastTime = now;
@@ -965,7 +1159,8 @@ void gBrowserMenuItem::RenderBackground()
     sn_Receive();
     sn_SendPlanned();
 
-    menu->GenericBackground();
+    if ( !menu->RclStyle() )
+        menu->GenericBackground();
     if (continuePoll)
     {
         continuePoll = nServerInfo::DoQueryAll(sg_simultaneous);
@@ -974,6 +1169,9 @@ void gBrowserMenuItem::RenderBackground()
     }
 
 #ifndef DEDICATED
+    if ( menu->RclStyle() )
+        return;
+
     rTextField::SetDefaultColor( tColor(.8,.3,.3,1) );
 
 	tString sn2 = tString(tOutput("$network_master_servername"));
@@ -1064,9 +1262,11 @@ void gServerStartMenuItem::Render(REAL x,REAL y,REAL alpha, bool selected)
 
     tString s;
     s << tOutput("$network_master_start");
-    static_cast<gServerMenu*>(menu)->Render(y*shrink + displace,
-                                            s,
-                                            tString(), tString(), tString());
+    gServerMenu *serverMenu = static_cast<gServerMenu*>(menu);
+    REAL const drawY = serverMenu->RclStyle()
+                       ? y : y*shrink + displace;
+    serverMenu->Render(drawY, s,
+                       tString(), tString(), tString(), selected, alpha);
 #endif
 }
 
@@ -1092,14 +1292,33 @@ void gServerFilterMenuItem::Render(REAL x,REAL y,REAL alpha, bool selected)
     
     tString s;
     s << description;
+
+    gServerMenu *serverMenu = static_cast<gServerMenu*>(menu);
+    if ( serverMenu->RclStyle() )
+    {
+        tString value;
+        value << *content;
+        if ( selected && value.Len() <= 1 )
+            value << " ";
+
+        uRclTheme::SetLabelColor( selected, alpha );
+        x = uRclTheme::LabelX();
+        REAL const drawY = y;
+        serverMenu->Render( x, drawY, s, 0, 0, 0, alpha, -.12f );
+
+        uRclTheme::SetValueColor( selected, alpha );
+        serverMenu->Render( -.08f, drawY, value,
+                            1, selected ? 1 : 0, cursorPos, alpha, .83f );
+        return;
+    }
     
     x = -.9f;
     REAL x2 = s.Len() * 0.018 + x;
     
     int cMode = selected ? 1 : 0;
     
-    static_cast<gServerMenu*>(menu)->Render(x, y*shrink + displace, s);
-    static_cast<gServerMenu*>(menu)->Render(x2, y*shrink + displace, *content, 1, cMode, cursorPos);
+    serverMenu->Render(x, y*shrink + displace, s);
+    serverMenu->Render(x2, y*shrink + displace, *content, 1, cMode, cursorPos);
 #endif
 }
 
@@ -1151,5 +1370,3 @@ gServerStartMenuItem::gServerStartMenuItem(gServerMenu *men)
 gServerStartMenuItem::~gServerStartMenuItem()
 {
 }
-
-

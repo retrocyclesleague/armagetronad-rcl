@@ -28,6 +28,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "tSysTime.h"
 #include "uMenu.h"
+#include "uRclTheme.h"
 #include "rSysdep.h"
 #include "rScreen.h"
 #include "rViewport.h"
@@ -58,7 +59,11 @@ bool uMenu::exitToMain=false;
 
 #ifdef SLOPPYLOCALE
 uMenu::uMenu(const char *t="",bool exit_item)
-        :exitFlag(0),spaceBelow(.4),title(t){
+        :exitFlag(0),spaceBelow(.4),style_(uMenuStyle_RclPanel),
+#ifndef DEDICATED
+        menuMouseMode_(false),styleEnterTime_(0),
+#endif
+        title(t){
     if (exit_item) new uMenuItemExit(this);
     center=0;
     menuTop=.7;
@@ -69,7 +74,11 @@ uMenu::uMenu(const char *t="",bool exit_item)
 #endif
 
 uMenu::uMenu(const tOutput &t,bool exit_item)
-        :exitFlag(0),spaceBelow(.4),title(t){
+        :exitFlag(0),spaceBelow(.4),style_(uMenuStyle_RclPanel),
+#ifndef DEDICATED
+        menuMouseMode_(false),styleEnterTime_(0),
+#endif
+        title(t){
     if (exit_item) new uMenuItemExit(this);
     center=0;
     menuTop=.7;
@@ -108,8 +117,94 @@ static REAL titlefac=1.2;
 int menuentries=0;
 
 REAL uMenu::YPos(int num){
-    return yOffset-text_height*(menuentries-num);
+    REAL const pitch = RclStyle() ? uRclTheme::RowPitch() : text_height;
+    return yOffset-pitch*(menuentries-num);
 }
+
+#ifndef DEDICATED
+static REAL MenuMouseY(Uint16 pixelY)
+{
+    if (sr_screenHeight <= 0)
+        return 0;
+    return 1.0f - 2.0f * pixelY / sr_screenHeight;
+}
+
+REAL uMenu::ItemDrawY(int itemIndex)
+{
+    return YPos(itemIndex);
+}
+
+REAL uMenu::ItemRowHalf(int itemIndex)
+{
+    (void)itemIndex;
+    if (RclStyle())
+        return uRclTheme::RowHalfHeight();
+    return text_height * 0.48f;
+}
+
+int uMenu::ItemAt(REAL mouseY)
+{
+    int best = -1;
+    REAL bestDistance = 1E+30f;
+
+    for (int i = 0; i < items.Len(); ++i)
+    {
+        // Match the render loop's visibility test, even when a subclass draws
+        // an item at a transformed Y coordinate (the server browser does).
+        const REAL layoutY = YPos(i);
+        if (layoutY <= menuBot || layoutY >= menuTop || !items[i]->IsSelectable())
+            continue;
+
+        const REAL distance = fabsf(mouseY - ItemDrawY(i));
+        if (distance <= ItemRowHalf(i) && distance < bestDistance)
+        {
+            best = i;
+            bestDistance = distance;
+        }
+    }
+
+    return best;
+}
+
+void uMenu::EnterMenuMouseMode()
+{
+    if (menuMouseMode_)
+        return;
+
+    savedCursorState_ = SDL_ShowCursor(SDL_QUERY);
+    savedMouseGrab_ = SDL_WM_GrabInput(SDL_GRAB_QUERY);
+    SDL_WM_GrabInput(SDL_GRAB_OFF);
+    SDL_ShowCursor(SDL_ENABLE);
+    menuMouseMode_ = true;
+}
+
+void uMenu::LeaveMenuMouseMode()
+{
+    if (!menuMouseMode_)
+        return;
+
+    menuMouseMode_ = false;
+    SDL_WM_GrabInput(static_cast<SDL_GrabMode>(savedMouseGrab_));
+    SDL_ShowCursor(savedCursorState_);
+}
+
+class uMenuMouseGuard
+{
+public:
+    explicit uMenuMouseGuard(uMenu &menu): menu_(menu)
+    {
+        menu_.EnterMenuMouseMode();
+    }
+
+    ~uMenuMouseGuard()
+    {
+        menu_.LeaveMenuMouseMode();
+    }
+
+private:
+    uMenu &menu_;
+};
+#endif
 
 
 static inline void arrow(REAL x,REAL y,REAL dy,REAL size){
@@ -144,6 +239,49 @@ bool uMenu::MenuActive()
 static rNoAutoDisplayAtNewlineCallback su_noNewline( uMenu::MenuActive );
 // static rSmallConsoleCallback su_smallConsole( su_InMenu );
 
+#ifndef DEDICATED
+void uMenu::ActivateSelected()
+{
+    s_globalRepeat = false;
+
+    // Enter() may synchronously run gameplay or another menu. Restore the
+    // caller's mouse state for that duration, then capture it again on return.
+    LeaveMenuMouseMode();
+    try
+    {
+        su_inMenu = false;
+        items[selected]->Enter();
+    }
+    catch (tException const & e)
+    {
+        uMenu::SetIdle(NULL);
+
+        // inform user of generic errors
+        tConsole::Message( e.GetName(), e.GetDescription(), 20 );
+    }
+#ifdef _MSC_VER
+#pragma warning ( disable : 4286 )
+    // GRR. Visual C++ dones not handle generic exceptions with the above general statement.
+    // A specialized version is needed. The best part: it warns about the code below being redundant.
+    catch ( tGenericException const & e )
+    {
+        try
+        {
+            tConsole::Message( e.GetName(), e.GetDescription(), 20 );
+        }
+        catch (...)
+        {
+        }
+    }
+#endif
+
+    su_inMenu = true;
+    EnterMenuMouseMode();
+    s_globalRepeat = false;
+    lastkey = tSysTimeFloat();
+}
+#endif
+
 void uMenu::OnEnter(){
 #ifndef DEDICATED
     bool localRepeat = false;
@@ -163,8 +301,39 @@ void uMenu::OnEnter(){
     uCallbackMenuEnter::MenuEnter();
     su_inMenu = true;
 
+#ifndef DEDICATED
+    uMenuMouseGuard mouseGuard(*this);
+#endif
+
     if (items.Len()<=0)
+    {
+        uCallbackMenuLeave::MenuLeave();
+        su_inMenu = false;
         return;
+    }
+
+#ifndef DEDICATED
+    REAL const savedMenuTop = menuTop;
+    REAL const savedMenuBot = menuBot;
+    REAL const savedSpaceBelow = spaceBelow;
+    REAL const savedCenter = center;
+    if (RclStyle())
+    {
+        if (style_ == uMenuStyle_RclPrompt)
+        {
+            menuTop = uRclTheme::PromptTop();
+            menuBot = uRclTheme::PromptBottom();
+        }
+        else
+        {
+            menuTop = uRclTheme::MenuTop();
+            menuBot = uRclTheme::MenuBottom();
+        }
+        spaceBelow = 1 + menuBot;
+        center = uRclTheme::LabelX();
+        styleEnterTime_ = tSysTimeFloat();
+    }
+#endif
 
     exitFlag=0;
     yOffset=menuTop;
@@ -292,87 +461,161 @@ void uMenu::OnEnter(){
 
         menuentries=items.Len();
 
+        if (style_ == uMenuStyle_RclPrompt)
+            yOffset = uRclTheme::PromptRowY() +
+                      uRclTheme::RowPitch() * (menuentries - selected);
+
         REAL ysel=YPos(selected);
 
+        if (style_ != uMenuStyle_RclPrompt)
         {
-            REAL scrollUp = menuBot+border-ysel;
-            if(scrollUp > 0)
-                scrollBy(scrollUp);
+            {
+                REAL scrollUp = menuBot+border-ysel;
+                if(scrollUp > 0)
+                    scrollBy(scrollUp);
+            }
+            {
+                REAL scrollDown = menuTop-border-ysel;
+                if(scrollDown < 0)
+                    scrollBy(scrollDown);
+            }
+
+            if (ysel<menuBot)
+                yOffset+=(menuBot-ysel);
+
+            if (ysel>menuTop-smallborder)
+                yOffset+=(menuTop-smallborder-ysel);
+
+            if (YPos(0)>menuBot+smallborder)
+                yOffset+=menuBot+smallborder-YPos(0);
+
+            if (YPos(menuentries-1)<menuTop-smallborder)
+                yOffset+=menuTop-smallborder-YPos(menuentries-1);
         }
-        {
-            REAL scrollDown = menuTop-border-ysel;
-            if(scrollDown < 0)
-                scrollBy(scrollDown);
-        }
-
-        if (ysel<menuBot)
-            yOffset+=(menuBot-ysel);
-
-        if (ysel>menuTop-smallborder)
-            yOffset+=(menuTop-smallborder-ysel);
-
-        if (YPos(0)>menuBot+smallborder)
-            yOffset+=menuBot+smallborder-YPos(0);
-
-        if (YPos(menuentries-1)<menuTop-smallborder)
-            yOffset+=menuTop-smallborder-YPos(menuentries-1);
 
 #ifndef DEDICATED
         sr_ResetRenderState(true);
+        if (items.Len() <= 0)
+        {
+            exitFlag = true;
+            continue;
+        }
+        if (selected >= items.Len()) selected = items.Len()-1;
         items[selected]->RenderBackground();
 
-        if (selected >= items.Len()) selected = items.Len()-1;
-        if (items.Len() <= 0)
-            return;
-
         if (sr_glOut && !exitFlag && !quickexit){
-            items[selected]->Render(center,YPos(selected),1,true);
+            if (RclStyle())
+            {
+                REAL progress = (tSysTimeFloat() - styleEnterTime_) / .16f;
+                REAL const entrance = uRclTheme::EaseIn(progress);
+                REAL const chromeAlpha = .72f + .28f * entrance;
+                REAL const slide = -.035f * (1 - entrance);
+                bool const prompt = style_ == uMenuStyle_RclPrompt;
+                bool const full = style_ == uMenuStyle_RclFull;
 
-            for (int i=items.Len()-1;i>=0;i--)
-                if (i!=selected){
-                    REAL y=YPos(i);
-                    REAL alpha=1;
+                if (prompt)
+                {
+                    uRclTheme::DrawPromptBackground(chromeAlpha);
+                    uRclTheme::DrawPromptChrome(tString(title), entrance);
+                }
+                else
+                {
+                    uRclTheme::DrawBackground(full, chromeAlpha);
+                    uRclTheme::DrawChrome(full, tString(title), entrance);
+                }
+
+                // Some legacy items render a live preview. Their background
+                // callback still prepares gameplay/console content; the
+                // visible preview belongs above the shared RCL shell.
+                items[selected]->RenderForeground();
+
+                REAL const selectedY = ItemDrawY(selected);
+                if (selectedY > menuBot && selectedY < menuTop)
+                {
+                    if (prompt)
+                        uRclTheme::DrawPromptSelection(selectedY, entrance);
+                    else
+                        uRclTheme::DrawSelection(selectedY, entrance);
+                }
+
+                for (int i=items.Len()-1;i>=0;i--)
+                {
+                    REAL const layoutY=YPos(i);
+                    REAL y=ItemDrawY(i);
+                    REAL alpha=entrance;
                     const REAL b=.1;
-                    if (y<menuBot+b)
-                        alpha=(y-menuBot)/b;
-                    if (y>menuTop-b)
-                        alpha=(menuTop-y)/b;
-                    if (y>menuBot && y<menuTop)
+                    if (layoutY<menuBot+b)
+                        alpha*=std::max(0.0f, (layoutY-menuBot)/b);
+                    if (layoutY>menuTop-b)
+                        alpha*=std::max(0.0f, (menuTop-layoutY)/b);
+                    if (layoutY>menuBot && layoutY<menuTop)
                     {
-                        rTextField::SetDefaultColor( tColor(1,1,1,1) );
-                        rTextField::SetBlendColor( tColor(1,1,1,1) );
-                        items[i]->Render(center,y,alpha,false);
+                        items[i]->Render(center + slide, y, alpha,
+                                         i == selected);
                     }
                 }
 
-            rTextField::SetDefaultColor( tColor(1,1,1,1) );
-            rTextField::SetBlendColor( tColor(1,1,1,1) );
+                if (!prompt)
+                    uRclTheme::DrawHelp(items[selected]->Help(), entrance);
+                disphelp = false;
 
-            Color(.6,.6,1,1);
-            ::DisplayText(0,menuTop+text_height*titlefac
-                          ,text_width*titlefac*rTextField::AspectWidthMultiplier(),text_height*titlefac,
-                          title,0);
-
-            glDisable(GL_TEXTURE_2D);
-            //glDisable(GL_TEXTURE);
-            Color(1,.2,.2,.5);
-            if (YPos(0)<menuBot+smallborder && (int(tSysTimeFloat()))%2)
-                arrow(.9,menuBot+.1,-1,.05);
-            if (YPos(menuentries-1)>menuTop && (int(tSysTimeFloat())+1)%2)
-                arrow(.9,menuTop,1,.05);
-
-            REAL helpAlpha = tSysTimeFloat()-lastkey-timeout;
-            if( helpAlpha > 1 )
-            {
-                helpAlpha = 1;
+                glDisable(GL_TEXTURE_2D);
+                Color(0, .82f, .88f, .72f * entrance);
+                if (YPos(0)<menuBot+smallborder && (int(tSysTimeFloat()))%2)
+                    arrow(.82f,menuBot+.1f,-1,.04f);
+                if (YPos(menuentries-1)>menuTop && (int(tSysTimeFloat())+1)%2)
+                    arrow(.82f,menuTop,1,.04f);
             }
-
-            disphelp = helpAlpha > 0;
-            if ( items[selected]->DisplayHelp( disphelp, menuBot, helpAlpha ) )
+            else
             {
-                rTextField c(-.95f,menuBot-.04f,rCWIDTH_NORMAL*rTextField::AspectWidthMultiplier());
-                c.SetWidth(static_cast<int>((1.9f-items[selected]->SpaceRight())/c.GetCWidth()));
-                c << items[selected]->Help();
+                items[selected]->Render(center,YPos(selected),1,true);
+
+                for (int i=items.Len()-1;i>=0;i--)
+                    if (i!=selected){
+                        REAL y=YPos(i);
+                        REAL alpha=1;
+                        const REAL b=.1;
+                        if (y<menuBot+b)
+                            alpha=(y-menuBot)/b;
+                        if (y>menuTop-b)
+                            alpha=(menuTop-y)/b;
+                        if (y>menuBot && y<menuTop)
+                        {
+                            rTextField::SetDefaultColor( tColor(1,1,1,1) );
+                            rTextField::SetBlendColor( tColor(1,1,1,1) );
+                            items[i]->Render(center,y,alpha,false);
+                        }
+                    }
+
+                rTextField::SetDefaultColor( tColor(1,1,1,1) );
+                rTextField::SetBlendColor( tColor(1,1,1,1) );
+
+                Color(.6,.6,1,1);
+                ::DisplayText(0,menuTop+text_height*titlefac
+                              ,text_width*titlefac*rTextField::AspectWidthMultiplier(),text_height*titlefac,
+                              title,0);
+
+                glDisable(GL_TEXTURE_2D);
+                //glDisable(GL_TEXTURE);
+                Color(1,.2,.2,.5);
+                if (YPos(0)<menuBot+smallborder && (int(tSysTimeFloat()))%2)
+                    arrow(.9,menuBot+.1,-1,.05);
+                if (YPos(menuentries-1)>menuTop && (int(tSysTimeFloat())+1)%2)
+                    arrow(.9,menuTop,1,.05);
+
+                REAL helpAlpha = tSysTimeFloat()-lastkey-timeout;
+                if( helpAlpha > 1 )
+                {
+                    helpAlpha = 1;
+                }
+
+                disphelp = helpAlpha > 0;
+                if ( items[selected]->DisplayHelp( disphelp, menuBot, helpAlpha ) )
+                {
+                    rTextField c(-.95f,menuBot-.04f,rCWIDTH_NORMAL*rTextField::AspectWidthMultiplier());
+                    c.SetWidth(static_cast<int>((1.9f-items[selected]->SpaceRight())/c.GetCWidth()));
+                    c << items[selected]->Help();
+                }
             }
         }
         else
@@ -392,6 +635,16 @@ void uMenu::OnEnter(){
 
     uCallbackMenuLeave::MenuLeave();
     su_inMenu = false;
+
+#ifndef DEDICATED
+    if (RclStyle())
+    {
+        menuTop = savedMenuTop;
+        menuBot = savedMenuBot;
+        spaceBelow = savedSpaceBelow;
+        center = savedCenter;
+    }
+#endif
 }
 
 void uMenu::HandleEvent( SDL_Event event )
@@ -399,6 +652,78 @@ void uMenu::HandleEvent( SDL_Event event )
 #ifndef DEDICATED
     if (!items[selected]->Event(event))
     {
+        switch (event.type)
+        {
+        case SDL_MOUSEMOTION:
+        {
+            const int hit = ItemAt(MenuMouseY(event.motion.y));
+            if (hit >= 0 && selected != hit)
+            {
+                selected = hit;
+                lastkey = tSysTimeFloat();
+                items[selected]->DisplayHelp(false, 0, 0.0f);
+            }
+            return;
+        }
+
+        case SDL_MOUSEBUTTONDOWN:
+            switch (event.button.button)
+            {
+            case SDL_BUTTON_LEFT:
+            {
+                const int hit = ItemAt(MenuMouseY(event.button.y));
+                if (hit >= 0)
+                {
+                    if (selected != hit)
+                        items[hit]->DisplayHelp(false, 0, 0.0f);
+                    selected = hit;
+                    ActivateSelected();
+                }
+                break;
+            }
+
+            case SDL_BUTTON_WHEELUP:
+            {
+                lastkey = tSysTimeFloat();
+                const int next = GetNextSelectable(selected);
+                if (next >= 0)
+                {
+                    selected = next;
+                    items[selected]->DisplayHelp(false, 0, 0.0f);
+                }
+                break;
+            }
+
+            case SDL_BUTTON_WHEELDOWN:
+            {
+                lastkey = tSysTimeFloat();
+                const int next = GetPrevSelectable(selected);
+                if (next >= 0)
+                {
+                    selected = next;
+                    items[selected]->DisplayHelp(false, 0, 0.0f);
+                }
+                break;
+            }
+
+            case SDL_BUTTON_RIGHT:
+                s_globalRepeat = false;
+                lastkey = tSysTimeFloat();
+                Exit();
+                break;
+
+            default:
+                break;
+            }
+            return;
+
+        case SDL_MOUSEBUTTONUP:
+            return;
+
+        default:
+            break;
+        }
+
         switch (event.type){
         case SDL_KEYDOWN:
         {
@@ -435,38 +760,7 @@ void uMenu::HandleEvent( SDL_Event event )
                         case(SDLK_KP_ENTER):
                             case(SDLK_RETURN):
                                     s_globalRepeat = false;
-                try
-        {
-                    su_inMenu = false;
-                    items[selected]->Enter();
-                }
-                catch (tException const & e)
-                {
-                    uMenu::SetIdle(NULL);
-
-                    // inform user of generic errors
-                    tConsole::Message( e.GetName(), e.GetDescription(), 20 );
-                }
-#ifdef _MSC_VER
-#pragma warning ( disable : 4286 )
-                // GRR. Visual C++ dones not handle generic exceptions with the above general statement.
-                // A specialized version is needed. The best part: it warns about the code below being redundant.
-                catch ( tGenericException const & e )
-                {
-                    try
-                    {
-                        tConsole::Message( e.GetName(), e.GetDescription(), 20 );
-                    }
-                    catch (...)
-                    {
-                    }
-                }
-#endif
-
-                su_inMenu = true;
-
-                s_globalRepeat = false;
-                lastkey=tSysTimeFloat();
+                ActivateSelected();
                 break;
 
             default:
@@ -625,6 +919,14 @@ void uMenu::OnRender()
 
 void uMenuItem::SetColor( bool selected, REAL alpha )
 {
+#ifndef DEDICATED
+    if (menu && menu->RclStyle())
+    {
+        uRclTheme::SetLabelColor(selected, alpha);
+        return;
+    }
+#endif
+
     //   rTextField::SetBlendColor( tColor(.8+.2*sin(time),.3-.1*sin(time),.3-.1*sin(time),alpha) );
     rTextField::SetDefaultColor( tColor(1,1,1,alpha) );
 
@@ -642,6 +944,50 @@ void uMenuItem::DisplayText(REAL x,REAL y,const char *text,
                             int center,int c,int cp, rTextField::ColorMode colorMode ){
 #ifndef DEDICATED
     if (sr_glOut){
+        if (menu && menu->RclStyle())
+        {
+            REAL drawX = x;
+            if (center > 0)
+            {
+                drawX += .02f;
+                uRclTheme::SetLabelColor(selected, alpha);
+            }
+            else if (center < 0)
+            {
+                drawX += uRclTheme::ValueOffset() - .02f;
+                uRclTheme::SetValueColor(selected, alpha);
+            }
+            else
+            {
+                uRclTheme::SetLabelColor(selected, alpha);
+            }
+
+            REAL tw = uRclTheme::TextWidth();
+            REAL th = uRclTheme::TextHeight();
+            tw *= (REAL(sr_screenHeight)/sr_screenWidth)*(4.0/3.0);
+
+            // Keep setting labels in their column without reducing row height.
+            // Values retain the right-hand column and actions may use full width.
+            if (center > 0)
+            {
+                int const length = std::max(1, tColoredString::RemoveColors(text).Len() - 1);
+                REAL const available = uRclTheme::ValueOffset() - .11f;
+                if (length * tw > available)
+                    tw = available / length;
+            }
+            else
+            {
+                int const length = std::max(1, tColoredString::RemoveColors(text).Len() - 1);
+                REAL available = uRclTheme::MenuRight() - drawX - .04f;
+                if (center == 0)
+                    available = uRclTheme::MenuRight() - uRclTheme::LabelX() - .08f;
+                if (available > 0 && length * tw > available)
+                    tw = available / length;
+            }
+            ::DisplayText(drawX,y,tw,th,text,-1,c,cp,colorMode);
+            return;
+        }
+
         SetColor( selected, alpha );
 
         REAL tw = text_width;
@@ -1396,30 +1742,22 @@ bool uMenu::Message(const tOutput& message, const tOutput& interpretation, REAL 
                 rSysDep::ClearGL();
 
                 GenericBackground();
+                uRclTheme::DrawDialog(tString(message), 1);
 
-                //16*3/640.0, 32*3/480.0
-                REAL w=0.1*(REAL(sr_screenHeight)/sr_screenWidth),h=0.17;
+                REAL const w = .028f * (REAL(sr_screenHeight)/sr_screenWidth)
+                               * (4.0f/3.0f);
+                REAL const h = .058f;
 
-                //REAL middle=-.6;
-
-                tString m(message);
-                int len = m.Len();
-                if (w * len > 1.8)
+                if (!lines.empty())
                 {
-                    h = h * 1.8 / (w * len);
-                    w = 1.8 / len;
-                }
-
-                Color(1,1,1);
-                DisplayText(0,.8,w,h, message);
-
-                //16/640.0, 32/480.0
-                w = 1/30.0*(REAL(sr_screenHeight)/sr_screenWidth);
-                h = 0.06;
-
-                if (offset >= lines.size()) offset = lines.size() - 1;
-                {
-                    rTextField c(-.8,.6, w, h);
+                    if (offset >= lines.size())
+                        offset = lines.size() - 1;
+                    rTextField::SetDefaultColor(tColor(.78f,.82f,.85f,1));
+                    rTextField::SetBlendColor(tColor(1,1,1,1));
+                    rTextField c(uRclTheme::LabelX(), .52f, w, h);
+                    c.SetWidth(static_cast<int>(
+                        (uRclTheme::MenuRight() - uRclTheme::LabelX() - .08f)
+                        / c.GetCWidth()));
 
                     for (unsigned i = offset; i < lines.size(); ++i)
                         c << lines[i] << "\n";
@@ -1446,4 +1784,3 @@ bool uMenu::Message(const tOutput& message, const tOutput& interpretation, REAL 
 
     return ret;
 }
-

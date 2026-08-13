@@ -237,8 +237,8 @@ static uActionPlayer s_brakeToggle("CYCLE_BRAKE_TOGGLE", -9);
 static uActionTooltip sg_brakeTooltip( gCycle::s_brake, 1, &ePlayer::VetoActiveTooltip );
 
 static eWavData cycle_run("moviesounds/engine.wav","sound/cyclrun.wav");
-static eWavData turn_wav("moviesounds/cycturn.wav","sound/expl.wav");
-static eWavData scrap("sound/expl.wav");
+static eWavData turn_wav("moviesounds/cycturn.wav","sound/turn.wav");
+static eWavData scrap("sound/scrape.wav");
 
 // a class of textures where the transparent part of the
 // image is replaced by the player color
@@ -4735,6 +4735,29 @@ void gCycleWallsDisplayListManager::RenderAllWithDisplayList( eCamera const * ca
 bool sg_HideCyclesWalls = false;
 static tConfItem<bool> sg_HideCyclesWallsConf("HIDE_CYCLES_WALLS", sg_HideCyclesWalls);
 
+static void sg_RenderTrailGlowList( eCamera const * camera, gNetPlayerWall * list )
+{
+    gNetPlayerWall * run = list;
+    while ( run )
+    {
+        gNetPlayerWall * next = run->Next();
+        if ( sg_HideCyclesWalls && camera->Player()->Object() )
+        {
+            if ( camera->Player()->Object()->Alive() && camera->Player() != run->Cycle()->Player() )
+            {
+                run = next;
+                continue;
+            }
+        }
+
+        // Glow is intentionally never cached in the legacy display lists. This
+        // keeps intensity changes immediate and leaves the crisp core cache
+        // byte-for-byte independent from the enhanced presentation pass.
+        run->RenderList( false, gNetPlayerWall::gWallRenderMode_Glow );
+        run = next;
+    }
+}
+
 void gCycleWallsDisplayListManager::RenderAll( eCamera const * camera, gCycle * cycle, gNetPlayerWall * list )
 {
     if( !list )
@@ -4795,6 +4818,31 @@ void gCycleWallsDisplayListManager::RenderAll( eCamera const * camera, gCycle * 
 
     // then, render the rest
     RenderAll( camera, cycle, wallList_ );
+
+    if ( gNetPlayerWall::TrailGlowEnabled() )
+    {
+        // The shell is an additive overlay on the already-rendered core. Keep
+        // depth testing so walls remain occluded normally, but never let the
+        // cosmetic pass write depth or leak blend/texture state to later draws.
+        RenderEnd();
+        glPushAttrib( GL_COLOR_BUFFER_BIT | GL_CURRENT_BIT | GL_DEPTH_BUFFER_BIT |
+                      GL_ENABLE_BIT | GL_TEXTURE_BIT );
+        glEnable( GL_DEPTH_TEST );
+        glDepthFunc( GL_LEQUAL );
+        glDepthMask( GL_FALSE );
+        glEnable( GL_BLEND );
+        glBlendFunc( GL_SRC_ALPHA, GL_ONE );
+        glDisable( GL_ALPHA_TEST );
+        glDisable( GL_TEXTURE_2D );
+        glDisable( GL_LIGHTING );
+        glDisable( GL_CULL_FACE );
+
+        sg_RenderTrailGlowList( camera, wallsWithDisplayList_ );
+        sg_RenderTrailGlowList( camera, wallList_ );
+
+        RenderEnd();
+        glPopAttrib();
+    }
 }
 
 bool sg_HideCycles = false;
@@ -5426,12 +5474,10 @@ void gCycle::SoundMix(Uint8 *dest,unsigned int len,
             engine->Mix(dest,len,viewer,rvol,lvol,verletSpeed_/(sg_speedCycleSound * SpeedMultiplier()));
 
         if (turning)
-        {
-            if (turn_wav.alt)
-                turning->Mix(dest,len,viewer,rvol,lvol,5);
-            else
-                turning->Mix(dest,len,viewer,rvol,lvol,1);
-        }
+            // sound/turn.wav is an authored fallback, not the historical
+            // explosion sample. Play both it and moviepack turn sounds at
+            // their native rate so the transient and mechanical body survive.
+            turning->Mix(dest,len,viewer,rvol,lvol,1);
 
         if (spark)
             spark->Mix(dest,len,viewer,rvol*.5,lvol*.5,4);

@@ -513,7 +513,7 @@ int filter(const SDL_Event *tEvent){
         if (tEvent->type==SDL_MOUSEMOTION)
             if (tEvent->motion.x==sr_screenWidth/2 && tEvent->motion.y==sr_screenHeight/2)
                 return 0;
-        if (su_mouseGrab &&
+        if (su_mouseGrab && !uMenu::MenuActive() &&
                 tEvent->type!=SDL_MOUSEBUTTONDOWN &&
                 tEvent->type!=SDL_MOUSEBUTTONUP &&
                 ((tEvent->motion.x>=sr_screenWidth-10  || tEvent->motion.x<=10) ||
@@ -539,6 +539,10 @@ int filter(const SDL_Event *tEvent){
                 // if it does fail we'll just disable resizing...
                 // TODO
                 sr_ReinitDisplay();
+            }
+            else
+            {
+                sr_UpdateRenderDimensions();
             }
             st_ToDo(rCallbackAfterScreenModeChange::Exec);
         }
@@ -631,6 +635,28 @@ namespace
 {
 tString sn_configurationSavedInVersion{"0.2.8"};
 tConfItem<tString> sn_configurationSavedInVersionConf("SAVED_IN_VERSION",sn_configurationSavedInVersion);
+
+bool sn_NormalizeSavedRclVersion()
+{
+    // The public RCL line changed its presentation separator from
+    // 0.2.9-sty... to 0.2.9+sty....  The migration comparator quite
+    // correctly sorts '+' before '-', so translate only this known alias
+    // before comparing. Return whether the profile already belongs to this
+    // compatible line so callers can avoid replaying older generic migrations.
+    // Protocol versions are separate and remain untouched.
+    tString const legacyPrefix("0.2.9-sty+ct+ap+rcl");
+    if (sn_configurationSavedInVersion.StartsWith(legacyPrefix))
+    {
+        tString normalized("0.2.9+sty+ct+ap+rcl");
+        normalized << sn_configurationSavedInVersion.SubStr(
+            legacyPrefix.Len() - 1);
+        sn_configurationSavedInVersion = normalized;
+        return true;
+    }
+
+    return sn_configurationSavedInVersion.StartsWith(
+        "0.2.9+sty+ct+ap+rcl");
+}
 }
 
 int main(int argc,char **argv){
@@ -691,17 +717,34 @@ int main(int argc,char **argv){
 
         st_LoadConfig();
 
+        bool savedOnRclCompatibleLine = sn_NormalizeSavedRclVersion();
+        bool savedOnGeneric029Line =
+            !savedOnRclCompatibleLine &&
+            sn_configurationSavedInVersion.StartsWith("0.2.9");
+
         // migrate user configuration from previous versions
         if(sn_configurationSavedInVersion != sn_programVersion)
         {
             if(st_FirstUse)
             {
                 sn_configurationSavedInVersion = "0.0";
+                savedOnRclCompatibleLine = false;
+                savedOnGeneric029Line = false;
             }
 
-            tConfigMigration::Migrate(sn_configurationSavedInVersion);
+            // Every build on the RCL-compatible line already contains the
+            // generic 0.2.9 migrations. Its flavor separators sort before
+            // some older sty+ct+ap thresholds, so replaying those callbacks
+            // would overwrite explicit player settings during an RCL update.
+            if(!savedOnRclCompatibleLine)
+                tConfigMigration::Migrate(sn_configurationSavedInVersion);
         }
-        if(tConfigMigration::SavedBefore(sn_configurationSavedInVersion, sn_programVersion))
+        // The new RCL flavor separator sorts below the generic 0.2.9 dot
+        // separator. Once generic migrations have run, explicitly adopt this
+        // build identity so they are not replayed at every source-tree launch.
+        if(savedOnGeneric029Line ||
+                tConfigMigration::SavedBefore(sn_configurationSavedInVersion,
+                                               sn_programVersion))
             sn_configurationSavedInVersion = sn_programVersion;
 
         // record and play back the recording debug level
@@ -797,21 +840,17 @@ int main(int argc,char **argv){
 
 #ifdef MACOSX
             {
-                // defaults for playing well with retina displays
+                // Render directly to the Retina drawable. The compatibility
+                // layer's logical OpenGL FBO otherwise scales the complete
+                // frame (including text) with a bilinear filter.
                 if (!getenv("SDL12COMPAT_HIGHDPI"))
                     sg_PutEnv("SDL12COMPAT_HIGHDPI=1");
                 if (!getenv("SDL12COMPAT_OPENGL_SCALING"))
-                    sg_PutEnv("SDL12COMPAT_OPENGL_SCALING=1");
+                    sg_PutEnv("SDL12COMPAT_OPENGL_SCALING=0");
             }
 #endif
 
             // atexit(ANET_Shutdown);
-
-#ifndef WIN32
-#ifdef DEBUG
-#define NOSOUND
-#endif
-#endif
 
 #ifndef DEDICATED
             if (
@@ -972,6 +1011,3 @@ static tConfItemFunc st_Dummy11("MASTER_SAVE_INTERVAL", &st_Dummy);
 static tConfItemFunc st_Dummy12("MASTER_IDLE", &st_Dummy);
 static tConfItemFunc st_Dummy13("MASTER_PORT", &st_Dummy);
 #endif
-
-
-

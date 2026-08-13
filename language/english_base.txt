@@ -1519,6 +1519,7 @@ config_load_all_help      Loads all the config from the beginning of game start.
 #********************************************
 
 main_menu_text            \g v\1
+rcl_main_menu_text        RCL Client
 
 game_menu_text            Play Game
 game_menu_main_help        Game configuration and launch.

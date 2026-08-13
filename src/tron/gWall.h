@@ -234,8 +234,12 @@ public:
     enum gWallRenderMode
     {
         gWallRenderMode_Lines = 1,
-        gWallRenderMode_Quads = 2
+        gWallRenderMode_Quads = 2,
+        gWallRenderMode_Glow = 4
     };
+
+    static bool TrailGlowEnabled();
+    static REAL TrailGlowIntensity();
 
     // virtual void Render(const eCamera *cam);
     void RenderList(bool list, gWallRenderMode );

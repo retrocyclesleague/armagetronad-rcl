@@ -78,6 +78,7 @@ static int height[ArmageTron_Custom+2] = {0, 200, 240, 300, 384, 480, 600,  768	
 static REAL aspect[ArmageTron_Custom+2]= {1, 1	, 1  , 1  , 1  , 1  , 1	 , 1	,    1,    1, 1   ,    1,    1,    1,1,  1};
 
 int sr_screenWidth,sr_screenHeight;
+int sr_renderWidth,sr_renderHeight;
 
 static tSettingItem<int>  at_ch("CUSTOM_SCREEN_HEIGHT"	, height[ArmageTron_Custom]);
 static tSettingItem<int>  at_cw("CUSTOM_SCREEN_WIDTH" 	, width	[ArmageTron_Custom]);
@@ -354,6 +355,24 @@ void sr_ReinitDisplay(){
         exit(-1);
     }
 
+}
+
+void sr_UpdateRenderDimensions()
+{
+    sr_renderWidth = sr_screenWidth;
+    sr_renderHeight = sr_screenHeight;
+#ifndef DEDICATED
+    if (sr_glOut && currentScreensetting.useSDL)
+    {
+        GLint viewport[4] = { 0, 0, 0, 0 };
+        glGetIntegerv(GL_VIEWPORT, viewport);
+        if (viewport[2] > 0 && viewport[3] > 0)
+        {
+            sr_renderWidth = viewport[2];
+            sr_renderHeight = viewport[3];
+        }
+    }
+#endif
 }
 
 
@@ -678,6 +697,11 @@ static bool lowlevel_sr_InitDisplay(){
         }
     }
 
+    // SDL's dimensions are logical window/input pixels. With
+    // SDL12COMPAT_HIGHDPI enabled and OpenGL scaling disabled, the fresh GL
+    // viewport exposes the native drawable size (2x on a Retina display).
+    sr_UpdateRenderDimensions();
+
     // sanity check texture modes
     for(int i=rTextureGroups::TEX_GROUPS-1; i>=0; --i)
     {
@@ -765,6 +789,8 @@ static bool lowlevel_sr_InitDisplay(){
 #endif
     renderer_identification << "CD=" << currentScreensetting.colorDepth  << '\n';
     renderer_identification << "FS=" << currentScreensetting.fullscreen  << '\n';
+    renderer_identification << "WINDOW_SIZE=" << sr_screenWidth << 'x' << sr_screenHeight << '\n';
+    renderer_identification << "DRAWABLE_SIZE=" << sr_renderWidth << 'x' << sr_renderHeight << '\n';
     renderer_identification << "GL_VENDOR=" << gl_vendor   << '\n';
     renderer_identification << "GL_RENDERER=" << gl_renderer << '\n';
     renderer_identification << "GL_VERSION=" << gl_version  << '\n';
@@ -956,7 +982,9 @@ bool sr_dither=true;
 bool sr_infinityPlane=false;
 bool sr_laggometer=true;
 bool sr_predictObjects=false;
-bool sr_texturesTruecolor=false;
+// Modern clients should preserve the full 8-bit channels in the bundled HD
+// materials. Users can still disable this through TEXTURES_HI for legacy GPUs.
+bool sr_texturesTruecolor=true;
 
 bool sr_textOut=false;
 bool sr_FPSOut=true;
@@ -982,7 +1010,9 @@ void sr_LoadDefaultConfig(){
     // fonts look best in bilinear filtering, no mipmaps
     rTextureGroups::TextureMode[rTextureGroups::TEX_FONT]=GL_LINEAR;
 #endif
-    sr_floorDetail=rFLOOR_TWOTEXTURE;
+    // RCL's high-detail floor is the full graphite material. The legacy
+    // two-strip mode only samples floor_a/floor_b and bypasses that asset.
+    sr_floorDetail=rFLOOR_TEXTURE;
     sr_floorMirror=rMIRROR_OFF;
     sr_infinityPlane=false;
     sr_lowerSky=false;
@@ -1046,7 +1076,7 @@ void sr_ResetRenderState(bool menu){
     if (menu){
         glDisable(GL_DEPTH_TEST);
         glHint (GL_PERSPECTIVE_CORRECTION_HINT, GL_FASTEST);
-        glViewport (0, 0, GLsizei(sr_screenWidth), GLsizei(sr_screenHeight));
+        glViewport (0, 0, GLsizei(sr_renderWidth), GLsizei(sr_renderHeight));
     }
     else{
         glEnable(GL_DEPTH_TEST);
@@ -1192,4 +1222,3 @@ void rCallbackAfterScreenModeChange::Exec()
 {
     tCallback::Exec(sr_AfterAnchor);
 }
-
