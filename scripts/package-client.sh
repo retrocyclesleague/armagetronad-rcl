@@ -98,12 +98,20 @@ done
 
 # Only bundled maps/DTDs belong in a release archive. The automatic resource
 # cache is user-writable runtime state, and resource/proto is developer input.
-mkdir -p "${PACKAGE_ROOT}/resource"
-if test ! -d "${ROOT}/resource/included"; then
-  echo "error: included resources not found: ${ROOT}/resource/included" >&2
+# Out-of-tree builds generate this directory next to their built src/ tree;
+# in-tree builds retain the traditional source-root location.
+BINARY_DIR="$(cd "$(dirname "$BINARY")" && pwd)"
+BUILD_ROOT="$(cd "${BINARY_DIR}/.." && pwd)"
+INCLUDED_RESOURCE_DIR="${BUILD_ROOT}/resource/included"
+if test ! -d "$INCLUDED_RESOURCE_DIR"; then
+  INCLUDED_RESOURCE_DIR="${ROOT}/resource/included"
+fi
+if test ! -d "$INCLUDED_RESOURCE_DIR"; then
+  echo "error: included resources not found beside the build or source tree" >&2
   exit 1
 fi
-cp -R "${ROOT}/resource/included" "${PACKAGE_ROOT}/resource/included"
+mkdir -p "${PACKAGE_ROOT}/resource"
+cp -R "$INCLUDED_RESOURCE_DIR" "${PACKAGE_ROOT}/resource/included"
 
 for required_file in \
   config/default.cfg \
