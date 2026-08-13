@@ -746,8 +746,9 @@ dnl *************************************************
 
 if test $SYS_GLU_LIB && echo $LIBS | grep -v "\-lGLU" > /dev/null; then
 
-dnl AC_CHECK_LIB($SYS_GLU_LIB, gluBuild2DMipmaps,,
-AC_CHECK_LIB($SYS_GLU_LIB, gluBuild3DMipmaps,,
+dnl Check the GLU entry point the renderer actually uses. Windows' system
+dnl GLU implements gluBuild2DMipmaps but not the later, unused 3D variant.
+AC_CHECK_LIB($SYS_GLU_LIB, gluBuild2DMipmaps,,
 AC_MSG_ERROR([
 You need GLU to compile ${progtitle}; it SHOULD have come with OpenGL.
 Read the file doc/install_linux.html.]))
