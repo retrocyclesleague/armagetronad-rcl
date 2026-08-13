@@ -119,7 +119,6 @@ jobs:
             mingw-w64-x86_64-toolchain
             mingw-w64-x86_64-SDL
             mingw-w64-x86_64-SDL_image
-            mingw-w64-x86_64-SDL_mixer
             mingw-w64-x86_64-libpng
             mingw-w64-x86_64-libxml2
             mingw-w64-x86_64-glew

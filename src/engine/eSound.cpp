@@ -43,7 +43,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 //eGrid* eSoundPlayer::S_Grid = NULL;
 
-#ifdef WIN32
+// Legacy Windows IDE builds link SDL_mixer without an autoconf feature check.
+// Autoconf builds must honor HAVE_LIBSDL_MIXER from their generated config.h.
+#if defined(WIN32) && !defined(HAVE_CONFIG_H)
 #define HAVE_LIBSDL_MIXER 1
 #endif
 

@@ -102,7 +102,7 @@ if ! test -f "${BUILD}/Makefile"; then
       --disable-etc \
       --disable-games \
       --disable-armathentication \
-      --enable-music \
+      --disable-music \
       DEBUGLEVEL=3 \
       CODELEVEL=2
   )
