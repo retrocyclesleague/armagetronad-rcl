@@ -35,6 +35,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "eLagCompensation.h"
 
 #include <ctime>
+#include <cstdlib>
 #include <algorithm>
 #include <limits>
 #include <memory>
@@ -210,7 +211,7 @@ private:
         leftInCurrentBucket_ -= dt;
 #ifdef DEBUG
         // fluctuate bucket overflow a bit to test one-off compensation
-        const REAL threshold = random() / (REAL(RAND_MAX) * std::max(30.0f, bestFPS_) * 2);
+        const REAL threshold = std::rand() / (REAL(RAND_MAX) * std::max(30.0f, bestFPS_) * 2);
 #else
         const REAL threshold = 0.0f;
 #endif
