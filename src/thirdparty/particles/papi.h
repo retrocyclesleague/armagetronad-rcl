@@ -17,7 +17,9 @@
 
 #ifdef WIN32
 #include <windows.h>
+#endif
 
+#if defined(WIN32) && (defined(PARTICLEDLL_EXPORTS) || defined(PARTICLEDLL_IMPORTS))
 #ifdef PARTICLEDLL_EXPORTS
 #define PARTICLEDLL_API __declspec(dllexport)
 #else
@@ -25,6 +27,9 @@
 #endif
 
 #else
+// Armagetron links this API statically. DLL users must explicitly define
+// PARTICLEDLL_EXPORTS while building the DLL or PARTICLEDLL_IMPORTS while
+// consuming it; leaving both undefined keeps declarations undecorated.
 #define PARTICLEDLL_API
 #endif
 

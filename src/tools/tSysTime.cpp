@@ -83,7 +83,7 @@ struct tTime
 #include <windows.h>
 #include <sys/timeb.h>
 #ifndef DEDICATED
-#include "rSDL.h"
+#include <SDL.h>
 #endif
 
 // flag indicating whether the HPC is reliable
