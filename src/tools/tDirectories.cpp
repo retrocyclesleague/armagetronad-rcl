@@ -107,6 +107,13 @@ static tString st_bindirCompiled(BINDIR);
 #define PROGDIR PROGNAME PROGDIR_SUFFIX
 
 #ifdef WIN32
+// DATADIR is also a COM type declared by the Windows SDK. This translation
+// unit uses AA_DATADIR for the compiled data path, so release the unused
+// Autoconf macro before including the SDK headers.
+#ifdef DATADIR
+#undef DATADIR
+#endif
+
 // activate used function from shlobj.h (z-man does not know if this is a bad hack)
 #ifdef __MINGW32__
 #define _WIN32_IE 0x400
