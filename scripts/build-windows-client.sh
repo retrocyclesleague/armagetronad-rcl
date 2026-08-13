@@ -24,8 +24,18 @@ build_zthread() {
   mkdir -p "${work}"
   cd "${work}"
 
-  curl -fsSL "https://sourceforge.net/projects/zthread/files/ZThread/2.3.2/ZThread-2.3.2.tar.gz/download" \
-    -o ZThread-2.3.2.tar.gz
+  # SourceForge redirects to a mirror; bound retries so CI cannot stall here.
+  curl \
+    --fail \
+    --location \
+    --connect-timeout 15 \
+    --max-time 120 \
+    --retry 4 \
+    --retry-all-errors \
+    --retry-delay 2 \
+    --retry-max-time 300 \
+    --output ZThread-2.3.2.tar.gz \
+    "https://sourceforge.net/projects/zthread/files/ZThread/2.3.2/ZThread-2.3.2.tar.gz/download"
   printf '%s  %s\n' \
     950908b7473ac10abb046bd1d75acb5934344e302db38c2225b7a90bd1eda854 \
     ZThread-2.3.2.tar.gz | sha256sum -c -
