@@ -85,7 +85,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define EMSGSIZE WSAEMSGSIZE
 #define ETIMEDOUT WSAETIMEDOUT
 #define ENETUNREACH WSAENETUNREACH
-#define close closesocket
 #define snprintf _snprintf
 #endif
 
@@ -744,7 +743,11 @@ int ANET_CloseSocket (int sock)
 {
     //if (sock == net_broadcastsocket)
     //    net_broadcastsocket = 0;
+#ifdef WIN32
+    return closesocket (sock);
+#else
     return close (sock);
+#endif
 }
 
 
@@ -2785,5 +2788,4 @@ tString nSocket::PermanentError::DoGetDescription( void ) const
 {
     return description_;
 }
-
 
