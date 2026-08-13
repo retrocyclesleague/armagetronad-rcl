@@ -36,6 +36,15 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "rSDL.h"
 
+#ifdef WIN32
+#include <windows.h>
+// windows.h maps GetUserName to the Win32 account API. The game has an
+// unrelated ePlayerNetID::GetUserName method, so keep its C++ name canonical.
+#ifdef GetUserName
+#undef GetUserName
+#endif
+#endif
+
 #include "uInput.h"
 #include "tList.h"
 #include "tString.h"
@@ -823,4 +832,3 @@ ePlayerNetID *se_GetLocalPlayer();
 extern bool se_highlightMyName, se_tabCompletion, se_tabCompletionWithColors;
 
 #endif
-
