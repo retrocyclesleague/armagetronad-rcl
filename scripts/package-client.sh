@@ -77,6 +77,9 @@ if test "${EXE_NAME}" != "armagetronad.exe"; then
   chmod +x "${PACKAGE_ROOT}/bin/${EXE_NAME}"
 fi
 
+BINARY_DIR="$(cd "$(dirname "$BINARY")" && pwd)"
+BUILD_ROOT="$(cd "${BINARY_DIR}/.." && pwd)"
+
 for document in COPYING.txt README-RCL.md THIRD_PARTY_NOTICES.md; do
   if test ! -f "${ROOT}/${document}"; then
     echo "error: distribution document not found: ${ROOT}/${document}" >&2
@@ -96,12 +99,18 @@ for data_dir in ${RUNTIME_DATA_DIRS}; do
   cp -R "${ROOT}/${data_dir}" "${PACKAGE_ROOT}/${data_dir}"
 done
 
+# Configure generates the runtime language index rather than tracking it.
+# Overlay it from the build that produced this binary; an in-tree build has
+# the same BUILD_ROOT as ROOT.
+if test -f "${BUILD_ROOT}/language/languages.txt"; then
+  cp "${BUILD_ROOT}/language/languages.txt" \
+    "${PACKAGE_ROOT}/language/languages.txt"
+fi
+
 # Only bundled maps/DTDs belong in a release archive. The automatic resource
 # cache is user-writable runtime state, and resource/proto is developer input.
 # Out-of-tree builds generate this directory next to their built src/ tree;
 # in-tree builds retain the traditional source-root location.
-BINARY_DIR="$(cd "$(dirname "$BINARY")" && pwd)"
-BUILD_ROOT="$(cd "${BINARY_DIR}/.." && pwd)"
 INCLUDED_RESOURCE_DIR="${BUILD_ROOT}/resource/included"
 if test ! -d "$INCLUDED_RESOURCE_DIR"; then
   INCLUDED_RESOURCE_DIR="${ROOT}/resource/included"

@@ -136,6 +136,11 @@ contains this MIT notice in `LICENSE` and `MIT.TXT`:
 > OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 > SOFTWARE.
 
+The Windows build pins that archive by SHA-256 and applies the semantic
+compatibility changes from Debian's long-maintained ZThread patches 020, 050,
+and 070 for modern GCC. Those reproducible transformations are recorded in
+`scripts/build-windows-client.sh`.
+
 ## Windows MinGW runtime libraries
 
 Windows packages may include runtime DLLs supplied by MSYS2's MinGW-w64

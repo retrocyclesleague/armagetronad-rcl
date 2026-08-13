@@ -26,10 +26,30 @@ build_zthread() {
 
   curl -fsSL "https://sourceforge.net/projects/zthread/files/ZThread/2.3.2/ZThread-2.3.2.tar.gz/download" \
     -o ZThread-2.3.2.tar.gz
+  printf '%s  %s\n' \
+    950908b7473ac10abb046bd1d75acb5934344e302db38c2225b7a90bd1eda854 \
+    ZThread-2.3.2.tar.gz | sha256sum -c -
   rm -rf ZThread-2.3.2
   tar -xzf ZThread-2.3.2.tar.gz
   (
     cd ZThread-2.3.2
+    # Apply the semantic parts of Debian's long-maintained ZThread 2.3.2
+    # GCC compatibility patches (020, 050, and 070). Keep this mechanical and
+    # local so the exact upstream archive remains pinned and reproducible.
+    sed -i.rcl-backup \
+      -e '/^[[:space:]]*return false;[[:space:]]*$/d' \
+      -e '/^[[:space:]]*return true;[[:space:]]*$/d' \
+      -e 's/shareScope(\*this, extract(g))/shareScope(*this, this->extract(g))/' \
+      -e 's/transferScope(\*this, extract(g))/transferScope(*this, this->extract(g))/' \
+      -e 's/if(!isDisabled())/if(!LockHolder<LockType>::isDisabled())/' \
+      include/zthread/Guard.h
+    sed -i.rcl-backup \
+      -e 's/ownerAcquired(self);/MutexImpl<List, Behavior>::ownerAcquired(self);/' \
+      -e 's/waiterArrived(self);/MutexImpl<List, Behavior>::waiterArrived(self);/' \
+      -e 's/waiterDeparted(self);/MutexImpl<List, Behavior>::waiterDeparted(self);/' \
+      -e 's/ownerReleased(impl);/MutexImpl<List, Behavior>::ownerReleased(impl);/' \
+      src/MutexImpl.h
+    rm include/zthread/Guard.h.rcl-backup src/MutexImpl.h.rcl-backup
     # ZThread 2.3.2 ships ancient automake macros; strip the ones MSYS2 no longer ships.
     sed -i \
       -e 's/^AM_ACLOCAL_INCLUDE/# AM_ACLOCAL_INCLUDE/' \
