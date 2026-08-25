@@ -87,7 +87,7 @@ Post results in Discord `#rcl-client-dev` with build ID (`rcl.N`):
 2. On a fresh profile, confirm setup returns to the main menu without forcing a local game
 3. On a fresh profile, sign in with the RCL game username/password prompt (or cancel and confirm guest play remains available)
 4. Select **Play Now → Sumobar** and confirm it joins an online, non-full RCL regional lobby without another login prompt
-5. Select **Queue Now → Sumobar**; after silent server authentication, confirm `/add` is sent and the queue count is shown
+5. Select **Queue Now → Sumobar**; after silent server authentication, confirm `/add rcl-client` is sent, the queue count is shown, and pickup chat credits the RCL Game Client
 6. Repeat Play Now for **Fort** and **TST**
 7. Play one full round — no disconnect
 8. Alt-tab + Discord stream — no focus/GL regression

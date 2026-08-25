@@ -2555,7 +2555,8 @@ rcl_queue_now_authenticated    Requesting the pickup queue as \1 after the authe
 rcl_profile_text               RCL Profile & Login
 rcl_profile_signed_in          RCL Account · \1
 rcl_profile_identity           RCL Account · \1
-rcl_profile_summary            \1 · #\2 · \3 Elo · \4 matches
+rcl_profile_summary            \1 // \2 // \3 ELO
+rcl_profile_summary_help       RCL PLAYER IDENTITY\n\1 // TST leaderboard #\2 // \3 ranked matches // Enter to switch account
 rcl_profile_help               Sign in to RCL or switch accounts. Linked legacy Global IDs remain available under Player Setup.
 rcl_login_request              Sign in to RCL once. The client stores only the salted game credential and authenticates silently when you join RCL servers.
 rcl_login_unavailable_title    RCL sign-in unavailable

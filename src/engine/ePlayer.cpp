@@ -752,6 +752,8 @@ namespace
 static tString se_rclAuthority( "retrocyclesleague.com" );
 static bool se_rclAuthenticated = false;
 static tString se_rclAuthenticatedIdentity;
+static tString se_rclDisplayName;
+static tString se_rclTier;
 static bool se_rclProfileLoaded = false;
 static int se_rclRank = -1;
 static int se_rclElo = -1;
@@ -856,6 +858,8 @@ static bool se_RclCheckPassword( nKrawall::nPasswordRequest const & request,
 static void se_RclFetchProfile( tString const & username )
 {
     se_rclProfileLoaded = false;
+    se_rclDisplayName.Clear();
+    se_rclTier.Clear();
     se_rclRank = se_rclElo = se_rclMatches = -1;
 
     std::ostringstream query;
@@ -876,7 +880,19 @@ static void se_RclFetchProfile( tString const & username )
     tString field;
     while ( response >> field )
     {
-        if ( field == "rank" || field == "elo" || field == "matches" )
+        if ( field == "username" )
+        {
+            response >> se_rclDisplayName;
+        }
+        else if ( field == "tier" )
+        {
+            tString value;
+            value.ReadLine( response );
+            se_rclTier = value.StripWhitespace();
+            if ( se_rclTier == "-" )
+                se_rclTier.Clear();
+        }
+        else if ( field == "rank" || field == "elo" || field == "matches" )
         {
             tString value;
             response >> value;
@@ -1008,6 +1024,16 @@ tString ePlayer::RclIdentity()
     }
     ePlayer * player = ePlayer::PlayerConfig( 0 );
     return player ? player->globalID : tString();
+}
+
+tString ePlayer::RclDisplayName()
+{
+    return se_rclDisplayName;
+}
+
+tString ePlayer::RclTier()
+{
+    return se_rclTier;
 }
 
 bool ePlayer::RclAuthenticated()

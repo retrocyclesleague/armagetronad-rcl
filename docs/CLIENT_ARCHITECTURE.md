@@ -82,10 +82,11 @@ guests cannot queue.
 ### Public profile
 
 `query=profile&user=<name>` returns a bounded plain-text summary containing the
-canonical identity, public username, current rank, Elo, and match count. It
-contains no session or private account data. The client shows this summary in
-the RCL Account main-menu row. The game server remains authoritative for the
-welcome message and queue identity.
+canonical identity, public username, TST tier/rank/Elo/match count, and total
+public match count. It contains no session or private account data. The main
+menu mirrors the RCL home hierarchy with a compact `NAME // TIER // ELO` row;
+rank and match detail live in its two-line help panel. The game server remains
+authoritative for the welcome message and queue identity.
 
 ## Play Now
 
@@ -102,8 +103,9 @@ not connect to a full or unrelated server.
 ## Queue Now and `/add`
 
 Queue Now uses the same lobby resolver, connects, waits for authentication, and
-sends `/add`. This intentionally reuses the queue command older clients already
-support.
+sends `/add rcl-client`. The optional argument lets pickup chat credit the RCL
+Game Client; it is presentation metadata, not security attestation. This still
+reuses the `/add` command older clients support.
 
 The fleet bridge handles the race where `COMMAND /add` reaches the ladderlog
 before `PLAYER_LOGIN`: it holds the request briefly, releases it when the

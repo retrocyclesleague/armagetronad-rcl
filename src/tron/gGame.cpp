@@ -2967,7 +2967,11 @@ static void sg_RclMaybeAutoQueue()
             // Returning users normally authenticate from the stored credential
             // before this point; first-time users can finish the prompt safely.
             con << tOutput( "$rcl_queue_now_authenticated", local->globalID );
-            player->Chat( tString( "/add" ) );
+            // The optional argument is a presentation marker, not queue
+            // authority. The fleet still waits for PLAYER_LOGIN and uses the
+            // verified Global ID; the marker lets pickup chat credit the RCL
+            // Game Client without changing the network protocol.
+            player->Chat( tString( "/add rcl-client" ) );
             sg_rclQueueOnJoin = false;
             return;
         }
@@ -3441,13 +3445,27 @@ void MainMenu(bool ingame){
     {
         tString identity = ePlayer::RclIdentity();
         tOutput profileLabel;
+        tOutput profileHelp( "$rcl_profile_help" );
         if ( ePlayer::RclAuthenticated() && ePlayer::RclProfileLoaded() )
         {
-            profileLabel.SetTemplateParameter( 1, identity );
-            profileLabel.SetTemplateParameter( 2, ePlayer::RclRank() );
+            tString displayName = ePlayer::RclDisplayName();
+            if ( displayName.Len() <= 1 )
+                displayName = identity.SubStr( 0, identity.StrPos( "@" ) );
+            tToUpper( displayName );
+            tString tier = ePlayer::RclTier();
+            if ( tier.Len() <= 1 )
+                tier << "#" << ePlayer::RclRank();
+
+            profileLabel.SetTemplateParameter( 1, displayName );
+            profileLabel.SetTemplateParameter( 2, tier );
             profileLabel.SetTemplateParameter( 3, ePlayer::RclElo() );
-            profileLabel.SetTemplateParameter( 4, ePlayer::RclMatches() );
             profileLabel << "$rcl_profile_summary";
+
+            profileHelp.Clear();
+            profileHelp.SetTemplateParameter( 1, identity );
+            profileHelp.SetTemplateParameter( 2, ePlayer::RclRank() );
+            profileHelp.SetTemplateParameter( 3, ePlayer::RclMatches() );
+            profileHelp << "$rcl_profile_summary_help";
         }
         else if ( ePlayer::RclAuthenticated() )
             profileLabel.SetTemplateParameter( 1, identity ) << "$rcl_profile_signed_in";
@@ -3458,7 +3476,7 @@ void MainMenu(bool ingame){
 
         rclProfile = tNEW( uMenuItemFunction )( &MainMenu,
                                                 profileLabel,
-                                                "$rcl_profile_help",
+                                                profileHelp,
                                                 &ePlayer::RclLogin );
         queueNow = tNEW( uMenuItemFunction )( &MainMenu,
                                               "$rcl_queue_now_text",

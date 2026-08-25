@@ -159,6 +159,8 @@ public:
     static void RclLoginAtStartup(bool first); //!< first-load prompt or silent saved-credential validation
     static bool RclAuthenticated();            //!< true after a successful boot/manual RCL credential check
     static tString RclIdentity();              //!< configured RCL or legacy Global ID for menu presentation
+    static tString RclDisplayName();           //!< canonical public RCL display name
+    static tString RclTier();                  //!< website-aligned TST rank band, for example Gold I
     static bool RclProfileLoaded();             //!< public rank/Elo summary was returned by the RCL authority
     static int RclRank();
     static int RclElo();
