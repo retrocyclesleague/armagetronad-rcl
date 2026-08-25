@@ -3455,6 +3455,8 @@ void MainMenu(bool ingame){
             tString tier = ePlayer::RclTier();
             if ( tier.Len() <= 1 )
                 tier << "#" << ePlayer::RclRank();
+            else
+                tToUpper( tier );
 
             profileLabel.SetTemplateParameter( 1, displayName );
             profileLabel.SetTemplateParameter( 2, tier );

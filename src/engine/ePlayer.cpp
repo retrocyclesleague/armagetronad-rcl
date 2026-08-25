@@ -888,7 +888,7 @@ static void se_RclFetchProfile( tString const & username )
         {
             tString value;
             value.ReadLine( response );
-            se_rclTier = value.StripWhitespace();
+            se_rclTier = value.Trim();
             if ( se_rclTier == "-" )
                 se_rclTier.Clear();
         }
