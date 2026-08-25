@@ -117,7 +117,7 @@ jobs:
             git
             python
             mingw-w64-x86_64-toolchain
-            mingw-w64-x86_64-SDL
+            mingw-w64-x86_64-sdl12-compat
             mingw-w64-x86_64-SDL_image
             mingw-w64-x86_64-libpng
             mingw-w64-x86_64-libxml2

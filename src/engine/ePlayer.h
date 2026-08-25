@@ -154,6 +154,18 @@ public:
 
     static void LogIn();          //!< sends authentication login messages for all local players
     static void SendAuthNames();  //!< sends authentication names and authentication wishes for all local players
+#ifndef DEDICATED
+    static void RclLogin();                    //!< interactively validates/stores the first-party RCL game identity
+    static void RclLoginAtStartup(bool first); //!< first-load prompt or silent saved-credential validation
+    static bool RclAuthenticated();            //!< true after a successful boot/manual RCL credential check
+    static tString RclIdentity();              //!< configured RCL or legacy Global ID for menu presentation
+    static tString RclDisplayName();           //!< canonical public RCL display name
+    static tString RclTier();                  //!< website-aligned TST rank band, for example Gold I
+    static bool RclProfileLoaded();             //!< public rank/Elo summary was returned by the RCL authority
+    static int RclRank();
+    static int RclElo();
+    static int RclMatches();
+#endif
 
     static void Init();
     static void Exit();

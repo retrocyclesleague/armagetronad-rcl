@@ -355,6 +355,11 @@ static void welcome(){
             while (su_GetSDLInput(tEvent)) ;
         }
 
+        // A returning RCL user is validated from the stored, already-scrambled
+        // credential before the main menu appears. No password prompt is shown
+        // unless the player deliberately opens RCL Account.
+        ePlayer::RclLoginAtStartup( false );
+
         sr_textOut = textOutBack;
         return;
     }
@@ -375,35 +380,15 @@ static void welcome(){
     sr_textOut = textOutBack;
     sg_StartupPlayerMenu();
 
+    // First load owns the only mandatory account prompt. The player can cancel
+    // and continue as a guest; Queue Now offers the same login again when an
+    // authenticated identity is required.
+    ePlayer::RclLoginAtStartup( true );
+
     st_FirstUse=false;
 
     sr_textOut = textOutBack;
     uMenu::Message( tOutput("$welcome_message_heading"), tOutput("$welcome_message"), 300 );
-
-    // start a first single player game
-    auto speedFactor = sg_currentSettings->speedFactor;
-    auto autoNum = sg_currentSettings->autoNum;
-    auto sizeFactor = sg_currentSettings->sizeFactor;
-    auto wallsLength = sg_currentSettings->wallsLength;
-    auto rubber = sg_rubberCycle;
-    auto delayCycle = sg_delayCycle;
-    sg_currentSettings->speedFactor = -2;
-    sg_currentSettings->autoNum = 0;
-    sg_currentSettings->sizeFactor -= 2;
-    sg_currentSettings->wallsLength = 400;
-    sg_rubberCycle = 5;
-    sg_delayCycle = 0.05;
-    sr_textOut = textOutBack;
-    sg_SinglePlayerGame();
-    sg_currentSettings->autoNum = autoNum;
-    sg_currentSettings->speedFactor = speedFactor;
-    sg_currentSettings->sizeFactor= sizeFactor;
-    sg_currentSettings->wallsLength = wallsLength;
-    sg_rubberCycle = rubber;
-    sg_delayCycle = delayCycle;
-
-    sr_textOut = textOutBack;
-    uMenu::Message( tOutput("$welcome_message_2_heading"), tOutput("$welcome_message_2"), 300 );
 
     sr_textOut = textOutBack;
 }
