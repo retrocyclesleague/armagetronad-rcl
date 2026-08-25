@@ -2553,7 +2553,18 @@ rcl_queue_now_sumobar_help     Join an available Sumobar lobby and send /add aft
 rcl_queue_now_tst_help         Join an available TST lobby and send /add after authentication succeeds.
 rcl_queue_now_authenticated    Requesting the pickup queue as \1 after the authentication handshake.\n
 rcl_profile_text               RCL Profile & Login
-rcl_profile_help               Set your RCL or linked legacy Global ID, enable auto-login, and customize your player.
+rcl_profile_signed_in          RCL Account · \1
+rcl_profile_identity           RCL Account · \1
+rcl_profile_summary            \1 · #\2 · \3 Elo · \4 matches
+rcl_profile_help               Sign in to RCL or switch accounts. Linked legacy Global IDs remain available under Player Setup.
+rcl_login_request              Sign in to RCL once. The client stores only the salted game credential and authenticates silently when you join RCL servers.
+rcl_login_unavailable_title    RCL sign-in unavailable
+rcl_login_unavailable          The RCL authentication service did not answer. You can continue as a guest and retry from RCL Account.
+rcl_login_failed_title         RCL sign-in failed
+rcl_login_failed               That RCL game username or password was not accepted. Check the game password in your RCL profile and try again.
+rcl_login_boot_failed          Saved RCL sign-in was not accepted. Continuing as guest; open RCL Account to retry.\n
+rcl_login_success_title        Signed in to RCL
+rcl_login_success              Welcome, \1. Play Now will authenticate you silently on every RCL fleet server.
 
 #********************************************
 #********************************************

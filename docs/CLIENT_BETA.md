@@ -5,10 +5,11 @@ Parallel dev channel for **player builds** of `armagetronad-rcl`. Steam Retrocyc
 The target product, trust boundaries, play-while-queued flow, and staged delivery
 plan are defined in [CLIENT_ARCHITECTURE.md](CLIENT_ARCHITECTURE.md).
 
-Native account and queue access is not enabled in production yet. Client builds
-must target RCL's reviewed browser-enrollment and self-only client API; they must
-not embed `QUEUE_API_KEY`, copy browser cookies, or reuse an Armagetron MD5
-authentication response as an API credential.
+The shipped v1 signs in through the existing ArmaAuth game authority and queues
+through authenticated `/add` on an RCL lobby. The lobby's mode-scoped bridge,
+not the player client, calls the dashboard queue API. Client builds must never
+embed `QUEUE_API_KEY`, an ingest key, service-role credentials, or browser
+cookies.
 
 **Linear project:** [RCL Client (Beta)](https://linear.app/retrocyclesleague/project/rcl-client-beta-fcc879adf357)
 
@@ -84,15 +85,16 @@ Post results in Discord `#rcl-client-dev` with build ID (`rcl.N`):
 
 1. Launch cold; About shows `0.2.9+sty+ct+ap+rcl.N`
 2. On a fresh profile, confirm setup returns to the main menu without forcing a local game
-3. Select **Play Now → Sumobar** and confirm it joins an online, non-full RCL regional lobby
-4. Set **RCL Profile & Login → Global ID** to `you@rcl` (or a linked legacy ID) and keep auto-login enabled
-5. Select **Queue Now → Sumobar**; after authentication, confirm `/add` is sent and the queue count is shown
+3. On a fresh profile, sign in with the RCL game username/password prompt (or cancel and confirm guest play remains available)
+4. Select **Play Now → Sumobar** and confirm it joins an online, non-full RCL regional lobby without another login prompt
+5. Select **Queue Now → Sumobar**; after silent server authentication, confirm `/add` is sent and the queue count is shown
 6. Repeat Play Now for **Fort** and **TST**
 7. Play one full round — no disconnect
 8. Alt-tab + Discord stream — no focus/GL regression
 9. Server browser — RCL gradient names visible
 10. Map loads from `resource.retrocyclesleague.com`
 11. Disconnect → Internet Play: no hour-long "Master servers do not answer" freeze (RCL master first; timeout is console-only)
+12. Restart the client and confirm the saved RCL credential is validated before the main menu, with no password prompt; linked legacy IDs still authenticate normally through Player Setup
 
 ## Known client pain: master list after DC
 

@@ -2799,6 +2799,20 @@ static bool sg_RclServerNameMatches( tString const & serverName, char const * mo
 
 static void sg_RclPlayNow( gRclPlayNowMode const & mode, bool queueOnJoin = false )
 {
+    if ( queueOnJoin )
+    {
+        tString identity = ePlayer::RclIdentity();
+        if ( identity.Len() <= 1 || identity == "@rcl" )
+        {
+            ePlayer::RclLogin();
+            identity = ePlayer::RclIdentity();
+            if ( identity.Len() <= 1 || identity == "@rcl" )
+            {
+                return;
+            }
+        }
+    }
+
     con << tOutput( "$rcl_play_now_finding", mode.name );
 
     nServerInfo::DeleteAll( false );
@@ -3425,10 +3439,27 @@ void MainMenu(bool ingame){
     uMenuItemFunction *rclProfile = NULL;
     if ( !ingame )
     {
+        tString identity = ePlayer::RclIdentity();
+        tOutput profileLabel;
+        if ( ePlayer::RclAuthenticated() && ePlayer::RclProfileLoaded() )
+        {
+            profileLabel.SetTemplateParameter( 1, identity );
+            profileLabel.SetTemplateParameter( 2, ePlayer::RclRank() );
+            profileLabel.SetTemplateParameter( 3, ePlayer::RclElo() );
+            profileLabel.SetTemplateParameter( 4, ePlayer::RclMatches() );
+            profileLabel << "$rcl_profile_summary";
+        }
+        else if ( ePlayer::RclAuthenticated() )
+            profileLabel.SetTemplateParameter( 1, identity ) << "$rcl_profile_signed_in";
+        else if ( identity.Len() > 1 && identity != "@rcl" )
+            profileLabel.SetTemplateParameter( 1, identity ) << "$rcl_profile_identity";
+        else
+            profileLabel << "$rcl_profile_text";
+
         rclProfile = tNEW( uMenuItemFunction )( &MainMenu,
-                                                "$rcl_profile_text",
+                                                profileLabel,
                                                 "$rcl_profile_help",
-                                                &sg_PlayerMenu );
+                                                &ePlayer::RclLogin );
         queueNow = tNEW( uMenuItemFunction )( &MainMenu,
                                               "$rcl_queue_now_text",
                                               "$rcl_queue_now_help",

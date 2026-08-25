@@ -251,6 +251,11 @@ public:
 
     // get a random salt value
     static void RandomSalt(nSalt& salt);
+
+    // fetch an ArmaAuth authority URL. This is used by dedicated servers for
+    // normal player authentication and by the RCL player client for its
+    // first-load credential check.
+    static int FetchURL( tString const & authority, char const * query, std::ostream & target, int maxlen = 10000 );
 #ifdef KRAWALL_SERVER
     //! split a fully qualified user name in authority and username part
     static void SplitUserName( tString const & original, tString & username, tString & authority );
@@ -266,9 +271,6 @@ public:
     static bool CustomShorthandMethods(int userID, tString authority, tString & fullAuthority, tOutput & error, int & response, tString & id, tString & methods);
     static int CustomAuthorityCheck(int userID, tString authority, tString & fullAuthority, tOutput & error);
     static bool CustomAuthorityMethods(int userID, tString authority, tString & fullAuthority, tOutput & error, int & response, tString & id, tString & methods);
-
-    // fetches an URL content, return http return code (-1 if total failure), fill result stream.
-    static int FetchURL( tString const & authority, char const * query, std::ostream & target, int maxlen = 10000 );
 
 #ifdef KRAWALL_SERVER_LEAGUE
     // secret key to encrypt server->master server league transfer

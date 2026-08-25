@@ -46,11 +46,47 @@ the executable is not distributed).
 #include <vector>
 #include <map>
 #include <iterator>
+#include <libxml/nanohttp.h>
 
 static nKrawall::nMethod sn_bmd5("bmd5"), sn_md5("md5");
 
 static tSettingItem< tString > sn_md5Prefix( "MD5_PREFIX", sn_md5.prefix );
 static tSettingItem< tString > sn_md5Suffix( "MD5_SUFFIX", sn_md5.suffix );
+
+int nKrawall::FetchURL( tString const & authority, char const * query, std::ostream & target, int maxlen )
+{
+    std::ostringstream fullURL;
+    fullURL << "http://" << authority << "/armaauth/0.1/";
+    fullURL << query;
+
+    void * ctxt = xmlNanoHTTPOpen( fullURL.str().c_str(), NULL );
+    if ( ctxt == NULL )
+    {
+        return -1;
+    }
+
+    int rc = xmlNanoHTTPReturnCode( ctxt );
+
+    char buf[1000];
+    int len = 1;
+    while ( len > 0 && maxlen > 0 )
+    {
+        int max = sizeof( buf );
+        if ( max > maxlen )
+        {
+            max = maxlen;
+        }
+        len = xmlNanoHTTPRead( ctxt, &buf, max );
+        if ( len > 0 )
+        {
+            target.write( buf, len );
+            maxlen -= len;
+        }
+    }
+
+    xmlNanoHTTPClose( ctxt );
+    return rc;
+}
 
 //! fetch NULL-terminated list of locally supported methods
 nKrawall::nMethod const * const * nKrawall::nMethod::LocalMethods()
@@ -66,8 +102,6 @@ nKrawall::nMethod const * const * nKrawall::nMethod::LocalMethods()
 }
 
 #ifdef KRAWALL_SERVER
-
-#include <libxml/nanohttp.h>
 
 // crude login structure with not too many feathres
 struct nLogin
@@ -815,46 +849,6 @@ bool nKrawall::CustomAuthorityMethods(int userID, tString authority, tString & f
     return false;
 }
 //  authority code END
-
-int nKrawall::FetchURL( tString const & authority, char const * query, std::ostream & target, int maxlen )
-{
-    // compose real URL
-    std::ostringstream fullURL;
-    fullURL << "http://" << authority << "/armaauth/0.1/";
-    fullURL << query;
-
-    //con << fullURL.str() << "\n";
-
-    // better not. output is not thread safe.
-    // con << "Fetching authentication URL " << fullURL.str() << "\n";
-
-    // fetch URL
-    void * ctxt = xmlNanoHTTPOpen( fullURL.str().c_str(), NULL);
-    if (ctxt == NULL)
-    {
-        return -1;
-    }
-
-    int rc = xmlNanoHTTPReturnCode(ctxt);
-
-    // read content
-    char buf[1000];
-    buf[0] = 0;
-    unsigned int len = 1;
-    while ( len > 0 && maxlen > 0 )
-    {
-        int max = sizeof(buf);
-        if ( max > maxlen )
-            max = maxlen;
-        len = xmlNanoHTTPRead( ctxt, &buf, max );
-        target.write( buf, len );
-        maxlen -= len;
-    }
-
-    xmlNanoHTTPClose(ctxt);
-
-    return rc;
-}
 
 #ifdef KRAWALL_SERVER_LEAGUE
 // TODO: REALLY change this!!

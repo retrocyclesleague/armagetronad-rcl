@@ -746,6 +746,318 @@ static void PasswordCallback( nKrawall::nPasswordRequest const & request,
     se_ChatState( ePlayerNetID::ChatFlags_Menu, false );
 }
 
+#ifndef DEDICATED
+namespace
+{
+static tString se_rclAuthority( "retrocyclesleague.com" );
+static bool se_rclAuthenticated = false;
+static tString se_rclAuthenticatedIdentity;
+static bool se_rclProfileLoaded = false;
+static int se_rclRank = -1;
+static int se_rclElo = -1;
+static int se_rclMatches = -1;
+
+static tString se_RclConfiguredUserName()
+{
+    ePlayer * player = ePlayer::PlayerConfig( 0 );
+    if ( !player )
+    {
+        return tString();
+    }
+
+    int separator = player->globalID.StrPos( "@" );
+    if ( separator < 0 || player->globalID.SubStr( separator + 1 ) != "rcl" )
+    {
+        return tString();
+    }
+
+    return player->globalID.SubStr( 0, separator );
+}
+
+static bool se_RclFetchPasswordRequest( nKrawall::nPasswordRequest & request )
+{
+    std::stringstream methodsResponse;
+    if ( nKrawall::FetchURL( se_rclAuthority, "?query=methods", methodsResponse ) != 200 )
+    {
+        return false;
+    }
+
+    tString responseType;
+    methodsResponse >> responseType;
+    tToLower( responseType );
+
+    tString methods;
+    std::ws( methodsResponse );
+    methods.ReadLine( methodsResponse );
+    tToLower( methods );
+
+    if ( responseType != "methods" )
+    {
+        return false;
+    }
+
+    tString selected = nKrawall::nMethod::BestMethod(
+                           methods,
+                           nKrawall::nMethod::SupportedMethods() );
+    if ( selected.Len() <= 1 )
+    {
+        return false;
+    }
+
+    std::ostringstream query;
+    query << "?query=params&method=" << nKrawall::EncodeString( selected );
+
+    std::stringstream paramsResponse;
+    if ( nKrawall::FetchURL( se_rclAuthority, query.str().c_str(), paramsResponse ) != 200 )
+    {
+        return false;
+    }
+
+    nKrawall::nMethod method( selected, paramsResponse );
+    request.method = method.method;
+    request.prefix = method.prefix;
+    request.suffix = method.suffix;
+    request.message = static_cast< tString >( tOutput( "$rcl_login_request" ) );
+    request.failureOnLastTry = false;
+    return true;
+}
+
+static bool se_RclCheckPassword( nKrawall::nPasswordRequest const & request,
+                                 nKrawall::nPasswordAnswer const & answer )
+{
+    nKrawall::nSalt salt;
+    nKrawall::RandomSalt( salt );
+
+    nKrawall::nScrambledPassword hash;
+    request.ScrambleWithSalt( nKrawall::nScrambleInfo( answer.username ),
+                              answer.scrambled, salt, hash );
+
+    std::ostringstream query;
+    query << "?query=check";
+    query << "&method=" << nKrawall::EncodeString( request.method );
+    query << "&user=" << nKrawall::EncodeString( answer.username );
+    query << "&salt=" << nKrawall::EncodeScrambledPassword( salt );
+    query << "&hash=" << nKrawall::EncodeScrambledPassword( hash );
+
+    std::stringstream response;
+    int status = nKrawall::FetchURL( se_rclAuthority, query.str().c_str(), response );
+    hash.Clear();
+    salt.Clear();
+
+    if ( status != 200 )
+    {
+        return false;
+    }
+
+    tString result( response.str().c_str() );
+    return result.StartsWith( "PASSWORD_OK" );
+}
+
+static void se_RclFetchProfile( tString const & username )
+{
+    se_rclProfileLoaded = false;
+    se_rclRank = se_rclElo = se_rclMatches = -1;
+
+    std::ostringstream query;
+    query << "?query=profile&user=" << nKrawall::EncodeString( username );
+    std::stringstream response;
+    if ( nKrawall::FetchURL( se_rclAuthority, query.str().c_str(), response ) != 200 )
+    {
+        return;
+    }
+
+    tString marker;
+    response >> marker;
+    if ( marker != "PROFILE_OK" )
+    {
+        return;
+    }
+
+    tString field;
+    while ( response >> field )
+    {
+        if ( field == "rank" || field == "elo" || field == "matches" )
+        {
+            tString value;
+            response >> value;
+            int parsed = value == "-" ? -1 : atoi( value );
+            if ( field == "rank" )
+                se_rclRank = parsed;
+            else if ( field == "elo" )
+                se_rclElo = parsed;
+            else
+                se_rclMatches = parsed;
+        }
+        else
+        {
+            tString ignored;
+            ignored.ReadLine( response );
+        }
+    }
+
+    se_rclProfileLoaded = se_rclRank >= 0 && se_rclElo >= 0;
+}
+
+static bool se_RclStoredPassword( nKrawall::nPasswordRequest const & request,
+                                  tString const & username,
+                                  nKrawall::nPasswordAnswer & answer )
+{
+    if ( username.Len() <= 1 )
+    {
+        return false;
+    }
+
+    tString methodCongested = request.method + '|' + request.prefix + '|' + request.suffix;
+    for ( int i = S_passwords.Len() - 1; i >= 0; --i )
+    {
+        PasswordStorage const & candidate = S_passwords( i );
+        if ( candidate.username == username && candidate.methodCongested == methodCongested )
+        {
+            answer.username = candidate.username;
+            answer.scrambled = candidate.password;
+            answer.automatic = true;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static bool se_RclAuthenticate( bool interactive, bool showResult )
+{
+    ePlayer * player = ePlayer::PlayerConfig( 0 );
+    if ( !player )
+    {
+        return false;
+    }
+
+    nKrawall::nPasswordRequest request;
+    if ( !se_RclFetchPasswordRequest( request ) )
+    {
+        if ( showResult )
+        {
+            uMenu::Message( tOutput( "$rcl_login_unavailable_title" ),
+                            tOutput( "$rcl_login_unavailable" ), 20 );
+        }
+        return false;
+    }
+
+    nKrawall::nPasswordAnswer answer;
+    answer.username = se_RclConfiguredUserName();
+
+    if ( interactive )
+    {
+        // RCL Account is also the account-switch entry point, so deliberately
+        // show the fields even when a previous credential is available.
+        request.failureOnLastTry = true;
+        PasswordCallback( request, answer );
+    }
+    else if ( !se_RclStoredPassword( request, answer.username, answer ) )
+    {
+        return false;
+    }
+
+    if ( answer.aborted )
+    {
+        answer.scrambled.Clear();
+        return false;
+    }
+
+    bool success = se_RclCheckPassword( request, answer );
+    if ( !success )
+    {
+        answer.scrambled.Clear();
+        se_rclAuthenticated = false;
+        se_rclAuthenticatedIdentity.Clear();
+        if ( showResult )
+        {
+            uMenu::Message( tOutput( "$rcl_login_failed_title" ),
+                            tOutput( "$rcl_login_failed" ), 20 );
+        }
+        else
+        {
+            con << tOutput( "$rcl_login_boot_failed" );
+        }
+        return false;
+    }
+
+    tString identity( answer.username );
+    identity << "@rcl";
+    player->globalID = identity;
+    player->autoLogin = true;
+    se_rclAuthenticated = true;
+    se_rclAuthenticatedIdentity = identity;
+    answer.scrambled.Clear();
+    se_RclFetchProfile( player->globalID.SubStr( 0, player->globalID.StrPos( "@" ) ) );
+    st_SaveConfig();
+
+    if ( showResult )
+    {
+        uMenu::Message( tOutput( "$rcl_login_success_title" ),
+                        tOutput( "$rcl_login_success", identity ), 20 );
+    }
+    return true;
+}
+}
+
+tString ePlayer::RclIdentity()
+{
+    if ( se_rclAuthenticated )
+    {
+        return se_rclAuthenticatedIdentity;
+    }
+    ePlayer * player = ePlayer::PlayerConfig( 0 );
+    return player ? player->globalID : tString();
+}
+
+bool ePlayer::RclAuthenticated()
+{
+    return se_rclAuthenticated;
+}
+
+bool ePlayer::RclProfileLoaded()
+{
+    return se_rclProfileLoaded;
+}
+
+int ePlayer::RclRank()
+{
+    return se_rclRank;
+}
+
+int ePlayer::RclElo()
+{
+    return se_rclElo;
+}
+
+int ePlayer::RclMatches()
+{
+    return se_rclMatches;
+}
+
+void ePlayer::RclLogin()
+{
+    se_RclAuthenticate( true, true );
+}
+
+void ePlayer::RclLoginAtStartup( bool first )
+{
+    // A linked legacy identity still authenticates normally when a game server
+    // challenges it.  There is no RCL boot credential to validate in that
+    // case, so avoid an unnecessary authority request and keep startup quiet.
+    if ( !first && se_RclConfiguredUserName().Len() <= 1 )
+    {
+        return;
+    }
+
+    if ( first && se_PasswordStorageMode == 0 )
+    {
+        se_PasswordStorageMode = 1;
+    }
+    se_RclAuthenticate( first, first );
+}
+#endif
+
 #ifdef DEDICATED
 #ifndef KRAWALL_SERVER
 // the following function really is only supposed to be called from here and nowhere else

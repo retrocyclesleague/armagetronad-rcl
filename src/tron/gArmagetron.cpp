@@ -355,6 +355,11 @@ static void welcome(){
             while (su_GetSDLInput(tEvent)) ;
         }
 
+        // A returning RCL user is validated from the stored, already-scrambled
+        // credential before the main menu appears. No password prompt is shown
+        // unless the player deliberately opens RCL Account.
+        ePlayer::RclLoginAtStartup( false );
+
         sr_textOut = textOutBack;
         return;
     }
@@ -374,6 +379,11 @@ static void welcome(){
 
     sr_textOut = textOutBack;
     sg_StartupPlayerMenu();
+
+    // First load owns the only mandatory account prompt. The player can cancel
+    // and continue as a guest; Queue Now offers the same login again when an
+    // authenticated identity is required.
+    ePlayer::RclLoginAtStartup( true );
 
     st_FirstUse=false;
 
