@@ -206,6 +206,45 @@ static bool operator == ( PasswordStorage const & a, PasswordStorage const & b )
 
 static tArray<PasswordStorage> S_passwords;
 
+// A fresh RCL profile starts with an authority-only Global ID ("@rcl").
+// Once the user supplies the local part in the authority prompt, remember it
+// in the active local player profile. The stored password can then satisfy
+// the same authority challenge automatically on every RCL fleet server.
+static bool se_RememberLoginUserName( tString const & username )
+{
+    if ( username.Len() <= 1 )
+    {
+        return false;
+    }
+
+    for ( int i = 0; i < MAX_PLAYERS; ++i )
+    {
+        ePlayer * player = ePlayer::PlayerConfig( i );
+        if ( !player || !player->netPlayer || player->netPlayer->Owner() != sn_myNetID )
+        {
+            continue;
+        }
+
+        int authority = player->globalID.StrPos( "@" );
+        if ( authority < 0 )
+        {
+            continue;
+        }
+
+        tString remembered( username );
+        remembered << player->globalID.SubStr( authority );
+        if ( remembered == player->globalID )
+        {
+            return false;
+        }
+
+        player->globalID = remembered;
+        return true;
+    }
+
+    return false;
+}
+
 // if set, user names of non-authenticated players are left as they are,
 // and usernames of authenticated players get a 0: prepended.
 // if unsed, usernames of non-authenticated players get all special characters escaped (especially all @)
@@ -693,6 +732,14 @@ static void PasswordCallback( nKrawall::nPasswordRequest const & request,
             storage->methodCongested = methodCongested;
             storage->password = scrambled;
             storage->save = (se_PasswordStorageMode > 0);
+        }
+
+        // Persist the username alongside its authority so subsequent fleet
+        // connections can start the saved-password handshake without asking
+        // for the username again. Do this only after the prompt was submitted.
+        if ( !answer.aborted && se_RememberLoginUserName( username ) )
+        {
+            st_SaveConfig();
         }
     }
 

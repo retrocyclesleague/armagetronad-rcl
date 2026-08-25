@@ -2948,10 +2948,10 @@ static void sg_RclMaybeAutoQueue()
         ePlayerNetID * player = local->netPlayer;
         if ( player->Owner() == sn_myNetID )
         {
-            // Stock clients do not receive a separate authentication-success
-            // bit. Give the normal auto-login handshake time to complete; the
-            // server bridge still accepts /add only when COMMAND carries a
-            // verified Global ID, so this cannot queue a guest identity.
+            // The bridge holds an unauthenticated request briefly and releases
+            // it only when PLAYER_LOGIN confirms this screen name's Global ID.
+            // Returning users normally authenticate from the stored credential
+            // before this point; first-time users can finish the prompt safely.
             con << tOutput( "$rcl_queue_now_authenticated", local->globalID );
             player->Chat( tString( "/add" ) );
             sg_rclQueueOnJoin = false;
