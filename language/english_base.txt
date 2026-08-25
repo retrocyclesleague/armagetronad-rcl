@@ -2529,10 +2529,31 @@ timer_hickup                Timer hiccup of \1 seconds detected and compensated.
 
 welcome_message_heading        Welcome to \g!
 
-welcome_message                You will now be hurled directly into a local game to get a feeling for things. It is set to a slower speed than a usual game. Your task is to make the other cycle crash into a wall. Don't panic, good luck and have fun!
+welcome_message                Choose Play Now to jump into the best available RCL lobby. Fort, Sumobar and TST are one click away.
 
 welcome_message_2_heading   We hope you enjoyed it so far.
 welcome_message_2           You will now enter the regular main menu. You can access local games now via the "Play Game/"Local Game" menu path.\n\nBut the true action is to be found online, many industrious people have put up interesting servers with gameplay variations not available if you play solo.\nTo go online, select "Play Game"/"Multiplayer"/"Online Multiplayer".
+
+rcl_play_now_text              Play Now
+rcl_play_now_help              Find and join the busiest non-full RCL lobby, using latency to choose between equally active regions.
+rcl_play_now_fort_text         Fort
+rcl_play_now_fort_help         Join an available RCL Fortress pickup lobby.
+rcl_play_now_sumobar_text      Sumobar
+rcl_play_now_sumobar_help      Join an available RCL Sumobar pickup lobby.
+rcl_play_now_tst_text          TST
+rcl_play_now_tst_help          Join an available RCL Team Sumo Tournament pickup lobby.
+rcl_play_now_finding           Finding the best available \1 lobby...\n
+rcl_play_now_connecting        Joining \1 (\2/\3 players).\n
+rcl_play_now_unavailable_title Play Now unavailable
+rcl_play_now_unavailable       No online, non-full \1 lobby answered. Please try again or use Online Multiplayer.
+rcl_queue_now_text             Queue Now
+rcl_queue_now_help             Authenticate, join the best RCL lobby and add yourself to its competitive draft queue.
+rcl_queue_now_fort_help        Join an available Fortress lobby and send /add after authentication succeeds.
+rcl_queue_now_sumobar_help     Join an available Sumobar lobby and send /add after authentication succeeds.
+rcl_queue_now_tst_help         Join an available TST lobby and send /add after authentication succeeds.
+rcl_queue_now_authenticated    Requesting the pickup queue as \1 after the authentication handshake.\n
+rcl_profile_text               RCL Profile & Login
+rcl_profile_help               Set your RCL or linked legacy Global ID, enable auto-login, and customize your player.
 
 #********************************************
 #********************************************

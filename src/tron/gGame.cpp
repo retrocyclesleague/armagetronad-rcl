@@ -80,6 +80,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include <math.h>
 #include <stdlib.h>
+#include <algorithm>
 #include <string>
 #include <fstream>
 #include <ctype.h>
@@ -2762,6 +2763,205 @@ void net_game(){
 #endif
 }
 
+#ifndef DEDICATED
+namespace
+{
+struct gRclPlayNowMode
+{
+    const char * name;
+    unsigned int port;
+};
+
+static bool sg_rclQueueOnJoin = false;
+static double sg_rclQueueEarliest = 0.0;
+
+static const char * sg_rclPlayNowHosts[] =
+{
+    "retrocyclesleague.com",
+    "us.retrocyclesleague.com",
+    "sc.retrocyclesleague.com",
+    "mtl.retrocyclesleague.com"
+};
+
+static bool sg_RclServerNameMatches( tString const & serverName, char const * mode )
+{
+    std::string name( static_cast< char const * >( serverName ) );
+    std::transform( name.begin(), name.end(), name.begin(), ::tolower );
+
+    if ( std::string( mode ) == "sumo" )
+    {
+        return name.find( "sumo" ) != std::string::npos ||
+               name.find( "sbt" ) != std::string::npos;
+    }
+
+    return name.find( mode ) != std::string::npos;
+}
+
+static void sg_RclPlayNow( gRclPlayNowMode const & mode, bool queueOnJoin = false )
+{
+    con << tOutput( "$rcl_play_now_finding", mode.name );
+
+    nServerInfo::DeleteAll( false );
+    for ( unsigned int i = 0; i < sizeof( sg_rclPlayNowHosts ) / sizeof( sg_rclPlayNowHosts[0] ); ++i )
+    {
+        nServerInfo * candidate = tNEW( nServerInfo );
+        candidate->SetConnectionName( tString( sg_rclPlayNowHosts[i] ) );
+        candidate->SetPort( mode.port );
+    }
+
+    nServerInfo::StartQueryAll( nServerInfo::QUERY_ALL );
+    while ( nServerInfo::DoQueryAll( 4 ) )
+    {
+        tAdvanceFrame( 10000 );
+        st_DoToDo();
+    }
+
+    nServerInfo * best = 0;
+    for ( nServerInfo * candidate = nServerInfo::GetFirstServer(); candidate; candidate = candidate->Next() )
+    {
+        int users = candidate->Users();
+        int maxUsers = candidate->MaxUsers();
+        bool full = maxUsers > 0 && users >= maxUsers;
+
+        if ( !candidate->Reachable() || full || !sg_RclServerNameMatches( candidate->GetName(), mode.name ) )
+        {
+            continue;
+        }
+
+        // Fill an active lobby before opening another one. When player counts
+        // tie (including all-empty fleets), prefer the lowest-latency region.
+        if ( !best || users > best->Users() ||
+             ( users == best->Users() && candidate->Ping() < best->Ping() ) )
+        {
+            best = candidate;
+        }
+    }
+
+    if ( !best )
+    {
+        sg_rclQueueOnJoin = false;
+        nServerInfo::DeleteAll( false );
+        uMenu::Message( tOutput( "$rcl_play_now_unavailable_title" ),
+                        tOutput( "$rcl_play_now_unavailable", mode.name ), 20 );
+        return;
+    }
+
+    tString connectionName = best->GetConnectionName();
+    unsigned int port = best->GetPort();
+    tString serverName = best->GetName();
+    int users = best->Users();
+    int maxUsers = best->MaxUsers();
+
+    nServerInfo::DeleteAll( false );
+
+    con << tOutput( "$rcl_play_now_connecting", serverName, users, maxUsers );
+    gLogo::SetDisplayed( false );
+    sg_rclQueueOnJoin = queueOnJoin;
+    sg_rclQueueEarliest = tSysTimeFloat() + 3.0;
+    nServerInfoRedirect target( connectionName, port );
+    ConnectToServer( &target );
+    sg_rclQueueOnJoin = false;
+}
+
+static void sg_RclPlayFort()
+{
+    static const gRclPlayNowMode mode = { "fort", 4554 };
+    sg_RclPlayNow( mode );
+}
+
+static void sg_RclPlaySumobar()
+{
+    static const gRclPlayNowMode mode = { "sumo", 4534 };
+    sg_RclPlayNow( mode );
+}
+
+static void sg_RclPlayTst()
+{
+    static const gRclPlayNowMode mode = { "tst", 4551 };
+    sg_RclPlayNow( mode );
+}
+
+static void sg_RclQueueFort()
+{
+    static const gRclPlayNowMode mode = { "fort", 4554 };
+    sg_RclPlayNow( mode, true );
+}
+
+static void sg_RclQueueSumobar()
+{
+    static const gRclPlayNowMode mode = { "sumo", 4534 };
+    sg_RclPlayNow( mode, true );
+}
+
+static void sg_RclQueueTst()
+{
+    static const gRclPlayNowMode mode = { "tst", 4551 };
+    sg_RclPlayNow( mode, true );
+}
+
+static void sg_RclPlayNowMenu()
+{
+    uMenu menu( "$rcl_play_now_text" );
+    menu.SetStyle( uMenuStyle_RclPanel );
+
+    uMenuItemFunction tst( &menu, "$rcl_play_now_tst_text",
+                           "$rcl_play_now_tst_help", &sg_RclPlayTst );
+    uMenuItemFunction sumobar( &menu, "$rcl_play_now_sumobar_text",
+                              "$rcl_play_now_sumobar_help", &sg_RclPlaySumobar );
+    uMenuItemFunction fort( &menu, "$rcl_play_now_fort_text",
+                           "$rcl_play_now_fort_help", &sg_RclPlayFort );
+
+    menu.Enter();
+}
+
+static void sg_RclQueueNowMenu()
+{
+    uMenu menu( "$rcl_queue_now_text" );
+    menu.SetStyle( uMenuStyle_RclPanel );
+
+    uMenuItemFunction tst( &menu, "$rcl_play_now_tst_text",
+                           "$rcl_queue_now_tst_help", &sg_RclQueueTst );
+    uMenuItemFunction sumobar( &menu, "$rcl_play_now_sumobar_text",
+                              "$rcl_queue_now_sumobar_help", &sg_RclQueueSumobar );
+    uMenuItemFunction fort( &menu, "$rcl_play_now_fort_text",
+                           "$rcl_queue_now_fort_help", &sg_RclQueueFort );
+
+    menu.Enter();
+}
+
+static void sg_RclMaybeAutoQueue()
+{
+    if ( !sg_rclQueueOnJoin || sn_GetNetState() != nCLIENT ||
+         tSysTimeFloat() < sg_rclQueueEarliest )
+    {
+        return;
+    }
+
+    for ( int i = 0; i < MAX_PLAYERS; ++i )
+    {
+        ePlayer * local = ePlayer::PlayerConfig( i );
+        if ( !local || !local->netPlayer )
+        {
+            continue;
+        }
+
+        ePlayerNetID * player = local->netPlayer;
+        if ( player->Owner() == sn_myNetID )
+        {
+            // Stock clients do not receive a separate authentication-success
+            // bit. Give the normal auto-login handshake time to complete; the
+            // server bridge still accepts /add only when COMMAND carries a
+            // verified Global ID, so this cannot queue a guest identity.
+            con << tOutput( "$rcl_queue_now_authenticated", local->globalID );
+            player->Chat( tString( "/add" ) );
+            sg_rclQueueOnJoin = false;
+            return;
+        }
+    }
+}
+}
+#endif
+
 
 
 static void StartNewMatch(){
@@ -3219,6 +3419,27 @@ void MainMenu(bool ingame){
                                               );
     }
 
+#ifndef DEDICATED
+    uMenuItemFunction *playNow = NULL;
+    uMenuItemFunction *queueNow = NULL;
+    uMenuItemFunction *rclProfile = NULL;
+    if ( !ingame )
+    {
+        rclProfile = tNEW( uMenuItemFunction )( &MainMenu,
+                                                "$rcl_profile_text",
+                                                "$rcl_profile_help",
+                                                &sg_PlayerMenu );
+        queueNow = tNEW( uMenuItemFunction )( &MainMenu,
+                                              "$rcl_queue_now_text",
+                                              "$rcl_queue_now_help",
+                                              &sg_RclQueueNowMenu );
+        playNow = tNEW( uMenuItemFunction )( &MainMenu,
+                                             "$rcl_play_now_text",
+                                             "$rcl_play_now_help",
+                                             &sg_RclPlayNowMenu );
+    }
+#endif
+
     if (!ingame)
     {
         rViewport::Update(MAX_PLAYERS);
@@ -3233,6 +3454,14 @@ void MainMenu(bool ingame){
         delete team;
     if (gamemenuitem)
         delete gamemenuitem;
+#ifndef DEDICATED
+    if (playNow)
+        delete playNow;
+    if (queueNow)
+        delete queueNow;
+    if (rclProfile)
+        delete rclProfile;
+#endif
     if (sound)
         delete sound;
     if (connect)
@@ -5475,6 +5704,12 @@ bool gGame::GameLoop(bool input){
 
         synced_ = true;
     }
+
+#ifndef DEDICATED
+    // Queue Now waits for the normal server authentication handshake to
+    // succeed before emitting /add. This works for @rcl and linked legacy IDs.
+    sg_RclMaybeAutoQueue();
+#endif
 
 	gDelayCommand::Run(gtime);
 	gZone::Timesteps(gtime);

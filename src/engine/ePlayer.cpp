@@ -1190,8 +1190,9 @@ ePlayer::ePlayer()
     if ( !getUserName )
         name << "Player " << id+1;
 
-    // default global ID so logins are redirected to the forums
-    globalID = "@forums";
+    // RCL is the first-party authority for this client. Existing profiles keep
+    // their configured Global ID, including linked legacy @forums logins.
+    globalID = "@rcl";
 
 #ifndef DEDICATED
     tString confname;
@@ -1215,10 +1216,10 @@ ePlayer::ePlayer()
 
     confname.Clear();
     confname << "AUTO_LOGIN_"<< id+1;
+    autoLogin = true;
     StoreConfitem(tNEW(tConfItem<bool>)(confname,
                                         "$auto_login_confitem_help",
                                         autoLogin));
-    autoLogin = false;
 
     confname.Clear();
     confname << "CAMCENTER_"<< id+1;

@@ -83,13 +83,16 @@ Upload via dashboard resource API — see `rcl-dashboard/docs/RESOURCE_UPLOAD.md
 Post results in Discord `#rcl-client-dev` with build ID (`rcl.N`):
 
 1. Launch cold; About shows `0.2.9+sty+ct+ap+rcl.N`
-2. Join an RCL pickup server (UK sumobar or TST)
-3. `/login you@rcl` — auth works
-4. Play one full round — no disconnect
-5. Alt-tab + Discord stream — no focus/GL regression
-6. Server browser — RCL gradient names visible
-7. Map loads from `resource.retrocyclesleague.com`
-8. Disconnect → Internet Play: no hour-long "Master servers do not answer" freeze (RCL master first; timeout is console-only)
+2. On a fresh profile, confirm setup returns to the main menu without forcing a local game
+3. Select **Play Now → Sumobar** and confirm it joins an online, non-full RCL regional lobby
+4. Set **RCL Profile & Login → Global ID** to `you@rcl` (or a linked legacy ID) and keep auto-login enabled
+5. Select **Queue Now → Sumobar**; after authentication, confirm `/add` is sent and the queue count is shown
+6. Repeat Play Now for **Fort** and **TST**
+7. Play one full round — no disconnect
+8. Alt-tab + Discord stream — no focus/GL regression
+9. Server browser — RCL gradient names visible
+10. Map loads from `resource.retrocyclesleague.com`
+11. Disconnect → Internet Play: no hour-long "Master servers do not answer" freeze (RCL master first; timeout is console-only)
 
 ## Known client pain: master list after DC
 
