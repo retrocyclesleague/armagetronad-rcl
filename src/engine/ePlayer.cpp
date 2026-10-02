@@ -38,6 +38,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "uMenu.h"
 #include "tToDo.h"
 #include "rScreen.h"
+#include <vector>
 #include <string>
 #include <fstream>
 #include <iostream>
@@ -961,8 +962,16 @@ static bool se_RclAuthenticate( bool interactive, bool showResult )
     nKrawall::nPasswordAnswer answer;
     answer.username = se_RclConfiguredUserName();
 
+    // The prompt below overwrites the stored credential with whatever was
+    // typed. Keep the previous entries so a cancelled or rejected attempt
+    // leaves a working saved sign-in untouched.
+    std::vector< PasswordStorage > savedPasswords;
+
     if ( interactive )
     {
+        for ( int i = 0; i < S_passwords.Len(); ++i )
+            savedPasswords.push_back( S_passwords( i ) );
+
         // RCL Account is also the account-switch entry point, so deliberately
         // show the fields even when a previous credential is available.
         request.failureOnLastTry = true;
@@ -973,13 +982,20 @@ static bool se_RclAuthenticate( bool interactive, bool showResult )
         return false;
     }
 
+    bool success = !answer.aborted && se_RclCheckPassword( request, answer );
+    if ( !success && interactive )
+    {
+        S_passwords.SetLen( static_cast< int >( savedPasswords.size() ) );
+        for ( int i = 0; i < S_passwords.Len(); ++i )
+            S_passwords( i ) = savedPasswords[ i ];
+    }
+
     if ( answer.aborted )
     {
         answer.scrambled.Clear();
         return false;
     }
 
-    bool success = se_RclCheckPassword( request, answer );
     if ( !success )
     {
         answer.scrambled.Clear();
