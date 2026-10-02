@@ -117,6 +117,12 @@ fi
 
 make -C "${BUILD}" -j"${JOBS}" all debug
 
+# languages.txt is generated in the build dir; copy into source tree for in-tree runs.
+if test -f "${BUILD}/language/languages.txt"; then
+  mkdir -p "${ROOT}/language"
+  cp -f "${BUILD}/language/languages.txt" "${ROOT}/language/languages.txt"
+fi
+
 BIN=""
 for candidate in \
   "${BUILD}/src/armagetronad_main.exe" \
@@ -133,4 +139,30 @@ if test -z "$BIN"; then
   exit 1
 fi
 
+deploy_runtime_dlls() {
+  local dest_dir
+  dest_dir="$(dirname "$BIN")"
+  echo "Deploying runtime DLLs to ${dest_dir}..."
+  # Copy MinGW runtime deps next to the exe so it runs outside MSYS2 PATH.
+  ldd "$BIN" | awk '/\/mingw64\/bin\// {print $3}' | sort -u | while read -r dll; do
+    cp -f "$dll" "${dest_dir}/"
+  done
+}
+
+write_run_launcher() {
+  local dest_dir launcher
+  dest_dir="$(dirname "$BIN")"
+  launcher="${dest_dir}/run-armagetronad.bat"
+  cat > "${launcher}" <<EOF
+@echo off
+cd /d "%~dp0"
+start "" "%~dp0armagetronad_main.exe" %*
+EOF
+  echo "Run launcher: ${launcher}"
+}
+
+deploy_runtime_dlls
+write_run_launcher
+
 echo "Client binary: ${BIN}"
+echo "Tip: double-click run-armagetronad.bat or run the exe from build-client/src after rebuild."
