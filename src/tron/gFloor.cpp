@@ -30,6 +30,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "defs.h"
 #include "gStuff.h"
 #include "gLogo.h"
+#include "gMenuReplay.h"
+#include "uRclTheme.h"
 #include "eFloor.h"
 #include "tConfiguration.h"
 #include "rScreen.h"
@@ -203,6 +205,13 @@ static void MenuBackground(){
     // On a fresh profile, welcome() has now finished applying its display
     // defaults, so FLOOR_DETAIL can safely be migrated and persisted.
     sg_ApplyRclHdFloorMigration();
+
+    // The league replay replaces the scrolling floor and title card.
+    if (gMenuReplay::Render())
+    {
+        uRclTheme::NoteSceneBehind();
+        return;
+    }
 
     if (rTextureGroups::TextureMode[rTextureGroups::TEX_FLOOR]>=0){
         se_glFloorTexture();
