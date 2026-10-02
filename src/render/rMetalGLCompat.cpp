@@ -10,7 +10,11 @@
 #define NO_SDL_GLEXT
 #define GL_SILENCE_DEPRECATION
 #include <SDL3/SDL_opengl.h>
+#ifdef __APPLE__
 #include <OpenGL/glu.h>
+#else
+#include <GL/glu.h>
+#endif
 
 // Undef rGL.h macros if any prior include pulled them in (PCH / transitive headers).
 #ifdef glMatrixMode

@@ -2,10 +2,10 @@ name: build-client
 
 on:
   push:
-    branches: [hack-0.2.8-sty+ct+ap, "rcl/**"]
+    branches: [hack-0.2.8-sty+ct+ap, macos-sdl3, windows-sdl3, "rcl/**"]
     tags: ["v0.2.9-sty+ct+ap+rcl.*"]
   pull_request:
-    branches: [hack-0.2.8-sty+ct+ap, "rcl/**"]
+    branches: [hack-0.2.8-sty+ct+ap, macos-sdl3, windows-sdl3, "rcl/**"]
   workflow_dispatch:
 
 jobs:
@@ -95,9 +95,8 @@ jobs:
             curl
             git
             mingw-w64-x86_64-toolchain
-            mingw-w64-x86_64-SDL
-            mingw-w64-x86_64-SDL_image
-            mingw-w64-x86_64-SDL_mixer
+            mingw-w64-x86_64-sdl3
+            mingw-w64-x86_64-sdl3-image
             mingw-w64-x86_64-libpng
             mingw-w64-x86_64-libxml2
             mingw-w64-x86_64-glew

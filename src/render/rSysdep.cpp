@@ -53,8 +53,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define SCREENSHOT_BYTES_PER_PIXEL 3
 #ifndef SDL_OPENGL
 #ifndef __APPLE__
+#ifndef USE_SDL3
 #ifndef DIRTY
 #define DIRTY
+#endif
 #endif
 #endif
 #endif
@@ -249,6 +251,11 @@ void  rSysDep::ExitGL(){
 #endif
 }
 #endif // DIRTY
+
+#ifndef DIRTY
+bool rSysDep::InitGL() { return true; }
+void rSysDep::ExitGL() {}
+#endif
 
 bool sr_screenshotIsPlanned=false;
 

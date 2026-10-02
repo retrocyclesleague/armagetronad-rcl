@@ -25,6 +25,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 */
 
+#ifndef DEDICATED
+#include <SDL3/SDL_main.h>
+#endif
+
 #include "gStuff.h"
 #include "tSysTime.h"
 #include "tDirectories.h"
@@ -624,7 +628,7 @@ struct SDLSoundCleanup
 int filter(void *userdata, SDL_Event *tEvent);
 #endif
 
-int SDL_main(int argc,char **argv){
+int main(int argc,char **argv){
     bool dedicatedServer = false;
 
     // tERR_MESSAGE( "Start!" );

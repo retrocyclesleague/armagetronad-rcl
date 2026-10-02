@@ -85,7 +85,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define EMSGSIZE WSAEMSGSIZE
 #define ETIMEDOUT WSAETIMEDOUT
 #define ENETUNREACH WSAENETUNREACH
-#define close closesocket
 #define snprintf _snprintf
 #endif
 
@@ -102,11 +101,14 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define MAXHOSTNAMELEN 256
 #endif
 
-#if HAVE_UNISTD_H
+#if HAVE_UNISTD_H && !defined(WIN32)
 #include <unistd.h>
 #endif
 
 #include "nSocket.h"
+#ifdef WIN32
+#define close closesocket
+#endif
 #include "tConfiguration.h"
 #include "tRecorder.h"
 

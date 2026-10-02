@@ -298,6 +298,9 @@ public:
     static void DownloadConfig_To(tString file, int peer);
 
     // helper functions for files (use these, they manage recording and playback properly)
+#ifdef SearchPath
+#undef SearchPath
+#endif
     enum SearchPath
     {
         Config = 1,

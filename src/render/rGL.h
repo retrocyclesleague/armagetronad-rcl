@@ -5,12 +5,17 @@
 
 #ifdef WIN32
 #include <windows.h>
+#undef GetUserName
 #endif
 
 #define NO_SDL_GLEXT
 #define GL_SILENCE_DEPRECATION
 #include <SDL3/SDL_opengl.h>
+#ifdef __APPLE__
 #include <OpenGL/glu.h>
+#else
+#include <GL/glu.h>
+#endif
 
 #ifdef __APPLE__
 #include "rMetalGLCompat.h"

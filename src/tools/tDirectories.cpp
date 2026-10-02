@@ -28,6 +28,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "config.h"
 
+#ifdef TOP_SOURCE_DIR
+#include "tUniversalVariables.h"
+#endif
+
 #include <errno.h>
 #include <sys/types.h>
 #ifndef WIN32
@@ -74,8 +78,7 @@ static const char * s_topSourceDir = ".";
 #endif
 
 #ifdef TOP_SOURCE_DIR
-// #include "tPaths.h"
-#include "tUniversalVariables.h"
+// tUniversalVariables.h included at top of file (before COM headers on Windows).
 #endif
 
 #ifndef PREFIX
@@ -1291,6 +1294,15 @@ public:
         char const * bestGuess = BINDIR "/" PROGNAME;
 #endif// binreloc
 #else // win32
+        char modulePath[MAX_PATH];
+        if ( GetModuleFileNameA( NULL, modulePath, MAX_PATH ) > 0 )
+        {
+            path_ = modulePath;
+#ifdef DEBUG_PATH
+            con << "path to executable (GetModuleFileName): " << path_ << "\n";
+#endif
+            return;
+        }
         char const * bestGuess = "./" PROGNAME;
 #endif// win32
 
@@ -1433,7 +1445,33 @@ static void FindDataPath()
 {
 #ifndef MACOSX_XCODE
 #ifdef WIN32
-    // look for data in the same directory as the executable
+    // MSYS2/autotools dev builds put the exe under build-client/src/; installed
+    // layouts put data next to bindir. Walk up from the executable to find language/.
+    for ( int level = 1; level <= 6; ++level )
+    {
+        tString path = GenerateParentOfExecutable( level );
+        if ( path.Len() <= 1 )
+            path = ".";
+        if ( TestDataPath( path ) )
+            return;
+    }
+    // In-tree autotools build: languages.txt lives in build-client/, other data in repo root.
+    for ( int level = 1; level <= 4; ++level )
+    {
+        tString buildDir = GenerateParentOfExecutable( level );
+        if ( buildDir.Len() <= 1 )
+            buildDir = ".";
+        if ( !TestPath( buildDir, "Makefile" ) )
+            continue;
+        if ( !TestPath( buildDir, "language/languages.txt" ) )
+            continue;
+        tString sourceDir = GenerateParentOfExecutable( level + 1 );
+        if ( sourceDir.Len() <= 1 )
+            sourceDir = ".";
+        if ( TestDataPath( sourceDir ) )
+            return;
+    }
+    // legacy install layout: data directory sibling to bindir
     if ( TestDataPath(GetParent(st_pathToExecutable.Get(), 1) ) ) return;
 #else
     // try to use path substitution

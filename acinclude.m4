@@ -99,7 +99,12 @@ for variable in ${ac_aa_universal_variables}; do
 
     # add C macro to prototype file (later modified by the makefile
     # to contain the possibly modified variable values)
-    printf "#ifndef %s\n    #define %s \"@%s@\"\n#endif\n" "${variable_u}" "${variable_u}" "${variable}" >> src/tUniversalVariables.h.in.new
+    if test x${variable} = xdatadir; then
+        # Windows objidl.h defines DATADIR as an enum; use AA_DATADIR instead.
+        printf "#ifndef _WIN32\n#ifndef %s\n    #define %s \"@%s@\"\n#endif\n#endif\n" "${variable_u}" "${variable_u}" "${variable}" >> src/tUniversalVariables.h.in.new
+    else
+        printf "#ifndef %s\n    #define %s \"@%s@\"\n#endif\n" "${variable_u}" "${variable_u}" "${variable}" >> src/tUniversalVariables.h.in.new
+    fi
 
     # generate prototype for file containing the actual values of the variables
     # echo ${variable}=@${variable}@  >> universal_variable_values.in

@@ -1,5 +1,15 @@
 # Dev log
 
+## 2026-06-27 — Windows SDL3 port (`windows-sdl3`)
+
+- Branch `windows-sdl3` from RCL `macos-sdl3`; MSYS2 autotools build via `scripts/build-windows-client.sh`.
+- `configure.ac`: SDL3/sdl3-image via pkg-config; music off when `sdl3-mixer` missing; mingw winsock/GLU fixes.
+- Link fixes: `-Wl,-u,WinMain`, `--start-group` around static libs (post-configure Makefile patch in build script).
+- Source: `SDL3/SDL_main.h` + `main()` in `gArmagetron.cpp`; `InitGL`/`ExitGL` stubs when `DIRTY` off; `#undef SearchPath` before config enum (Win32 macro clash); `DATADIR` macro skipped on `_WIN32` in `acinclude.m4`.
+- Output: `build-client/src/armagetronad_main.exe` (~25 MB debug build).
+- Runtime: build script now copies MinGW DLLs (`SDL3.dll`, `SDL3_image.dll`, etc.) next to the exe for launch outside MSYS2.
+- Data path: WIN32 resolves exe via `GetModuleFileName`, walks up for `language/`; build copies generated `languages.txt` into repo `language/`; emits `run-armagetronad.bat`.
+
 - Menu mouse hit: center on `YPos` (was offset down by `0.55×height`); row half `0.48×pitch` so adjacent rows don't overlap. Removed 70ms hover debounce.
 
 ## 2026-06-27 — Metal renderer audit: fixed primitive expansion slop
