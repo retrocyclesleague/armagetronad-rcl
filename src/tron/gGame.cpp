@@ -3258,12 +3258,6 @@ void MainMenu(bool ingame){
     if (!ingame){
         start= new uMenuItemFunction(&game_menu,"$game_menu_start_text",
                                      "$game_menu_start_help",&sg_SinglePlayerGame);
-        connect=new uMenuItemFunction
-                (&game_menu,
-                 "$network_menu_text",
-                 "$network_menu_help",
-                 &net_game);
-
     }
 
     tOutput title;
@@ -3326,20 +3320,20 @@ void MainMenu(bool ingame){
                           "$main_menu_about_help",
                           &sg_DisplayVersionInfo);
 
+    uMenu Settings("$system_settings_menu_text");
+    Settings.SetStyle(uMenuStyle_RclPanel);
+
 #ifndef DEDICATED
-    uMenuItemFunction cfm(&MainMenu,
+    uMenuItemFunction cfm(&Settings,
                            "$config_setup_menu_text",
                             "$config_setup_menu_help",
                              &sg_ConfigMenu);
 
-    uMenuItemFunction spm(&MainMenu,
+    uMenuItemFunction spm(&Settings,
                            "$special_setup_menu_text",
                             "$special_setup_menu_help",
                              &sg_SpecialMenu);
 #endif
-
-    uMenu Settings("$system_settings_menu_text");
-    Settings.SetStyle(uMenuStyle_RclPanel);
 
     uMenuItemSubmenu subm_settings
     (&MainMenu,&Settings,
@@ -3436,6 +3430,14 @@ void MainMenu(bool ingame){
                                                gamehelp
                                               );
     }
+
+    // Servers sits on the main menu, directly above local play.
+    if (!ingame)
+        connect=new uMenuItemFunction
+                (&MainMenu,
+                 "$network_menu_text",
+                 "$network_menu_help",
+                 &net_game);
 
 #ifndef DEDICATED
     uMenuItemFunction *playNow = NULL;

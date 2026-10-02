@@ -527,6 +527,8 @@ void uMenu::OnEnter(){
                 // Some legacy items render a live preview. Their background
                 // callback still prepares gameplay/console content; the
                 // visible preview belongs above the shared RCL shell.
+                RenderEnd();
+                glDisable(GL_TEXTURE_2D);
                 items[selected]->RenderForeground();
 
                 REAL const selectedY = ItemDrawY(selected);
@@ -560,7 +562,7 @@ void uMenu::OnEnter(){
                 disphelp = false;
 
                 glDisable(GL_TEXTURE_2D);
-                Color(0, .82f, .88f, .72f * entrance);
+                uRclTheme::SetScrollMarkColor(.72f * entrance);
                 if (YPos(0)<menuBot+smallborder && (int(tSysTimeFloat()))%2)
                     arrow(.82f,menuBot+.1f,-1,.04f);
                 if (YPos(menuentries-1)>menuTop && (int(tSysTimeFloat())+1)%2)
@@ -946,6 +948,11 @@ void uMenuItem::DisplayText(REAL x,REAL y,const char *text,
     if (sr_glOut){
         if (menu && menu->RclStyle())
         {
+            // Chat and console prompts are one row: the text being typed
+            // follows its short label instead of using the value column.
+            bool const prompt = menu->GetStyle() == uMenuStyle_RclPrompt;
+            REAL const promptValueOffset = .18f;
+
             REAL drawX = x;
             if (center > 0)
             {
@@ -954,12 +961,24 @@ void uMenuItem::DisplayText(REAL x,REAL y,const char *text,
             }
             else if (center < 0)
             {
-                drawX += uRclTheme::ValueOffset() - .02f;
+                drawX += (prompt ? promptValueOffset
+                                 : uRclTheme::ValueOffset()) - .02f;
                 uRclTheme::SetValueColor(selected, alpha);
+                if (!prompt)
+                    uRclTheme::NoteValueColumn();
             }
             else
             {
                 uRclTheme::SetLabelColor(selected, alpha);
+            }
+
+            // Menu copy follows the site's lowercase voice; text the player
+            // is editing (drawn with a cursor) stays as typed.
+            tString lowered;
+            if (c == 0)
+            {
+                lowered = uRclTheme::Lower(text);
+                text = lowered;
             }
 
             REAL tw = uRclTheme::TextWidth();
@@ -971,7 +990,8 @@ void uMenuItem::DisplayText(REAL x,REAL y,const char *text,
             if (center > 0)
             {
                 int const length = std::max(1, tColoredString::RemoveColors(text).Len() - 1);
-                REAL const available = uRclTheme::ValueOffset() - .11f;
+                REAL const available = prompt ? promptValueOffset - .03f
+                                              : uRclTheme::ValueOffset() - .11f;
                 if (length * tw > available)
                     tw = available / length;
             }
@@ -1752,8 +1772,7 @@ bool uMenu::Message(const tOutput& message, const tOutput& interpretation, REAL 
                 {
                     if (offset >= lines.size())
                         offset = lines.size() - 1;
-                    rTextField::SetDefaultColor(tColor(.78f,.82f,.85f,1));
-                    rTextField::SetBlendColor(tColor(1,1,1,1));
+                    uRclTheme::SetBodyColor(1);
                     rTextField c(uRclTheme::LabelX(), .52f, w, h);
                     c.SetWidth(static_cast<int>(
                         (uRclTheme::MenuRight() - uRclTheme::LabelX() - .08f)

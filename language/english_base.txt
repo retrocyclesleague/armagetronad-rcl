@@ -1466,7 +1466,7 @@ console_repetition          (\1 times)\n
 #********************************************
 #********************************************
 
-special_setup_menu_text    Special Setup
+special_setup_menu_text    Extras
 special_setup_menu_help    Configure settings to change features of game.
 
 hide_cycles_walls_menu_text Hide Cycle Walls
@@ -1492,7 +1492,7 @@ tab_completion_menu_help If enabled, after typing someone's initial name, hit ta
 #********************************************
 #********************************************
 
-config_setup_menu_text    Config Setup
+config_setup_menu_text    Config Files
 config_setup_menu_help    Configuration settings to load or save per options.
 
 config_user_save_text     Save User Config
@@ -1521,13 +1521,13 @@ config_load_all_help      Loads all the config from the beginning of game start.
 main_menu_text            \g v\1
 rcl_main_menu_text        RCL Client
 
-game_menu_text            Play Game
+game_menu_text            Local Game
 game_menu_main_help        Game configuration and launch.
 
-player_mainmenu_text        Player Setup
+player_mainmenu_text        Player
 player_mainmenu_help        Select player names and control methods.
 
-system_settings_menu_text    System Setup
+system_settings_menu_text    Settings
 system_settings_menu_help    Configure sound, graphics and overall appearance of \g
 
 main_menu_about_text        About
@@ -1588,13 +1588,13 @@ version_info_gl_version        \n  GL Version  :
 #********************************************
 #********************************************
 
-game_menu_start_text        Local Game
+game_menu_start_text        Start Game
 game_menu_start_help        Enter the game grid! Only players configured on this computer will play.
 
-network_menu_text        Multiplayer
+network_menu_text        Servers
 network_menu_help        This joins or creates a network multiplayer game.
 
-game_settings_menu_text        Game Setup
+game_settings_menu_text        Game Settings
 game_settings_menu_help        Choose game mode and number of opponents
 
 
@@ -1896,7 +1896,7 @@ friend_help                    If a server has this name on its players list, it
 #********************************************
 #********************************************
 
-misc_menu_text            Misc Stuff
+misc_menu_text            Miscellaneous
 misc_menu_help            Diverse items that had no place elsewhere, i.e. global keys.
 
 misc_global_key_text        Global Keyboard Configuration
@@ -2527,12 +2527,12 @@ timer_hickup                Timer hiccup of \1 seconds detected and compensated.
 #********************************************
 #********************************************
 
-welcome_message_heading        Welcome to \g!
+welcome_message_heading        Welcome to Retrocycles League
 
 welcome_message                Choose Play Now to jump into the best available RCL lobby. Fort, Sumobar and TST are one click away.
 
 welcome_message_2_heading   We hope you enjoyed it so far.
-welcome_message_2           You will now enter the regular main menu. You can access local games now via the "Play Game/"Local Game" menu path.\n\nBut the true action is to be found online, many industrious people have put up interesting servers with gameplay variations not available if you play solo.\nTo go online, select "Play Game"/"Multiplayer"/"Online Multiplayer".
+welcome_message_2           You will now enter the main menu. Play Now and Queue Now take you straight into RCL lobbies, Servers lists every public server, and Local Game starts a match against the AI.
 
 rcl_play_now_text              Play Now
 rcl_play_now_help              Find and join the busiest non-full RCL lobby, using latency to choose between equally active regions.
@@ -2552,7 +2552,7 @@ rcl_queue_now_fort_help        Join an available Fortress lobby and send /add af
 rcl_queue_now_sumobar_help     Join an available Sumobar lobby and send /add after authentication succeeds.
 rcl_queue_now_tst_help         Join an available TST lobby and send /add after authentication succeeds.
 rcl_queue_now_authenticated    Requesting the pickup queue as \1 after the authentication handshake.\n
-rcl_profile_text               RCL Profile & Login
+rcl_profile_text               RCL Account
 rcl_profile_signed_in          RCL Account · \1
 rcl_profile_identity           RCL Account · \1
 rcl_profile_summary            \1 // \2 // \3 ELO
@@ -4199,3 +4199,5 @@ zone_wall_boundary_help               Values <= 0 is the boundary limit in which
 log_turns_help            If set to 1, this setting will log the spawned time, death time and the positions of which players move to in the file ./var/log_turns/<name>.txt
 log_turns_timestamp_help  If set to 1, [TIME-STAMP] <message> will be sent to all the players logging file in ./var/log_turns/<name>.txt
 log_turns_winner_help     If set to 1, spawned and finished position, direction when a player enters a win zone or a target zone for the first time to the file ./var/log_turns/winner/<name>.txt
+
+menu_replay_help               Plays an anonymous league match replay behind the out-of-game menus.

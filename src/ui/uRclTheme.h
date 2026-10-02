@@ -41,6 +41,14 @@ namespace uRclTheme
     REAL EaseIn(REAL progress);
     tString FirstLine(tString const &text);
 
+    //! lowercases ASCII letters, leaving 0xRRGGBB colour codes intact
+    tString Lower(char const *text);
+
+    //! a menu row drew into the value column this frame
+    void NoteValueColumn();
+    //! a live scene (game or replay) is drawn behind the menu this frame
+    void NoteSceneBehind();
+
     void DrawBackground(bool full, REAL alpha);
     void DrawChrome(bool full, tString const &title, REAL alpha);
     void DrawSelection(REAL y, REAL alpha);
@@ -52,6 +60,8 @@ namespace uRclTheme
 
     void SetLabelColor(bool selected, REAL alpha);
     void SetValueColor(bool selected, REAL alpha);
+    void SetBodyColor(REAL alpha);
+    void SetScrollMarkColor(REAL alpha);
 }
 
 #endif

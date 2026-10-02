@@ -160,7 +160,6 @@ void sg_StartupPlayerMenu()
     uMenu firstSetup("$first_setup", false);
     firstSetup.SetBot(-.2);
 
-    uMenuItemExit e2(&firstSetup, "$menuitem_accept", "$menuitem_accept_help");
 
     ePlayer * player = ePlayer::PlayerConfig(0);
     tASSERT( player );

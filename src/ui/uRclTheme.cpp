@@ -44,6 +44,18 @@ namespace uRclTheme
         static REAL const promptBottom = -.90f;
         static REAL const promptRowY = -.80f;
 
+        // retrocyclesleague.com tokens: neutral greys and a single lime
+        // accent (--accent #e8ff47). Keep every theme colour here.
+        struct Rgb { REAL r, g, b; };
+        static Rgb const accent    = { .910f, 1.0f, .278f };
+        static Rgb const backdrop  = { .020f, .020f, .020f };
+        static Rgb const panel     = { .039f, .039f, .039f };
+        static Rgb const line      = { .26f, .26f, .26f };
+        static Rgb const text      = { .98f, .98f, .98f };
+        static Rgb const textSoft  = { .86f, .86f, .86f };
+        static Rgb const textMuted = { .63f, .63f, .63f };
+        static Rgb const textDim   = { .45f, .45f, .45f };
+
 #ifndef DEDICATED
         void DisableTexture()
         {
@@ -52,11 +64,14 @@ namespace uRclTheme
         }
 
         void DrawQuad(REAL left, REAL right, REAL bottom, REAL top,
-                      REAL r, REAL g, REAL b, REAL alpha)
+                      Rgb const &c, REAL alpha)
         {
+            // Without blending a tint would render as a solid block.
+            if (!sr_alphaBlend && alpha < .5f)
+                return;
             DisableTexture();
             BeginQuads();
-            Color(r, g, b, alpha);
+            Color(c.r, c.g, c.b, alpha);
             Vertex(left, bottom);
             Vertex(right, bottom);
             Vertex(right, top);
@@ -65,11 +80,11 @@ namespace uRclTheme
         }
 
         void DrawLine(REAL x1, REAL y1, REAL x2, REAL y2,
-                      REAL r, REAL g, REAL b, REAL alpha)
+                      Rgb const &c, REAL alpha)
         {
             DisableTexture();
             BeginLines();
-            Color(r, g, b, alpha);
+            Color(c.r, c.g, c.b, alpha);
             Vertex(x1, y1);
             Vertex(x2, y2);
             RenderEnd();
@@ -95,9 +110,9 @@ namespace uRclTheme
             DrawText(x, y, width, height, text);
         }
 
-        void SetTextColor(REAL r, REAL g, REAL b, REAL alpha)
+        void SetTextColor(Rgb const &c, REAL alpha)
         {
-            rTextField::SetDefaultColor(tColor(r, g, b, alpha));
+            rTextField::SetDefaultColor(tColor(c.r, c.g, c.b, alpha));
             rTextField::SetBlendColor(tColor(1, 1, 1, alpha));
         }
 
@@ -105,7 +120,7 @@ namespace uRclTheme
         {
             DisableTexture();
             BeginLines();
-            Color(.20f, .24f, .27f, alpha);
+            Color(line.r, line.g, line.b, alpha);
             for (REAL x = -1.0f; x <= 1.001f; x += .10f)
             {
                 Vertex(x, -1.0f);
@@ -124,7 +139,7 @@ namespace uRclTheme
             static REAL const length = .025f;
             DisableTexture();
             BeginLines();
-            Color(1, 1, 0, alpha);
+            Color(accent.r, accent.g, accent.b, alpha);
 
             Vertex(menuLeft, .66f); Vertex(menuLeft + length, .66f);
             Vertex(menuLeft, .66f); Vertex(menuLeft, .66f - length);
@@ -137,6 +152,40 @@ namespace uRclTheme
             RenderEnd();
         }
 #endif
+    }
+
+    namespace
+    {
+        // Set while a frame is drawn, read by the next frame's chrome.
+        static bool valueColumnNoted = false;
+        static bool valueColumnShown = false;
+        static bool sceneNoted = false;
+    }
+
+    void NoteValueColumn() { valueColumnNoted = true; }
+    void NoteSceneBehind() { sceneNoted = true; }
+
+    tString Lower(char const *text)
+    {
+        tString out;
+        if (!text)
+            return out;
+        for (int i = 0; text[i] != '\0'; ++i)
+        {
+            if (text[i] == '0' && text[i + 1] == 'x')
+            {
+                // keep the colour code, including its hex digits, verbatim
+                for (int n = 0; n < 8 && text[i] != '\0'; ++n, ++i)
+                    out << text[i];
+                --i;
+                continue;
+            }
+            char ch = text[i];
+            if (ch >= 'A' && ch <= 'Z')
+                ch = static_cast<char>(ch - 'A' + 'a');
+            out << ch;
+        }
+        return out;
     }
 
     REAL MenuTop() { return menuTop; }
@@ -178,19 +227,23 @@ namespace uRclTheme
     void DrawBackground(bool full, REAL alpha)
     {
 #ifndef DEDICATED
-        if (full)
+        // One panel everywhere. Over a live scene (a game, or the menu
+        // replay) it stays translucent; with nothing behind it, the backdrop
+        // closes up and carries the grid instead.
+        bool const scene = !full || sceneNoted;
+        sceneNoted = false;
+        if (scene)
         {
-            DrawQuad(-1, 1, -1, 1, .008f, .012f, .016f, .90f * alpha);
-            DrawGrid(.16f * alpha);
+            DrawQuad(-1, 1, -1, 1, backdrop, .30f * alpha);
         }
         else
         {
-            DrawQuad(-1, 1, -1, 1, 0, 0, 0, .28f * alpha);
-            DrawGrid(.07f * alpha);
+            DrawQuad(-1, 1, -1, 1, backdrop, .90f * alpha);
+            DrawGrid(.16f * alpha);
         }
 
         DrawQuad(menuLeft, menuRight, -.88f, .66f,
-                 .015f, .022f, .028f, (full ? .82f : .76f) * alpha);
+                 panel, (scene ? .66f : .82f) * alpha);
         DrawCornerMarks(.75f * alpha);
 #else
         (void)full;
@@ -198,30 +251,50 @@ namespace uRclTheme
 #endif
     }
 
+    namespace
+    {
+        static char const *footerHint = "mouse // arrows // enter // esc";
+    }
+
     void DrawChrome(bool full, tString const &title, REAL alpha)
     {
 #ifndef DEDICATED
-        SetTextColor(1, 1, 0, alpha);
-        DrawText(labelX, .80f, .022f, .050f, "RETROCYCLES LEAGUE");
+        SetTextColor(accent, alpha);
+        DrawText(labelX, .80f, .022f, .050f, "retrocycles league");
 
-        SetTextColor(.95f, .97f, 1, alpha);
-        DrawTextFitted(labelX, .43f, .70f, .050f, .105f, title);
-
-        SetTextColor(.42f, .48f, .52f, alpha);
-        DrawText(.48f, .79f, .018f, .042f,
-                 full ? "RCL CLIENT" : "MENU OVERLAY");
+        SetTextColor(text, alpha);
+        tString const heading = Lower(title);
+        if (heading.Len() <= 34)
+        {
+            DrawTextFitted(labelX, menuRight - .03f, .70f, .050f, .105f,
+                           heading);
+        }
+        else
+        {
+            // A sentence, not a name (a sign-in request, for instance): set
+            // it as wrapped copy rather than squeezing it into one line.
+            REAL const width = .024f * rTextField::AspectWidthMultiplier();
+            rTextField field(labelX, .748f, width, .050f);
+            field.SetWidth(std::max(8, static_cast<int>(
+                (menuRight - .03f - labelX) / field.GetCWidth())));
+            field << heading;
+        }
 
         DrawLine(menuLeft, .615f, menuRight, .615f,
-                 1, 1, 0, .55f * alpha);
-        DrawLine(labelX + valueOffset - .065f, menuBottom + .04f,
-                 labelX + valueOffset - .065f, .54f,
-                 0, .78f, .86f, .28f * alpha);
+                 accent, .55f * alpha);
+
+        // The column rule belongs to label/value rows only.
+        valueColumnShown = valueColumnNoted;
+        valueColumnNoted = false;
+        if (valueColumnShown)
+            DrawLine(labelX + valueOffset - .065f, menuBottom + .04f,
+                     labelX + valueOffset - .065f, .54f,
+                     line, .7f * alpha);
 
         DrawLine(menuLeft, -.705f, menuRight, -.705f,
-                 .28f, .34f, .38f, .7f * alpha);
-        SetTextColor(.40f, .48f, .52f, alpha);
-        DrawText(labelX, -.845f, .018f, .042f,
-                 "MOUSE // ARROWS // ENTER // ESC");
+                 line, .7f * alpha);
+        SetTextColor(textDim, alpha);
+        DrawText(labelX, -.845f, .018f, .042f, footerHint);
 #else
         (void)full;
         (void)title;
@@ -238,11 +311,11 @@ namespace uRclTheme
         REAL const top = y + rowHalfHeight;
         REAL const corner = .018f;
 
-        DrawQuad(left, right, bottom, top, 1, 1, 0, .055f * alpha);
+        DrawQuad(left, right, bottom, top, accent, .055f * alpha);
 
         DisableTexture();
         BeginLines();
-        Color(1, 1, 0, alpha);
+        Color(accent.r, accent.g, accent.b, alpha);
         Vertex(left, top); Vertex(left + corner, top);
         Vertex(left, top); Vertex(left, top - corner);
         Vertex(right, top); Vertex(right - corner, top);
@@ -261,36 +334,39 @@ namespace uRclTheme
     void DrawHelp(tString const &help, REAL alpha)
     {
 #ifndef DEDICATED
-        tString first = FirstLine(help);
-        if (first.Len() <= 0)
+        if (FirstLine(help).Len() <= 0)
             return;
 
-        tString second;
-        bool afterBreak = false;
-        for (int i = 0; i < help.Len() && help[i] != '\0'; ++i)
-        {
-            if (!afterBreak)
-            {
-                if (help[i] == '\n' || help[i] == '\r')
-                    afterBreak = true;
-                continue;
-            }
-            if (help[i] == '\n' || help[i] == '\r')
-                break;
-            second << help[i];
-        }
-
-        SetTextColor(0, .82f, .88f, alpha);
+        SetTextColor(accent, alpha);
         DrawText(labelX, -.752f, .021f, .050f, "//");
-        SetTextColor(.72f, .76f, .79f, alpha);
-        DrawTextFitted(labelX + .075f, menuRight - .03f, -.752f,
-                       .024f, .050f, first);
-        if (second.Len() > 1)
+
+        // Word-wrap into the two rows of the footer band; cut what does
+        // not fit rather than letting it run over the key hints.
+        REAL const left = labelX + .075f;
+        REAL const width = .020f * rTextField::AspectWidthMultiplier();
+        SetTextColor(textMuted, alpha);
+        rTextField field(left, -.725f, width, .046f);
+        int const columns = std::max(8, static_cast<int>(
+            (menuRight - .03f - left) / field.GetCWidth()));
+        field.SetWidth(columns);
+
+        tString const text = Lower(help);
+        tString shown;
+        int column = 0, row = 0;
+        for (int i = 0; i < text.Len() && text[i] != '\0'; ++i)
         {
-            SetTextColor(.48f, .57f, .62f, alpha);
-            DrawTextFitted(labelX + .075f, menuRight - .03f, -.815f,
-                           .019f, .040f, second);
+            bool const newline = text[i] == '\n' || text[i] == '\r';
+            if (newline || column >= columns)
+            {
+                if (++row >= 2)
+                    break;
+                column = 0;
+            }
+            if (!newline)
+                ++column;
+            shown << text[i];
         }
+        field << shown;
 #else
         (void)help;
         (void)alpha;
@@ -302,13 +378,13 @@ namespace uRclTheme
 #ifndef DEDICATED
         // Chat and console entry stay anchored at the bottom of gameplay, but
         // now read as a compact member of the same RCL interface family.
-        DrawQuad(-1, 1, -.94f, -.62f, 0, 0, 0, .72f * alpha);
+        DrawQuad(-1, 1, -.94f, -.62f, backdrop, .72f * alpha);
         DrawQuad(menuLeft, menuRight, -.91f, -.66f,
-                 .015f, .022f, .028f, .90f * alpha);
+                 panel, .90f * alpha);
         DrawLine(menuLeft, -.66f, menuRight, -.66f,
-                 1, 1, 0, .46f * alpha);
+                 accent, .46f * alpha);
         DrawLine(menuLeft, -.91f, menuRight, -.91f,
-                 0, .78f, .86f, .34f * alpha);
+                 line, .7f * alpha);
 #else
         (void)alpha;
 #endif
@@ -317,14 +393,14 @@ namespace uRclTheme
     void DrawPromptChrome(tString const &title, REAL alpha)
     {
 #ifndef DEDICATED
-        SetTextColor(1, 1, 0, alpha);
-        DrawText(labelX, -.705f, .018f, .042f, "RCL // INPUT");
+        SetTextColor(accent, alpha);
+        DrawText(labelX, -.705f, .018f, .042f, "rcl // input");
 
         if (title.Len() > 1)
         {
-            SetTextColor(.72f, .76f, .79f, alpha);
+            SetTextColor(textMuted, alpha);
             DrawTextFitted(.38f, menuRight - .03f, -.705f,
-                           .018f, .042f, title);
+                           .018f, .042f, Lower(title));
         }
 #else
         (void)title;
@@ -338,9 +414,9 @@ namespace uRclTheme
         REAL const left = menuLeft + .025f;
         REAL const right = menuRight - .025f;
         DrawQuad(left, right, y - rowHalfHeight, y + rowHalfHeight,
-                 0, .72f, .82f, .075f * alpha);
+                 accent, .055f * alpha);
         DrawLine(left, y + rowHalfHeight, right, y + rowHalfHeight,
-                 0, .84f, .92f, .60f * alpha);
+                 accent, .60f * alpha);
 #else
         (void)y;
         (void)alpha;
@@ -350,11 +426,12 @@ namespace uRclTheme
     void DrawDialog(tString const &title, REAL alpha)
     {
 #ifndef DEDICATED
+        valueColumnNoted = false;
         DrawBackground(true, alpha);
+        char const *menuHint = footerHint;
+        footerHint = "any key to continue // up // down // esc";
         DrawChrome(true, title, alpha);
-        SetTextColor(.40f, .48f, .52f, alpha);
-        DrawText(.49f, -.845f, .018f, .042f,
-                 "UP // DOWN // ESC");
+        footerHint = menuHint;
 #else
         (void)title;
         (void)alpha;
@@ -365,11 +442,29 @@ namespace uRclTheme
     {
 #ifndef DEDICATED
         if (selected)
-            SetTextColor(1, 1, 0, alpha);
+            SetTextColor(accent, alpha);
         else
-            SetTextColor(.88f, .91f, .93f, alpha);
+            SetTextColor(textSoft, alpha);
 #else
         (void)selected;
+        (void)alpha;
+#endif
+    }
+
+    void SetBodyColor(REAL alpha)
+    {
+#ifndef DEDICATED
+        SetTextColor(textSoft, alpha);
+#else
+        (void)alpha;
+#endif
+    }
+
+    void SetScrollMarkColor(REAL alpha)
+    {
+#ifndef DEDICATED
+        Color(accent.r, accent.g, accent.b, alpha);
+#else
         (void)alpha;
 #endif
     }
@@ -378,9 +473,9 @@ namespace uRclTheme
     {
 #ifndef DEDICATED
         if (selected)
-            SetTextColor(0, .92f, 1, alpha);
+            SetTextColor(text, alpha);
         else
-            SetTextColor(.50f, .62f, .67f, alpha);
+            SetTextColor(textMuted, alpha);
 #else
         (void)selected;
         (void)alpha;
