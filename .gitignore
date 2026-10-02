@@ -124,3 +124,5 @@ wget-log*
 /_inst/
 /dist/
 /desktop/armagetronad.appdata.xml
+/_deps-win/
+/build-client/

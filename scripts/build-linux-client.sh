@@ -27,8 +27,8 @@ if ! test -f "$BUILD/Makefile"; then
       --disable-etc \
       --disable-games \
       --disable-armathentication \
-      DEBUGLEVEL=3 \
-      CODELEVEL=2
+      DEBUGLEVEL="${RCL_DEBUGLEVEL:-0}" \
+      CODELEVEL="${RCL_CODELEVEL:-0}"
   )
 fi
 

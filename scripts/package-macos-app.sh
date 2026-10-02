@@ -124,7 +124,7 @@ Exact source revision: ${SOURCE_REVISION}
 Corresponding source: ${SOURCE_URL}
 EOF
 
-for data_dir in config language models sound textures; do
+for data_dir in config language models replays sound textures; do
   cp -R "${ROOT}/${data_dir}" "${RESOURCES}/${data_dir}"
 done
 mkdir -p "${RESOURCES}/resource"

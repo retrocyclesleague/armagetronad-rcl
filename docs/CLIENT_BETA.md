@@ -11,8 +11,6 @@ not the player client, calls the dashboard queue API. Client builds must never
 embed `QUEUE_API_KEY`, an ingest key, service-role credentials, or browser
 cookies.
 
-**Linear project:** [RCL Client (Beta)](https://linear.app/retrocyclesleague/project/rcl-client-beta-fcc879adf357)
-
 ## Version tags
 
 - Client + fleet: `v0.2.9+sty+ct+ap+rcl.N` (protocol-compatible with sty+ct+ap)
@@ -24,7 +22,7 @@ Workflow: `.github/workflows/build-client.yml`
 
 - **macOS (Apple Silicon)** — `build-macos.sh` + `scripts/package-macos-app.sh` → `Retrocycles-RCL-{version}-macos-arm64.zip`
 - **Linux** — `scripts/build-linux-client.sh` → `Retrocycles-RCL-{version}-linux-x86_64.tar.gz`
-- **Windows** — `scripts/build-windows-client.sh` (MSYS2 MINGW64) → `Retrocycles-RCL-{version}-windows-x86_64.tar.gz`
+- **Windows** — `scripts/build-windows-client.sh` (MSYS2 MINGW64) → `Retrocycles-RCL-{version}-windows-x86_64.zip`
 - Tag push `v0.2.9+sty+ct+ap+rcl.*` → draft GitHub prerelease. Publish only after platform QA, signing, and release approval.
 
 Manual dispatch: Actions → **build-client** → Run workflow.
@@ -70,7 +68,7 @@ Example shape (`resources/client-beta/manifest.example.json`):
       "sha256": "..."
     },
     "windows-x86_64": {
-      "url": "https://resource.retrocyclesleague.com/rcl/client/beta/Retrocycles-RCL-0.2.9+sty+ct+ap+rcl.4-windows-x86_64.tar.gz",
+      "url": "https://resource.retrocyclesleague.com/rcl/client/beta/Retrocycles-RCL-0.2.9+sty+ct+ap+rcl.4-windows-x86_64.zip",
       "sha256": "..."
     }
   }
@@ -100,9 +98,9 @@ Post results in Discord `#rcl-client-dev` with build ID (`rcl.N`):
 
 Stock Armagetron blocks the UI refreshing master servers over UDP after a disconnect. RCL beta fixes this — see `rcl-dashboard/docs/player/CLIENT_SERVER_BROWSER.md`. Until players are on RCL beta: **Direct Connect** or **favorites**.
 
-## Filing bugs (Linear)
+## Filing bugs
 
-Label: **Client**. Include:
+Open a [GitHub issue](https://github.com/retrocyclesleague/armagetronad-rcl/issues) or post in Discord `#rcl-client-dev`. Include:
 
 - Build: `rcl.N` or git tag
 - OS + version

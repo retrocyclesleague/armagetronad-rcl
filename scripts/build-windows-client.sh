@@ -103,8 +103,8 @@ if ! test -f "${BUILD}/Makefile"; then
       --disable-games \
       --disable-armathentication \
       --disable-music \
-      DEBUGLEVEL=3 \
-      CODELEVEL=2
+      DEBUGLEVEL="${RCL_DEBUGLEVEL:-0}" \
+      CODELEVEL="${RCL_CODELEVEL:-0}"
   )
 fi
 

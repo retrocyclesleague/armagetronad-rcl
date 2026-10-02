@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Package a built client binary into Retrocycles-RCL-{version}-{platform}.tar.gz
+# (.zip for windows-x86_64).
 set -euo pipefail
 
 usage() {
@@ -90,7 +91,7 @@ done
 
 # Keep the archive self-contained. These are the only source-tree directories
 # the runtime is allowed to read from the package.
-RUNTIME_DATA_DIRS="config language models sound textures"
+RUNTIME_DATA_DIRS="config language models replays sound textures"
 for data_dir in ${RUNTIME_DATA_DIRS}; do
   if test ! -d "${ROOT}/${data_dir}"; then
     echo "error: runtime data directory not found: ${ROOT}/${data_dir}" >&2
@@ -277,8 +278,9 @@ Install (side-by-side with Steam Retrocycles):
 ${RUN_LINE}
   3. Verify About shows ${VERSION}
 
-Smoke checklist + issue tracker:
-  https://linear.app/retrocyclesleague/project/rcl-client-beta-fcc879adf357
+Report bugs:
+  ${SOURCE_REPOSITORY}/issues
+  Discord: https://discord.gg/retrocycles
 
 Every bug report must include build ID: ${VERSION}
 Steam Retrocycles remains the public default; this build is opt-in team beta.
@@ -294,8 +296,25 @@ License and corresponding source:
 EOF
 
 mkdir -p "$OUT_DIR"
-ARCHIVE="${OUT_DIR}/${PKG}.tar.gz"
-tar -C "$STAGE" -czf "$ARCHIVE" "$PKG"
+OUT_DIR="$(cd "$OUT_DIR" && pwd)"
+if test "${PLATFORM}" = windows-x86_64; then
+  # Explorer opens .zip natively; players should not need a tar tool.
+  ARCHIVE="${OUT_DIR}/${PKG}.zip"
+  rm -f "$ARCHIVE"
+  if command -v zip >/dev/null 2>&1; then
+    (cd "$STAGE" && zip -qr "$ARCHIVE" "$PKG")
+  else
+    PYTHON="$(command -v python3 || command -v python || true)"
+    if test -z "$PYTHON"; then
+      echo "error: zip or python is required to create the Windows archive" >&2
+      exit 1
+    fi
+    (cd "$STAGE" && "$PYTHON" -m zipfile -c "$ARCHIVE" "$PKG")
+  fi
+else
+  ARCHIVE="${OUT_DIR}/${PKG}.tar.gz"
+  tar -C "$STAGE" -czf "$ARCHIVE" "$PKG"
+fi
 if command -v sha256sum >/dev/null 2>&1; then
   sha256sum "$ARCHIVE" | tee "${ARCHIVE}.sha256"
 else

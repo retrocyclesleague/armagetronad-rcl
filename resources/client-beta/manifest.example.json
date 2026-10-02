@@ -13,7 +13,7 @@
       "sha256": "REPLACE_AFTER_UPLOAD"
     },
     "windows-x86_64": {
-      "url": "https://resource.retrocyclesleague.com/rcl/client/beta/Retrocycles-RCL-0.2.9+sty+ct+ap+rcl.4-windows-x86_64.tar.gz",
+      "url": "https://resource.retrocyclesleague.com/rcl/client/beta/Retrocycles-RCL-0.2.9+sty+ct+ap+rcl.4-windows-x86_64.zip",
       "sha256": "REPLACE_AFTER_UPLOAD"
     }
   }
