@@ -163,9 +163,16 @@ if test "${PLATFORM}" = windows-x86_64; then
   DLL_PACKAGE_FILE="${STAGE}/windows-dll-packages"
   printf '%s\n' "$BINARY" > "$DLL_QUEUE_FILE"
   : > "$DLL_DONE_FILE"
+  # Seed the runtime packages by name as well. MSYS2 renames and splits
+  # these over time, so a seed that is gone is skipped below; the packages
+  # that actually own the copied DLLs are always required to have licenses.
+  DLL_SEED_FILE="${STAGE}/windows-dll-seeds"
   printf '%s\n' \
     mingw-w64-x86_64-gcc-libs \
-    mingw-w64-x86_64-libwinpthread > "$DLL_PACKAGE_FILE"
+    mingw-w64-x86_64-libwinpthread > "$DLL_SEED_FILE"
+  : > "$DLL_PACKAGE_FILE"
+  DLL_OWNER_FILE="${STAGE}/windows-dll-owners"
+  : > "$DLL_OWNER_FILE"
   while IFS= read -r dependency; do
     test -n "$dependency" || continue
     if grep -Fqx -- "$dependency" "$DLL_DONE_FILE"; then
@@ -209,13 +216,14 @@ if test "${PLATFORM}" = windows-x86_64; then
           echo "error: unable to identify the MSYS2 package that owns DLL: $dll" >&2
           exit 1
         fi
-        printf '%s\n' "$owner_package" >> "$DLL_PACKAGE_FILE"
+        printf '%s\n' "$owner_package" >> "$DLL_OWNER_FILE"
       fi
     done
   done < "$DLL_QUEUE_FILE"
 
   MINGW_LICENSE_DIR="${PACKAGE_ROOT}/ThirdPartyLicenses/MSYS2"
   DLL_PACKAGE_SORTED_FILE="${STAGE}/windows-dll-packages-sorted"
+  cat "$DLL_SEED_FILE" "$DLL_OWNER_FILE" > "$DLL_PACKAGE_FILE"
   sort -u "$DLL_PACKAGE_FILE" > "$DLL_PACKAGE_SORTED_FILE"
   mkdir -p "$MINGW_LICENSE_DIR"
   while IFS= read -r mingw_package; do
@@ -223,6 +231,11 @@ if test "${PLATFORM}" = windows-x86_64; then
     PACKAGE_LICENSE_LIST="${STAGE}/${mingw_package}-licenses"
     pacman -Qlq "$mingw_package" 2>/dev/null | \
       grep -Ei '/(licenses?|copying)(/|$)' > "$PACKAGE_LICENSE_LIST" || true
+    if test ! -s "$PACKAGE_LICENSE_LIST" && \
+       ! grep -Fqx -- "$mingw_package" "$DLL_OWNER_FILE"; then
+      echo "warning: seed package has no license files here, skipping: $mingw_package" >&2
+      continue
+    fi
     if test ! -s "$PACKAGE_LICENSE_LIST"; then
       echo "error: installed MSYS2 package has no discoverable license files: $mingw_package" >&2
       exit 1
