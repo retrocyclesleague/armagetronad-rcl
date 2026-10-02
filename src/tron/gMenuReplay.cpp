@@ -18,6 +18,9 @@ of the License, or (at your option) any later version.
 
 #include "gMenuReplay.h"
 
+// DEDICATED comes from config.h
+#include "defs.h"
+
 #ifdef DEDICATED
 
 bool gMenuReplay::Render() { return false; }
