@@ -301,16 +301,19 @@ if test "${PLATFORM}" = windows-x86_64; then
   # Explorer opens .zip natively; players should not need a tar tool.
   ARCHIVE="${OUT_DIR}/${PKG}.zip"
   rm -f "$ARCHIVE"
+  # Zip with relative paths inside the stage, then move: a native (MinGW)
+  # python does not understand MSYS paths such as /d/a/...
   if command -v zip >/dev/null 2>&1; then
-    (cd "$STAGE" && zip -qr "$ARCHIVE" "$PKG")
+    (cd "$STAGE" && zip -qr "${PKG}.zip" "$PKG")
   else
     PYTHON="$(command -v python3 || command -v python || true)"
     if test -z "$PYTHON"; then
       echo "error: zip or python is required to create the Windows archive" >&2
       exit 1
     fi
-    (cd "$STAGE" && "$PYTHON" -m zipfile -c "$ARCHIVE" "$PKG")
+    (cd "$STAGE" && "$PYTHON" -m zipfile -c "${PKG}.zip" "$PKG")
   fi
+  mv "${STAGE}/${PKG}.zip" "$ARCHIVE"
 else
   ARCHIVE="${OUT_DIR}/${PKG}.tar.gz"
   tar -C "$STAGE" -czf "$ARCHIVE" "$PKG"
