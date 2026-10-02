@@ -139,11 +139,18 @@ jobs:
           VERSION="$(sh batch/make/version .)"
           BIN="build-client/src/armagetronad_main.exe"
           test -f "$BIN" || BIN="build-client/src/armagetronad_main"
-          bash scripts/package-client.sh \
+          # Surface the packaging error as an annotation; the DLL and
+          # licence checks fail on MSYS2 package drift, not only on our code.
+          if ! bash scripts/package-client.sh \
             --binary "$BIN" \
             --platform windows-x86_64 \
             --version "$VERSION" \
-            --out-dir dist
+            --out-dir dist > package.log 2>&1; then
+            cat package.log
+            echo "::error title=Windows packaging::$(tail -n 4 package.log | tr '\n' ' ')"
+            exit 1
+          fi
+          cat package.log
 
       - uses: actions/upload-artifact@v4
         with:
