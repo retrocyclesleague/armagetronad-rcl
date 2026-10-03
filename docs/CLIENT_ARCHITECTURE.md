@@ -12,9 +12,11 @@ The first-load path is deliberately short:
    guest.
 3. From the main menu choose **Play Now** or **Queue Now**, then Fort, Sumobar,
    or TST.
-4. The client selects a healthy, non-full regional lobby from the dynamic RCL
-   fleet and connects to it.
-5. Queue Now sends `/add` after the server has verified the player's Global ID.
+4. The client probes the RCL regional entry points for that mode and connects
+   to a reachable, non-full lobby in the nearest region.
+5. Queue Now sends `/add` once the client has answered the server's password
+   request; the fleet bridge only honours it after the server has verified the
+   player's Global ID.
 
 The gameplay simulation, maps, camera behaviour, and network protocol remain
 compatible with the current sty+ct+ap fleet.
@@ -25,8 +27,8 @@ compatible with the current sty+ct+ap fleet.
 RCL client
   ├─ first-load RCL sign-in ── /armaauth/0.1 methods/params/check
   ├─ public profile summary ── /armaauth/0.1 query=profile
-  ├─ Play Now resolver ─────── public live-server directory + UDP probe
-  └─ Queue Now ─────────────── connect, authenticate, then send /add
+  ├─ Play Now resolver ─────── fixed regional hosts, per-mode port, UDP probe
+  └─ Queue Now ─────────────── connect, answer the login, then send /add
                                       │
                                       ▼
 RCL game lobby ── verified COMMAND/PLAYER_LOGIN ladderlog events
@@ -62,8 +64,14 @@ of being prompted again.
 
 ### Returning launch
 
-For `@rcl` users with a saved credential, startup silently validates it and
-loads the profile summary before showing the main menu. This replaces a visible
+For `@rcl` users with a saved credential, startup validates it without a
+prompt and loads the profile summary before showing the main menu. The requests
+run under a "Signing in to RCL" frame that keeps drawing and reading input; the
+whole exchange has a 5 second budget and Escape skips it. Only resolving the
+authority's host name is still a blocking call. A timeout or transport failure
+is reported as the service being unavailable and leaves the saved credential in
+place; only an explicit refusal from the authority is reported as a rejected
+sign-in. This replaces a visible
 RCL **Auto Login** setting. The client still enables the internal per-server
 automatic response because every newly joined game server independently issues
 its own authentication challenge.
@@ -83,27 +91,42 @@ guests cannot queue.
 
 `query=profile&user=<name>` returns a bounded plain-text summary containing the
 canonical identity, public username, TST tier/rank/Elo/match count, and total
-public match count. It contains no session or private account data. The main
+public match count. It contains no session or private account data. The client
+treats it as untrusted text: colour codes and control characters are stripped
+from the username and tier, both are capped at 32 characters, and numbers
+outside a sane range are discarded. The main
 menu mirrors the RCL home hierarchy with a compact `NAME // TIER // ELO` row;
 rank and match detail live in its two-line help panel. The game server remains
 authoritative for the welcome message and queue identity.
 
 ## Play Now
 
-Play Now exposes three product choices: Fort, Sumobar, and TST. Each maps to a
-dynamic fleet rather than a fixed host. The resolver obtains the current RCL
-server list, filters by mode and capacity, probes candidates, and prefers a
-healthy non-full regional lobby. The chosen server supplies its normal managed
-map and settings; the client does not embed competitive configs.
+Play Now exposes three product choices: Fort, Sumobar, and TST. The candidate
+list is compiled in (`sg_rclPlayNowHosts` in `src/tron/gGame.cpp`): four
+regional host names, with one fixed port per mode. There is no server-directory
+fetch and no candidate cache; adding a region or moving a port needs a client
+release. A directory served by the authority is future work.
 
-If the directory is temporarily unavailable, the resolver may use its bounded
-cached candidates. Failure must return to the menu with an actionable message,
-not connect to a full or unrelated server.
+The resolver probes every candidate over UDP for at most 3 seconds while it
+keeps drawing a "finding a lobby" frame; Escape cancels back to the menu.
+Candidates that did not answer, are full, or whose server name does not match
+the mode are dropped. Of the rest, only lobbies within 60 ms of the best ping
+compete, so a player is kept in their own region; among those the most
+populated lobby wins and ping breaks ties. The chosen server supplies its
+normal managed map and settings; the client does not embed competitive configs.
+
+If nothing qualifies, the resolver returns to the menu with an actionable
+message rather than connecting to a full or unrelated server.
 
 ## Queue Now and `/add`
 
-Queue Now uses the same lobby resolver, connects, waits for authentication, and
-sends `/add rcl-client`. The optional argument lets pickup chat credit the RCL
+Queue Now uses the same lobby resolver and connects. It sends `/add rcl-client`
+one second after the client has sent a non-aborted answer to that server's
+password request, whether the answer came from the stored credential or from
+the prompt. If the prompt is cancelled, or the server has not asked within 45
+seconds, nothing is sent and the console says so. The client cannot observe the
+server's verdict, so the bridge remains the authority on whether the login
+succeeded. The optional argument lets pickup chat credit the RCL
 Game Client; it is presentation metadata, not security attestation. This still
 reuses the `/add` command older clients support.
 

@@ -61,7 +61,7 @@ bool uMenu::exitToMain=false;
 uMenu::uMenu(const char *t="",bool exit_item)
         :exitFlag(0),spaceBelow(.4),style_(uMenuStyle_RclPanel),
 #ifndef DEDICATED
-        menuMouseMode_(false),styleEnterTime_(0),
+        menuMouseMode_(false),styleEnterTime_(0),mouseSelection_(-1),
 #endif
         title(t){
     if (exit_item) new uMenuItemExit(this);
@@ -76,7 +76,7 @@ uMenu::uMenu(const char *t="",bool exit_item)
 uMenu::uMenu(const tOutput &t,bool exit_item)
         :exitFlag(0),spaceBelow(.4),style_(uMenuStyle_RclPanel),
 #ifndef DEDICATED
-        menuMouseMode_(false),styleEnterTime_(0),
+        menuMouseMode_(false),styleEnterTime_(0),mouseSelection_(-1),
 #endif
         title(t){
     if (exit_item) new uMenuItemExit(this);
@@ -348,6 +348,9 @@ void uMenu::OnEnter(){
 
     // inverted logic (0 = last item! prev(0) = top most item)
     selected = GetPrevSelectable(0);
+#ifndef DEDICATED
+    mouseSelection_ = -1;
+#endif
 
     while (!exitFlag && !quickexit && !exitToMain){
         st_DoToDo();
@@ -467,24 +470,32 @@ void uMenu::OnEnter(){
 
         REAL ysel=YPos(selected);
 
+        // A row the mouse picked is already visible under the cursor. Scrolling
+        // it away from the edge would slide the rows out from under a
+        // stationary pointer, so only keyboard selection moves the list.
+        bool keepSelectedInView = true;
+#ifndef DEDICATED
+        keepSelectedInView = mouseSelection_ != selected;
+#endif
+
         if (style_ != uMenuStyle_RclPrompt)
         {
+            if (keepSelectedInView)
             {
                 REAL scrollUp = menuBot+border-ysel;
                 if(scrollUp > 0)
                     scrollBy(scrollUp);
-            }
-            {
+
                 REAL scrollDown = menuTop-border-ysel;
                 if(scrollDown < 0)
                     scrollBy(scrollDown);
+
+                if (ysel<menuBot)
+                    yOffset+=(menuBot-ysel);
+
+                if (ysel>menuTop-smallborder)
+                    yOffset+=(menuTop-smallborder-ysel);
             }
-
-            if (ysel<menuBot)
-                yOffset+=(menuBot-ysel);
-
-            if (ysel>menuTop-smallborder)
-                yOffset+=(menuTop-smallborder-ysel);
 
             if (YPos(0)>menuBot+smallborder)
                 yOffset+=menuBot+smallborder-YPos(0);
@@ -662,11 +673,27 @@ void uMenu::HandleEvent( SDL_Event event )
             if (hit >= 0 && selected != hit)
             {
                 selected = hit;
+                mouseSelection_ = hit;
                 lastkey = tSysTimeFloat();
                 items[selected]->DisplayHelp(false, 0, 0.0f);
             }
             return;
         }
+
+        case SDL_MOUSEBUTTONUP:
+            return;
+
+        default:
+            break;
+        }
+
+        // keys and the wheel move the selection keyboard-style and get the
+        // usual keep-in-view scrolling
+        if (event.type == SDL_KEYDOWN || event.type == SDL_MOUSEBUTTONDOWN)
+            mouseSelection_ = -1;
+
+        switch (event.type)
+        {
 
         case SDL_MOUSEBUTTONDOWN:
             switch (event.button.button)
@@ -679,6 +706,7 @@ void uMenu::HandleEvent( SDL_Event event )
                     if (selected != hit)
                         items[hit]->DisplayHelp(false, 0, 0.0f);
                     selected = hit;
+                    mouseSelection_ = hit;
                     ActivateSelected();
                 }
                 break;
@@ -717,9 +745,6 @@ void uMenu::HandleEvent( SDL_Event event )
             default:
                 break;
             }
-            return;
-
-        case SDL_MOUSEBUTTONUP:
             return;
 
         default:
@@ -1799,6 +1824,49 @@ bool uMenu::Message(const tOutput& message, const tOutput& interpretation, REAL 
     rITexture::UnloadAll();
 
     sr_textOut = textOutBack;
+#endif
+
+    return ret;
+}
+
+// return value: false only if the user pressed ESC
+bool uMenu::Busy(const tOutput& message, const tOutput& interpretation){
+    bool ret = true;
+#ifndef DEDICATED
+    {
+        SDL_Event tEvent;
+        uInputProcessGuard inputProcessGuard;
+        while (su_GetSDLInput(tEvent))
+        {
+            if (tEvent.type==SDL_KEYDOWN && tEvent.key.keysym.sym==SDLK_ESCAPE)
+                ret = false;
+        }
+    }
+    if (quickexit)
+        ret = false;
+
+    if ( sr_glOut )
+    {
+        sr_ResetRenderState(true);
+        rViewport::s_viewportFullscreen.Select();
+
+        rSysDep::ClearGL();
+
+        GenericBackground();
+        uRclTheme::DrawDialog(tString(message), 1);
+
+        REAL const w = .028f * (REAL(sr_screenHeight)/sr_screenWidth)
+                       * (4.0f/3.0f);
+        REAL const h = .058f;
+
+        uRclTheme::SetBodyColor(1);
+        rTextField c(uRclTheme::LabelX(), .52f, w, h);
+        c.SetWidth(static_cast<int>(
+            (uRclTheme::MenuRight() - uRclTheme::LabelX() - .08f)
+            / c.GetCWidth()));
+        c << interpretation << "\n";
+    }
+    rSysDep::SwapGL();
 #endif
 
     return ret;

@@ -92,6 +92,7 @@ protected:
     int                  savedMouseGrab_;
     bool                 menuMouseMode_;
     REAL                 styleEnterTime_;
+    int                  mouseSelection_;   //!< row last selected by the mouse, -1 if the keyboard moved it since
 #endif
 public:
     static bool          wrap;
@@ -153,6 +154,9 @@ public:
 
     // print a big message and a small interpretation
     static bool Message(const tOutput& message, const tOutput& interpretation, REAL timeout = -1);
+
+    //! draws one frame of a notice while the caller waits on something and polls input; false if the user pressed ESC
+    static bool Busy(const tOutput& message, const tOutput& interpretation);
 
     //! returns whether there is currently an active menu
     static bool MenuActive();

@@ -2773,8 +2773,20 @@ struct gRclPlayNowMode
 };
 
 static bool sg_rclQueueOnJoin = false;
-static double sg_rclQueueEarliest = 0.0;
+static double sg_rclQueueConnectStart = 0.0;
 
+// seconds between our password answer leaving and /add following it
+static const double sg_rclQueueAnswerDelay = 1.0;
+// seconds to wait for the server to ask for the password at all
+static const double sg_rclQueueTimeout = 45.0;
+
+// servers within this much of the best ping count as the same region
+static const REAL sg_rclPlayNowPingBucket = .06f;
+// seconds the lobby probe may take before we go with what has answered
+static const double sg_rclPlayNowProbeBudget = 3.0;
+
+// The regional fleet entry points. Each mode listens on its own fixed port on
+// every one of them; there is no directory service to ask yet.
 static const char * sg_rclPlayNowHosts[] =
 {
     "retrocyclesleague.com",
@@ -2815,6 +2827,7 @@ static void sg_RclPlayNow( gRclPlayNowMode const & mode, bool queueOnJoin = fals
 
     con << tOutput( "$rcl_play_now_finding", mode.name );
 
+    nServerInfo * best = 0;
     nServerInfo::DeleteAll( false );
     for ( unsigned int i = 0; i < sizeof( sg_rclPlayNowHosts ) / sizeof( sg_rclPlayNowHosts[0] ); ++i )
     {
@@ -2823,31 +2836,66 @@ static void sg_RclPlayNow( gRclPlayNowMode const & mode, bool queueOnJoin = fals
         candidate->SetPort( mode.port );
     }
 
+    // Keep drawing and reading input while the probes are out; Esc cancels,
+    // and regions that have not answered in time are simply left out.
+    bool cancelled = false;
+    double const probeDeadline = tSysTimeFloat() + sg_rclPlayNowProbeBudget;
     nServerInfo::StartQueryAll( nServerInfo::QUERY_ALL );
-    while ( nServerInfo::DoQueryAll( 4 ) )
+    while ( nServerInfo::DoQueryAll( 4 ) && tSysTimeFloat() < probeDeadline )
     {
+        if ( !uMenu::Busy( tOutput( "$rcl_play_now_finding_title" ),
+                           tOutput( "$rcl_play_now_finding_text", mode.name ) ) )
+        {
+            cancelled = true;
+            break;
+        }
         tAdvanceFrame( 10000 );
         st_DoToDo();
     }
 
-    nServerInfo * best = 0;
-    for ( nServerInfo * candidate = nServerInfo::GetFirstServer(); candidate; candidate = candidate->Next() )
+    if ( cancelled )
     {
-        int users = candidate->Users();
-        int maxUsers = candidate->MaxUsers();
-        bool full = maxUsers > 0 && users >= maxUsers;
+        sg_rclQueueOnJoin = false;
+        nServerInfo::DeleteAll( false );
+        return;
+    }
 
-        if ( !candidate->Reachable() || full || !sg_RclServerNameMatches( candidate->GetName(), mode.name ) )
+    // Region first: only lobbies about as close as the closest one compete.
+    // Among those, fill an active lobby before opening another one, and let
+    // latency settle equal player counts (including an all-empty fleet).
+    REAL bestPing = -1;
+    for ( int pass = 0; pass < 2; ++pass )
+    {
+        for ( nServerInfo * candidate = nServerInfo::GetFirstServer(); candidate; candidate = candidate->Next() )
         {
-            continue;
-        }
+            int users = candidate->Users();
+            int maxUsers = candidate->MaxUsers();
+            bool full = maxUsers > 0 && users >= maxUsers;
 
-        // Fill an active lobby before opening another one. When player counts
-        // tie (including all-empty fleets), prefer the lowest-latency region.
-        if ( !best || users > best->Users() ||
-             ( users == best->Users() && candidate->Ping() < best->Ping() ) )
-        {
-            best = candidate;
+            if ( !candidate->Reachable() || full || !sg_RclServerNameMatches( candidate->GetName(), mode.name ) )
+            {
+                continue;
+            }
+
+            if ( pass == 0 )
+            {
+                if ( bestPing < 0 || candidate->Ping() < bestPing )
+                {
+                    bestPing = candidate->Ping();
+                }
+                continue;
+            }
+
+            if ( candidate->Ping() > bestPing + sg_rclPlayNowPingBucket )
+            {
+                continue;
+            }
+
+            if ( !best || users > best->Users() ||
+                 ( users == best->Users() && candidate->Ping() < best->Ping() ) )
+            {
+                best = candidate;
+            }
         }
     }
 
@@ -2871,7 +2919,7 @@ static void sg_RclPlayNow( gRclPlayNowMode const & mode, bool queueOnJoin = fals
     con << tOutput( "$rcl_play_now_connecting", serverName, users, maxUsers );
     gLogo::SetDisplayed( false );
     sg_rclQueueOnJoin = queueOnJoin;
-    sg_rclQueueEarliest = tSysTimeFloat() + 3.0;
+    sg_rclQueueConnectStart = tSysTimeFloat();
     nServerInfoRedirect target( connectionName, port );
     ConnectToServer( &target );
     sg_rclQueueOnJoin = false;
@@ -2945,8 +2993,38 @@ static void sg_RclQueueNowMenu()
 
 static void sg_RclMaybeAutoQueue()
 {
-    if ( !sg_rclQueueOnJoin || sn_GetNetState() != nCLIENT ||
-         tSysTimeFloat() < sg_rclQueueEarliest )
+    if ( !sg_rclQueueOnJoin || sn_GetNetState() != nCLIENT )
+    {
+        return;
+    }
+
+    // /add is only worth sending once this connection's password answer is on
+    // its way: before that the server has nobody to queue. That answer may be
+    // automatic (stored credential) or typed into the prompt just now.
+    double const now = tSysTimeFloat();
+    bool aborted = false;
+    double const answered = nAuthentication::PasswordAnswerTime( &aborted );
+    if ( answered < sg_rclQueueConnectStart )
+    {
+        // not asked yet, or the prompt is still open; the player may take as
+        // long as they like over the prompt
+        if ( !nAuthentication::PasswordRequestPending() &&
+             now > sg_rclQueueConnectStart + sg_rclQueueTimeout )
+        {
+            con << tOutput( "$rcl_queue_now_failed" );
+            sg_rclQueueOnJoin = false;
+        }
+        return;
+    }
+
+    if ( aborted )
+    {
+        con << tOutput( "$rcl_queue_now_failed" );
+        sg_rclQueueOnJoin = false;
+        return;
+    }
+
+    if ( now < answered + sg_rclQueueAnswerDelay )
     {
         return;
     }
@@ -2962,10 +3040,10 @@ static void sg_RclMaybeAutoQueue()
         ePlayerNetID * player = local->netPlayer;
         if ( player->Owner() == sn_myNetID )
         {
-            // The bridge holds an unauthenticated request briefly and releases
-            // it only when PLAYER_LOGIN confirms this screen name's Global ID.
-            // Returning users normally authenticate from the stored credential
-            // before this point; first-time users can finish the prompt safely.
+            // Our answer has had a moment to reach the server, but the server
+            // still has to check it with the authority. The bridge covers that
+            // gap: it holds the request briefly and releases it only when
+            // PLAYER_LOGIN confirms this screen name's Global ID.
             con << tOutput( "$rcl_queue_now_authenticated", local->globalID );
             // The optional argument is a presentation marker, not queue
             // authority. The fleet still waits for PLAYER_LOGIN and uses the
@@ -5759,8 +5837,8 @@ bool gGame::GameLoop(bool input){
     }
 
 #ifndef DEDICATED
-    // Queue Now waits for the normal server authentication handshake to
-    // succeed before emitting /add. This works for @rcl and linked legacy IDs.
+    // Queue Now emits /add once this client has answered the server's
+    // password request. This works for @rcl and linked legacy IDs.
     sg_RclMaybeAutoQueue();
 #endif
 

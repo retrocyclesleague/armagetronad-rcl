@@ -760,6 +760,44 @@ static int se_rclRank = -1;
 static int se_rclElo = -1;
 static int se_rclMatches = -1;
 
+// The whole exchange with the authority shares one budget, so a slow or dead
+// authority costs a few seconds of a "signing in" screen and then guest mode,
+// never the launch.
+static const double se_rclFetchBudget = 5.0;
+static bool se_rclFetchCancelled = false;
+
+static bool se_RclFetchIdle()
+{
+    if ( !uMenu::Busy( tOutput( "$rcl_login_progress_title" ),
+                       tOutput( "$rcl_login_progress" ) ) )
+    {
+        se_rclFetchCancelled = true;
+    }
+    tAdvanceFrame();
+    return !se_rclFetchCancelled;
+}
+
+// returns the HTTP status, or -1 when the authority could not be reached in
+// time or the player pressed Esc
+static int se_RclFetch( char const * query, std::ostream & response, double deadline )
+{
+    // draw before resolving the host name, the one step that still blocks
+    if ( !se_RclFetchIdle() )
+    {
+        return -1;
+    }
+
+    return nKrawall::FetchURLBounded( se_rclAuthority, query, response,
+                                      deadline - tSysTimeFloat(), &se_RclFetchIdle );
+}
+
+enum eRclCheckResult
+{
+    eRclCheck_Ok,
+    eRclCheck_Rejected,   // the authority answered and refused the credential
+    eRclCheck_Unavailable // no usable answer; says nothing about the credential
+};
+
 static tString se_RclConfiguredUserName()
 {
     ePlayer * player = ePlayer::PlayerConfig( 0 );
@@ -777,10 +815,10 @@ static tString se_RclConfiguredUserName()
     return player->globalID.SubStr( 0, separator );
 }
 
-static bool se_RclFetchPasswordRequest( nKrawall::nPasswordRequest & request )
+static bool se_RclFetchPasswordRequest( nKrawall::nPasswordRequest & request, double deadline )
 {
     std::stringstream methodsResponse;
-    if ( nKrawall::FetchURL( se_rclAuthority, "?query=methods", methodsResponse ) != 200 )
+    if ( se_RclFetch( "?query=methods", methodsResponse, deadline ) != 200 )
     {
         return false;
     }
@@ -811,7 +849,7 @@ static bool se_RclFetchPasswordRequest( nKrawall::nPasswordRequest & request )
     query << "?query=params&method=" << nKrawall::EncodeString( selected );
 
     std::stringstream paramsResponse;
-    if ( nKrawall::FetchURL( se_rclAuthority, query.str().c_str(), paramsResponse ) != 200 )
+    if ( se_RclFetch( query.str().c_str(), paramsResponse, deadline ) != 200 )
     {
         return false;
     }
@@ -825,8 +863,9 @@ static bool se_RclFetchPasswordRequest( nKrawall::nPasswordRequest & request )
     return true;
 }
 
-static bool se_RclCheckPassword( nKrawall::nPasswordRequest const & request,
-                                 nKrawall::nPasswordAnswer const & answer )
+static eRclCheckResult se_RclCheckPassword( nKrawall::nPasswordRequest const & request,
+                                            nKrawall::nPasswordAnswer const & answer,
+                                            double deadline )
 {
     nKrawall::nSalt salt;
     nKrawall::RandomSalt( salt );
@@ -843,20 +882,71 @@ static bool se_RclCheckPassword( nKrawall::nPasswordRequest const & request,
     query << "&hash=" << nKrawall::EncodeScrambledPassword( hash );
 
     std::stringstream response;
-    int status = nKrawall::FetchURL( se_rclAuthority, query.str().c_str(), response );
+    int status = se_RclFetch( query.str().c_str(), response, deadline );
     hash.Clear();
     salt.Clear();
 
+    // the ArmaAuth protocol lets an authority refuse with a status code
+    // instead of a body; everything else that is not 200 is a transport or
+    // service failure
+    if ( status == 401 || status == 403 || status == 404 )
+    {
+        return eRclCheck_Rejected;
+    }
     if ( status != 200 )
     {
-        return false;
+        return eRclCheck_Unavailable;
     }
 
-    tString result( response.str().c_str() );
-    return result.StartsWith( "PASSWORD_OK" );
+    tString result;
+    response >> result;
+    tToLower( result );
+    if ( result == "password_ok" )
+    {
+        return eRclCheck_Ok;
+    }
+    if ( result == "password_fail" || result == "unknown_user" )
+    {
+        return eRclCheck_Rejected;
+    }
+
+    // a 200 that is not an ArmaAuth answer (captive portal, proxy error page)
+    return eRclCheck_Unavailable;
 }
 
-static void se_RclFetchProfile( tString const & username )
+// Profile text comes from the network and ends up in a menu label: drop
+// colour codes and control characters and keep it short.
+static tString se_RclProfileText( tString const & raw )
+{
+    static const int maxLen = 32;
+
+    tString stripped = tColoredString::RemoveColors( raw );
+    tString clean;
+    for ( int i = 0; i < stripped.Len() - 1 && clean.Len() <= maxLen; ++i )
+    {
+        unsigned char c = static_cast< unsigned char >( stripped( i ) );
+        if ( c >= 32 && c != 127 )
+        {
+            clean << stripped( i );
+        }
+    }
+    return clean.Trim();
+}
+
+// rank, Elo and match counts; -1 for "-", garbage or values out of range
+static int se_RclProfileNumber( tString const & value )
+{
+    char const * begin = value;
+    char * end = NULL;
+    long parsed = strtol( begin, &end, 10 );
+    if ( end == begin || *end != '\0' || parsed < 0 || parsed > 9999999 )
+    {
+        return -1;
+    }
+    return static_cast< int >( parsed );
+}
+
+static void se_RclFetchProfile( tString const & username, double deadline )
 {
     se_rclProfileLoaded = false;
     se_rclDisplayName.Clear();
@@ -866,7 +956,7 @@ static void se_RclFetchProfile( tString const & username )
     std::ostringstream query;
     query << "?query=profile&user=" << nKrawall::EncodeString( username );
     std::stringstream response;
-    if ( nKrawall::FetchURL( se_rclAuthority, query.str().c_str(), response ) != 200 )
+    if ( se_RclFetch( query.str().c_str(), response, deadline ) != 200 )
     {
         return;
     }
@@ -883,13 +973,15 @@ static void se_RclFetchProfile( tString const & username )
     {
         if ( field == "username" )
         {
-            response >> se_rclDisplayName;
+            tString value;
+            response >> value;
+            se_rclDisplayName = se_RclProfileText( value );
         }
         else if ( field == "tier" )
         {
             tString value;
             value.ReadLine( response );
-            se_rclTier = value.Trim();
+            se_rclTier = se_RclProfileText( value );
             if ( se_rclTier == "-" )
                 se_rclTier.Clear();
         }
@@ -897,7 +989,7 @@ static void se_RclFetchProfile( tString const & username )
         {
             tString value;
             response >> value;
-            int parsed = value == "-" ? -1 : atoi( value );
+            int parsed = se_RclProfileNumber( value );
             if ( field == "rank" )
                 se_rclRank = parsed;
             else if ( field == "elo" )
@@ -948,13 +1040,20 @@ static bool se_RclAuthenticate( bool interactive, bool showResult )
         return false;
     }
 
+    se_rclFetchCancelled = false;
+    double deadline = tSysTimeFloat() + se_rclFetchBudget;
+
     nKrawall::nPasswordRequest request;
-    if ( !se_RclFetchPasswordRequest( request ) )
+    if ( !se_RclFetchPasswordRequest( request, deadline ) )
     {
         if ( showResult )
         {
             uMenu::Message( tOutput( "$rcl_login_unavailable_title" ),
                             tOutput( "$rcl_login_unavailable" ), 20 );
+        }
+        else
+        {
+            con << tOutput( "$rcl_login_boot_unavailable" );
         }
         return false;
     }
@@ -976,13 +1075,22 @@ static bool se_RclAuthenticate( bool interactive, bool showResult )
         // show the fields even when a previous credential is available.
         request.failureOnLastTry = true;
         PasswordCallback( request, answer );
+
+        // the time spent typing is not the authority's
+        se_rclFetchCancelled = false;
+        deadline = tSysTimeFloat() + se_rclFetchBudget;
     }
     else if ( !se_RclStoredPassword( request, answer.username, answer ) )
     {
         return false;
     }
 
-    bool success = !answer.aborted && se_RclCheckPassword( request, answer );
+    eRclCheckResult checked = eRclCheck_Rejected;
+    if ( !answer.aborted )
+    {
+        checked = se_RclCheckPassword( request, answer, deadline );
+    }
+    bool success = checked == eRclCheck_Ok;
     if ( !success && interactive )
     {
         S_passwords.SetLen( static_cast< int >( savedPasswords.size() ) );
@@ -1001,14 +1109,22 @@ static bool se_RclAuthenticate( bool interactive, bool showResult )
         answer.scrambled.Clear();
         se_rclAuthenticated = false;
         se_rclAuthenticatedIdentity.Clear();
+
+        // only blame the credential when the authority actually refused it
+        bool const rejected = checked == eRclCheck_Rejected;
         if ( showResult )
         {
-            uMenu::Message( tOutput( "$rcl_login_failed_title" ),
-                            tOutput( "$rcl_login_failed" ), 20 );
+            if ( rejected )
+                uMenu::Message( tOutput( "$rcl_login_failed_title" ),
+                                tOutput( "$rcl_login_failed" ), 20 );
+            else
+                uMenu::Message( tOutput( "$rcl_login_unavailable_title" ),
+                                tOutput( "$rcl_login_unavailable" ), 20 );
         }
         else
         {
-            con << tOutput( "$rcl_login_boot_failed" );
+            con << tOutput( rejected ? "$rcl_login_boot_failed"
+                                     : "$rcl_login_boot_unavailable" );
         }
         return false;
     }
@@ -1020,7 +1136,7 @@ static bool se_RclAuthenticate( bool interactive, bool showResult )
     se_rclAuthenticated = true;
     se_rclAuthenticatedIdentity = identity;
     answer.scrambled.Clear();
-    se_RclFetchProfile( player->globalID.SubStr( 0, player->globalID.StrPos( "@" ) ) );
+    se_RclFetchProfile( player->globalID.SubStr( 0, player->globalID.StrPos( "@" ) ), deadline );
     st_SaveConfig();
 
     if ( showResult )

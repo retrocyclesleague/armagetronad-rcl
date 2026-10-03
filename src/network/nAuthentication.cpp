@@ -102,6 +102,20 @@ static nKrawall::nPasswordRequest sn_request;
 static nKrawall::nPasswordAnswer sn_answer;
 static nKrawall::nSalt sn_salt;
 static int s_inUse = false;
+static double sn_answerTime = -1;
+static bool sn_answerAborted = false;
+
+double nAuthentication::PasswordAnswerTime( bool * aborted )
+{
+    if ( aborted )
+        *aborted = sn_answerAborted;
+    return sn_answerTime;
+}
+
+bool nAuthentication::PasswordRequestPending()
+{
+    return s_inUse;
+}
 
 // finish the request for username and password
 static void FinishHandlePasswordRequest()
@@ -130,6 +144,9 @@ static void FinishHandlePasswordRequest()
     *ret << sn_answer.automatic;
     *ret << sn_answer.serverAddress;
     ret->Send(0);
+
+    sn_answerTime = tSysTimeFloat();
+    sn_answerAborted = sn_answer.aborted;
 
     s_inUse = false;
 }

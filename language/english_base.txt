@@ -2535,7 +2535,7 @@ welcome_message_2_heading   We hope you enjoyed it so far.
 welcome_message_2           You will now enter the main menu. Play Now and Queue Now take you straight into RCL lobbies, Servers lists every public server, and Local Game starts a match against the AI.
 
 rcl_play_now_text              Play Now
-rcl_play_now_help              Find and join the busiest non-full RCL lobby, using latency to choose between equally active regions.
+rcl_play_now_help              Find and join a non-full RCL lobby in your nearest region, preferring the busiest one there.
 rcl_play_now_fort_text         Fort
 rcl_play_now_fort_help         Join an available RCL Fortress pickup lobby.
 rcl_play_now_sumobar_text      Sumobar
@@ -2545,13 +2545,16 @@ rcl_play_now_tst_help          Join an available RCL Team Sumo Tournament pickup
 rcl_play_now_finding           Finding the best available \1 lobby...\n
 rcl_play_now_connecting        Joining \1 (\2/\3 players).\n
 rcl_play_now_unavailable_title Play Now unavailable
+rcl_play_now_finding_title     Play Now
+rcl_play_now_finding_text      Finding the best available \1 lobby... Press Escape to cancel.
 rcl_play_now_unavailable       No online, non-full \1 lobby answered. Please try again or use Online Multiplayer.
 rcl_queue_now_text             Queue Now
 rcl_queue_now_help             Authenticate, join the best RCL lobby and add yourself to its competitive draft queue.
-rcl_queue_now_fort_help        Join an available Fortress lobby and send /add after authentication succeeds.
-rcl_queue_now_sumobar_help     Join an available Sumobar lobby and send /add after authentication succeeds.
-rcl_queue_now_tst_help         Join an available TST lobby and send /add after authentication succeeds.
-rcl_queue_now_authenticated    Requesting the pickup queue as \1 after the authentication handshake.\n
+rcl_queue_now_fort_help        Join an available Fortress lobby and send /add once you have signed in to it.
+rcl_queue_now_sumobar_help     Join an available Sumobar lobby and send /add once you have signed in to it.
+rcl_queue_now_tst_help         Join an available TST lobby and send /add once you have signed in to it.
+rcl_queue_now_authenticated    Sign-in answered as \1. Requesting the pickup queue.\n
+rcl_queue_now_failed           Queue Now: the server sign-in did not complete, so /add was not sent. Sign in under RCL Account, then type /add or use Queue Now again.\n
 rcl_profile_text               RCL Account
 rcl_profile_signed_in          RCL Account · \1
 rcl_profile_identity           RCL Account · \1
@@ -2564,6 +2567,9 @@ rcl_login_unavailable          The RCL authentication service did not answer. Yo
 rcl_login_failed_title         RCL sign-in failed
 rcl_login_failed               That RCL game username or password was not accepted. Check the game password in your RCL profile and try again.
 rcl_login_boot_failed          Saved RCL sign-in was not accepted. Continuing as guest; open RCL Account to retry.\n
+rcl_login_boot_unavailable     The RCL authentication service did not answer. Continuing as guest; your saved sign-in is kept, open RCL Account to retry.\n
+rcl_login_progress_title       Signing in to RCL
+rcl_login_progress             Checking your RCL sign-in... Press Escape to continue as a guest.
 rcl_login_success_title        Signed in to RCL
 rcl_login_success              Welcome, \1. Play Now will authenticate you silently on every RCL fleet server.
 

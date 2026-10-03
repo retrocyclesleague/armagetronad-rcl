@@ -256,6 +256,15 @@ public:
     // normal player authentication and by the RCL player client for its
     // first-load credential check.
     static int FetchURL( tString const & authority, char const * query, std::ostream & target, int maxlen = 10000 );
+
+    //! called between short waits of FetchURLBounded; return false to give up
+    typedef bool FetchIdle();
+
+    //! same request as FetchURL, but always done within budget seconds and,
+    //! with an idle callback, without stalling the caller's frame loop. Only
+    //! resolving the host name still blocks. Returns -1 on any transport failure.
+    static int FetchURLBounded( tString const & authority, char const * query, std::ostream & target,
+                                double budget, FetchIdle * idle = 0, int maxlen = 10000 );
 #ifdef KRAWALL_SERVER
     //! split a fully qualified user name in authority and username part
     static void SplitUserName( tString const & original, tString & username, tString & authority );

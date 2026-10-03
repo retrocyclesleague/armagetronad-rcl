@@ -50,6 +50,12 @@ public:
     static void HandlePasswordRequest(nMessage& m);
     static void HandlePasswordAnswer (nMessage& m);
 
+    //! on the client: time (tSysTimeFloat) the last password answer went out to the server, negative if none did yet
+    static double PasswordAnswerTime( bool * aborted = 0 );
+
+    //! on the client: true while a server's password request is waiting for its answer (the prompt may be open)
+    static bool PasswordRequestPending();
+
     //! on the server: request user authentification from login slot
     static bool RequestLogin(const tString& authority, const tString& username, nNetObject & user, const tOutput& message );
 
