@@ -129,6 +129,11 @@ fi
 "${WINDRES:-windres}" --include-dir "${ROOT}" \
   --input "${ROOT}/src/win32/rclClient.rc" --output "${BUILD}/rclClient-resource.o"
 
+# The version header is only written when it is missing. Remove it, so a
+# rebuild in an existing tree carries the version of the commit it is built
+# from and not the one it was first configured at.
+rm -f "${BUILD}/src/nTrueVersion.h"
+
 # The top-level all target regenerates command documentation by launching the
 # GUI client with --doc; that process does not terminate under MSYS2 CI.
 make -C "${BUILD}/src" -j"${JOBS}" armagetronad_main.exe \
