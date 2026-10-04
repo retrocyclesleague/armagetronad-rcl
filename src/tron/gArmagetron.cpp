@@ -228,6 +228,7 @@ void sg_StartupPlayerMenu()
                       player->name, 16);
 
     uMenuItemExit e(&firstSetup, "$menuitem_accept", "$menuitem_accept_help");
+    e.SetPrimary( true );
 
     firstSetup.Enter();
 

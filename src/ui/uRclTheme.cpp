@@ -738,6 +738,16 @@ namespace uRclTheme
             return;
         }
 
+        // Authored colours (a colour's name, a player's name) stay, lifted
+        // where they would sink into the surface. Text being edited is
+        // shown exactly as typed.
+        tString readable;
+        if ( !cursor )
+        {
+            readable = ReadableColors( tString( text ), selected ? .45f : .24f );
+            text = readable;
+        }
+
         // where the menu slid the row to as it entered
         REAL const base = kind > 0 ? x + .02f : kind < 0 ? x - .02f : x;
         REAL const slide = base - LabelX();
