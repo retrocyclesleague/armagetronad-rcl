@@ -408,6 +408,11 @@ static int countBits(unsigned int count)
 }
 #endif
 
+// multisample anti-aliasing: samples per pixel, 0 or 1 for none. Takes effect
+// when the display is (re)initialised.
+static int sr_antialias = 4;
+static tConfItem<int> sr_antialiasConf("RCL_ANTIALIAS", sr_antialias);
+
 // flag indicating whether directX is supposed to be used for input (defaults to false, crashes on my Win7)
 bool sr_useDirectX = false;
 static bool use_directx_back = false;
@@ -420,6 +425,14 @@ static void sr_SetGLAttributes( int rDepth, int gDepth, int bDepth, int zDepth )
     SDL_GL_SetAttribute( SDL_GL_BLUE_SIZE, bDepth );
     SDL_GL_SetAttribute( SDL_GL_DEPTH_SIZE, zDepth );
     SDL_GL_SetAttribute( SDL_GL_DOUBLEBUFFER, 1 );
+
+#if SDL_VERSION_ATLEAST(1, 2, 6)
+    {
+        int const samples = sr_antialias > 1 ? ( sr_antialias > 16 ? 16 : sr_antialias ) : 0;
+        SDL_GL_SetAttribute( SDL_GL_MULTISAMPLEBUFFERS, samples ? 1 : 0 );
+        SDL_GL_SetAttribute( SDL_GL_MULTISAMPLESAMPLES, samples );
+    }
+#endif
 
 #if SDL_VERSION_ATLEAST(1, 2, 10)
     // requires SDL 1.2.10
@@ -649,6 +662,20 @@ static bool lowlevel_sr_InitDisplay(){
             // have the screen reinited
             sr_screen = NULL;
         }
+
+#if SDL_VERSION_ATLEAST(1, 2, 6)
+        // Ask for the multisampled visual first; drivers without one fail
+        // the mode set, and then a plain visual is requested below.
+        if ( !sr_screen && sr_antialias > 1 )
+        {
+            sr_screen = SDL_SetVideoMode( sr_screenWidth, sr_screenHeight, CD, attrib );
+            if ( !sr_screen )
+            {
+                SDL_GL_SetAttribute( SDL_GL_MULTISAMPLEBUFFERS, 0 );
+                SDL_GL_SetAttribute( SDL_GL_MULTISAMPLESAMPLES, 0 );
+            }
+        }
+#endif
 
         // only reinit the screen if the desktop res detection hasn't left us
         // with a perfectly good one.
@@ -1013,7 +1040,9 @@ void sr_LoadDefaultConfig(){
     // RCL's high-detail floor is the full graphite material. The legacy
     // two-strip mode only samples floor_a/floor_b and bypasses that asset.
     sr_floorDetail=rFLOOR_TEXTURE;
-    sr_floorMirror=rMIRROR_OFF;
+    // cycles and walls reflect faintly in the floor; software renderers
+    // switch it off again below
+    sr_floorMirror=rMIRROR_WALLS;
     sr_infinityPlane=false;
     sr_lowerSky=false;
     sr_upperSky=false;

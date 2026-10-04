@@ -146,11 +146,14 @@ public:
     void Clear( int inhibit = 0 )
     {
         displayList_.Clear( inhibit );
+        glowDisplayList_.Clear( inhibit );
     }
 private:
     gNetPlayerWall *                wallList_;                      //!< linked list of all walls
     gNetPlayerWall *                wallsWithDisplayList_;          //!< linked list of all walls with display list
     rDisplayList                    displayList_;                   //!< combined display list
+    rDisplayList                    glowDisplayList_;               //!< trail glow of the same walls
+    REAL                            glowIntensity_;                 //!< glow intensity glowDisplayList_ was built with
     REAL                            wallsWithDisplayListMinDistance_; //!< minimal distance of the walls with display list
     int                             wallsInDisplayList_;            //!< number of walls in the current display list
 };

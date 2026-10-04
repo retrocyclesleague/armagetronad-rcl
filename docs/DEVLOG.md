@@ -1,5 +1,11 @@
 # Dev log
 
+## 2026-10-04 - map downloads on Windows, glow cache, anti-aliasing, floor reflections
+
+- Map downloads: `tResourceManager` used libxml2's nanohttp, which MSYS2's libxml2 2.15 no longer has, so every map fetch failed on the Windows client. The plain HTTP client moved to `tools/tHttp` and resource downloads use it when `LIBXML_HTTP_ENABLED` is not defined.
+- Trail glow: the glow of finished walls is cached in a display list next to the core wall list and rebuilt with it, instead of redrawing every segment in immediate mode each frame.
+- Anti-aliasing: `RCL_ANTIALIAS` (samples per pixel, default 4, 0 = off) requests a multisampled GL visual and falls back to a plain one if the driver has none.
+- Floor reflections: `FLOOR_MIRROR` defaults to cycles and walls on hardware renderers for new profiles. Existing profiles keep their setting.
 ## 2026-10-02 - menu replay, one menu style, Windows sign-in
 
 - Menus: one panel style everywhere, palette taken from retrocyclesleague.com (neutral greys, `#e8ff47` accent) and kept in one place in `uRclTheme.cpp`. Menu copy is lowercased at draw time; text being edited is not. The label/value rule is only drawn on menus that have values. Help text wraps instead of being squeezed.

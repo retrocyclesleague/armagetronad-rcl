@@ -4598,6 +4598,7 @@ gCycleWallsDisplayListManager::gCycleWallsDisplayListManager()
     , wallsWithDisplayList_(0)
     , wallsWithDisplayListMinDistance_(0)
     , wallsInDisplayList_(0)
+    , glowIntensity_(0)
 {
 }
 
@@ -4655,14 +4656,14 @@ void gCycleWallsDisplayListManager::RenderAllWithDisplayList( eCamera const * ca
     if ( CannotHaveList( wallsWithDisplayListMinDistance_, cycle ) )
     {
         tailExpired=true;
-        displayList_.Clear(0);
+        Clear(0);
     }
     // check if enough new walls are present to warrant altering the display list
     else if ( wallsWithPossibleDisplayList >= 3 ||
          wallsWithPossibleDisplayList * 5 > wallsInDisplayList_ )
     {
         // yes? Ok, rebuild the list in this case, too
-        displayList_.Clear(0);
+        Clear(0);
     }
 
     // call display list
@@ -4670,6 +4671,10 @@ void gCycleWallsDisplayListManager::RenderAllWithDisplayList( eCamera const * ca
     {
         return;
     }
+
+    // the set of walls in the list is about to change; the glow list of the
+    // old set goes with it
+    glowDisplayList_.Clear(0);
 
     // remove and render walls without display list
     run = wallsWithDisplayList_;
@@ -4735,7 +4740,7 @@ void gCycleWallsDisplayListManager::RenderAllWithDisplayList( eCamera const * ca
 bool sg_HideCyclesWalls = false;
 static tConfItem<bool> sg_HideCyclesWallsConf("HIDE_CYCLES_WALLS", sg_HideCyclesWalls);
 
-static void sg_RenderTrailGlowList( eCamera const * camera, gNetPlayerWall * list )
+static void sg_RenderTrailGlowList( eCamera const * camera, gNetPlayerWall * list, bool cached )
 {
     gNetPlayerWall * run = list;
     while ( run )
@@ -4750,10 +4755,7 @@ static void sg_RenderTrailGlowList( eCamera const * camera, gNetPlayerWall * lis
             }
         }
 
-        // Glow is intentionally never cached in the legacy display lists. This
-        // keeps intensity changes immediate and leaves the crisp core cache
-        // byte-for-byte independent from the enhanced presentation pass.
-        run->RenderList( false, gNetPlayerWall::gWallRenderMode_Glow );
+        run->RenderList( cached, gNetPlayerWall::gWallRenderMode_Glow );
         run = next;
     }
 }
@@ -4837,8 +4839,27 @@ void gCycleWallsDisplayListManager::RenderAll( eCamera const * camera, gCycle * 
         glDisable( GL_LIGHTING );
         glDisable( GL_CULL_FACE );
 
-        sg_RenderTrailGlowList( camera, wallsWithDisplayList_ );
-        sg_RenderTrailGlowList( camera, wallList_ );
+        // Finished walls do not change, so their glow is cached next to the
+        // core display list and rebuilt with it; redrawing every segment in
+        // immediate mode each frame scaled with the total trail length.
+        // HIDE_CYCLES_WALLS depends on the camera, so it is not cached.
+        REAL const intensity = gNetPlayerWall::TrailGlowIntensity();
+        if ( intensity != glowIntensity_ || sg_HideCyclesWalls )
+        {
+            glowDisplayList_.Clear( 0 );
+            glowIntensity_ = intensity;
+        }
+        if ( sg_HideCyclesWalls )
+        {
+            sg_RenderTrailGlowList( camera, wallsWithDisplayList_, false );
+        }
+        else if ( wallsWithDisplayList_ && !glowDisplayList_.Call() )
+        {
+            rDisplayListFiller filler( glowDisplayList_ );
+            sg_RenderTrailGlowList( camera, wallsWithDisplayList_, true );
+            RenderEnd();
+        }
+        sg_RenderTrailGlowList( camera, wallList_, false );
 
         RenderEnd();
         glPopAttrib();
