@@ -177,7 +177,7 @@ endif
 # project archives introduce symbols too late to extract it from libtron.a.
 armagetronad_main_SOURCES = tron/gArmagetron.cpp tron/gFloor.cpp
 armagetronad_main_CXXFLAGS =$(libtron_a_CXXFLAGS)
-armagetronad_main_LDADD=libtron.a libenginecore.a libengine.a libnetwork.a libui.a librender.a libtools.a
+armagetronad_main_LDADD=$(RCL_WINDOWS_RESOURCE) libtron.a libenginecore.a libengine.a libnetwork.a libui.a librender.a libtools.a
 
 armagetronad_main_master_SOURCES = network/master.cpp
 armagetronad_main_master_CXXFLAGS =$(libtron_a_CXXFLAGS)

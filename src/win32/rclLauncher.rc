@@ -1,0 +1,37 @@
+#include <windows.h>
+
+#ifndef RCL_VERSION_STRING
+#define RCL_VERSION_STRING "0.2.9+sty+ct+ap+rcl"
+#endif
+
+1 ICON "tron.ico"
+1 RT_MANIFEST "src/win32/rclLauncher.manifest"
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION 0,2,9,0
+ PRODUCTVERSION 0,2,9,0
+ FILEFLAGSMASK VS_FFI_FILEFLAGSMASK
+ FILEFLAGS 0
+ FILEOS VOS_NT_WINDOWS32
+ FILETYPE VFT_APP
+ FILESUBTYPE VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "CompanyName", "Retrocycles League\0"
+            VALUE "FileDescription", "Retrocycles RCL Launcher\0"
+            VALUE "FileVersion", RCL_VERSION_STRING
+            VALUE "InternalName", "Retrocycles-RCL\0"
+            VALUE "LegalCopyright", "Retrocycles League and Armagetron Advanced contributors\0"
+            VALUE "OriginalFilename", "Retrocycles-RCL.exe\0"
+            VALUE "ProductName", "Retrocycles RCL\0"
+            VALUE "ProductVersion", RCL_VERSION_STRING
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 1200
+    END
+END

@@ -1,5 +1,15 @@
 # Dev log
 
+## 2026-10-04 - title card, Windows launcher, default camera
+
+Ported from the unpushed `codex/windows-first-run-config` checkout at Jamie's request, now that this branch is the product line.
+
+- Title card: `scripts/generate-rcl-brand.py` writes the RCL splash (`textures/title.png`/`.jpg`), the window icon, `tron.ico`, an `.icns` and SVG sources under `resources/brand/`; its output is pixel-identical to that checkout's. `gLogo::Display` fills the window in graphite and contains the 2:1 artwork instead of stretching a 4:3 image. It shows for returning players at startup (up to 6 s, any key skips; the screenshot key does not) and lies over the menu replay. Before this, optimised builds showed the stock Armagetron Advanced title there.
+- Launcher: `Retrocycles-RCL.exe` (`src/win32/rclLauncher.*`) replaces `Retrocycles-RCL.cmd` at the root of the Windows package; same profile directory, arguments passed on. The client carries the icon as a resource (`rclClient.rc`). `--rcl-check-install` validates the package layout and profile without a window; `scripts/smoke-client.sh` and CI run it against the extracted archive. Packaging checks that the launcher is a GUI executable depending only on Windows system DLLs.
+- Camera: the default external camera is back 20, rise 20, pitch -0.75 (was 30 / 20 / -0.7), glance the same. These are settings, not saved per profile; an `autoexec.cfg` still overrides them. The server-defined camera is unchanged.
+
+Checked on Windows: the title card at startup and the menu after it; a package built locally, extracted to a clean directory, `--rcl-check-install` passing, the client started through the launcher with a separate profile and quitting cleanly (launcher exits with it); the default camera values in the built client's settings dump. Not checked: the launcher's error dialogs, a profile path with non-ASCII characters, the `.icns` on macOS (nothing uses it yet).
+
 ## 2026-10-04 - interface brief: Space Grotesk, one component system, dark default
 
 Work against `RCL_CLIENT_MODERNISATION_BRIEF.md` (phase 0 and the phase 1 menu slice, plus the parts of phase 2 that came with it). The description of the system is in `docs/CLIENT_ARCHITECTURE.md`, section Interface.

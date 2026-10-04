@@ -35,6 +35,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "uMenu.h"
 #include "tSysTime.h"
 
+#include <algorithm>
+
 // static rFileTexture sg_LogoTexture(rTextureGroups::TEX_FONT, "textures/KGN_logo.png",0,0,1);
 static rISurfaceTexture* sg_LogoMPTitle = NULL;
 
@@ -83,189 +85,42 @@ static nSettingItem<tString> gg_mp_title("TEXTURE_MP_TITLE", sg_mp_title);
 void gLogo::Display()
 {
 #ifndef DEDICATED
-    if (!sr_glOut)
-        return;
-
-    if (sg_MoviePack() && !sg_LogoMPTitle)
-    {
-        sg_LogoMPTitle = tNEW(rFileTexture)(rTextureGroups::TEX_FONT, "moviepack/title.jpg",0,0,1);
-        // sg_LogoMPTitle = tNEW(rFileTexture)(rTextureGroups::TEX_FONT, sg_mp_title, 0,0,1);
-        sg_DisplayStatus = 1;
-    }
+    if (!sr_glOut) return;
+    static REAL lastTime = 0;
+    REAL const now = tSysTimeFloat();
+    REAL const delta = std::min(REAL(.1), std::max(REAL(0), now-lastTime));
+    lastTime = now;
+    bool const visible = sg_Displayed && sg_Big;
+    sg_DisplayStatus = std::max(REAL(0), std::min(REAL(1),
+        sg_DisplayStatus + (visible ? delta*3 : -delta*3)));
+    if (sg_DisplayStatus <= .001) return;
 
     renderer->SetFlag(rRenderer::DEPTH_TEST, false);
+    if (!sg_LogoMPTitle)
+        sg_LogoMPTitle = tNEW(rFileTexture)(rTextureGroups::TEX_FONT,
+            sg_MoviePack() ? "moviepack/title.jpg" : "textures/title.png", 0, 0, 1);
 
-    static REAL lasttime = 0;
-    REAL time = tSysTimeFloat();
-    REAL dt = time - lasttime;
-    lasttime = time;
-
-    if (!sg_Displayed && sg_DisplayStatus < .00001)
-        return;
-
-    if (sg_LogoMPTitle)
-    {
-        // update state variables
-        if (sg_Displayed && sg_Big)
-        {
-            sg_DisplayStatus += dt;
-            if (sg_DisplayStatus > 1)
-                sg_DisplayStatus = 1;
-        }
-        else
-        {
-            sg_DisplayStatus -= dt;
-            if (sg_DisplayStatus < 0)
-                sg_DisplayStatus = 0;
-        }
-
-        if (sg_DisplayStatus <= .01)
-            return;
-
-        sg_LogoMPTitle->Select();
-
-        if(!sg_LogoMPTitle->Loaded())
-            return;
-
-        Color(1,1,1, sg_DisplayStatus);
-
-        BeginQuads();
-        TexCoord(0,0);
-        Vertex(-1, 1);
-
-        TexCoord(0,1);
-        Vertex(-1, -1);
-
-        TexCoord(1,1);
-        Vertex(1, -1);
-
-        TexCoord(1,0);
-        Vertex(1, 1);
-
-        RenderEnd();
-    }
-    else
-    {
-#ifndef KRAWALL
-        // The bundled macOS SDL_image is deliberately PNG-only.  Keeping the
-        // default title in PNG avoids drawing an uninitialised white texture
-        // during startup while retaining the original artwork and geometry.
-        sg_LogoMPTitle = tNEW(rFileTexture)(rTextureGroups::TEX_FONT, "textures/title.png",0,0,1);
-        // sg_LogoMPTitle = tNEW(rFileTexture)(rTextureGroups::TEX_FONT, sg_title,0,0,1);
-
-        sg_DisplayStatus = 1;
-
-        // update state variables
-        if (sg_Displayed && sg_Big)
-        {
-            sg_DisplayStatus += dt;
-            if (sg_DisplayStatus > 1)
-                sg_DisplayStatus = 1;
-        }
-        else
-        {
-            sg_DisplayStatus -= dt;
-            if (sg_DisplayStatus < 0)
-                sg_DisplayStatus = 0;
-        }
-
-        if (sg_DisplayStatus <= .01)
-            return;
-
-        sg_LogoMPTitle->Select();
-
-        if (!sg_LogoMPTitle->Loaded())
-            return;
-
-        Color(1,1,1, sg_DisplayStatus);
-
-        BeginQuads();
-        TexCoord(0,0);
-        Vertex(-1, 1);
-
-        TexCoord(0,1);
-        Vertex(-1, -1);
-
-        TexCoord(1,1);
-        Vertex(1, -1);
-
-        TexCoord(1,0);
-        Vertex(1, 1);
-
-        RenderEnd();
-#endif	  
-
-#ifdef KRAWALL
-        sg_LogoTexture.Select();
-
-        if ( !sg_LogoTexture.Loaded() )
-        {
-            return;
-        }
-
-        // update state variables
-        if (sg_Spinning)
-        {
-            sg_SpinStatus = sg_SpinStatus.Turn(1, dt * 2 * .2 / (sg_SizeStatus + .2));
-            sg_SpinStatus = sg_SpinStatus * (1/sqrt(sg_SpinStatus.NormSquared()));
-        }
-
-        if (sg_Big)
-        {
-            sg_SizeStatus += dt;
-            if (sg_SizeStatus > 1)
-                sg_SizeStatus = 1;
-        }
-        else
-        {
-            sg_SizeStatus *= (1 - 2 * dt);
-            //      if (sg_SizeStatus < 0)
-            //	sg_SizeStatus = 0;
-        }
-
-        if (sg_Displayed)
-        {
-            sg_DisplayStatus += dt;
-            if (sg_DisplayStatus > 1)
-                sg_DisplayStatus = 1;
-        }
-        else
-        {
-            sg_DisplayStatus -= dt*.3;
-            if (sg_DisplayStatus < 0)
-                sg_DisplayStatus = 0;
-        }
-
-        if (sg_DisplayStatus <= 0)
-            return;
-
-        eCoord center(.8*(sg_SizeStatus*sg_SizeStatus-1), .8*(1-sg_SizeStatus));
-        REAL e =.8 * (sg_SizeStatus + .1);
-        eCoord extension(e, - .7 * e * fabs(sg_SpinStatus.x));
-
-        eCoord ur = center - extension;
-        eCoord ll = center + extension;
-
-        Color(1,1,1, sg_DisplayStatus);
-
-        BeginQuads();
-        TexCoord(0,0);
-        Vertex(ur.x, ur.y);
-
-        TexCoord(0,1);
-        Vertex(ur.x, ll.y);
-
-        TexCoord(1,1);
-        Vertex(ll.x, ll.y);
-
-        TexCoord(1,0);
-        Vertex(ll.x, ur.y);
-
-        RenderEnd();
-#endif
-
-    }
-
+    // Fill the viewport in the kit's graphite, then contain the artwork.
+    // The old splash stretched a 4:3 image across every display shape.
+    RenderEnd(true);
+    glDisable(GL_TEXTURE_2D);
+    BeginQuads();
+    Color(32/255.f, 33/255.f, 34/255.f, sg_DisplayStatus);
+    Vertex(-1,-1); Vertex(1,-1); Vertex(1,1); Vertex(-1,1);
+    RenderEnd();
+    sg_LogoMPTitle->Select();
+    if (!sg_LogoMPTitle->Loaded()) return;
+    REAL const aspect = REAL(sr_screenWidth)/std::max(1, sr_screenHeight);
+    REAL const artworkAspect = sg_MoviePack() ? REAL(4)/3 : REAL(2);
+    REAL const halfWidth = std::min(REAL(1), artworkAspect/aspect);
+    REAL const halfHeight = std::min(REAL(1), aspect/artworkAspect);
+    Color(1,1,1,sg_DisplayStatus);
+    BeginQuads();
+    TexCoord(0,0); Vertex(-halfWidth, halfHeight);
+    TexCoord(0,1); Vertex(-halfWidth,-halfHeight);
+    TexCoord(1,1); Vertex( halfWidth,-halfHeight);
+    TexCoord(1,0); Vertex( halfWidth, halfHeight);
+    RenderEnd();
 #endif
 }
 

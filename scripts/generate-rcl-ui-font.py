@@ -8,7 +8,6 @@ those atlases and the metrics file that describes them:
 
     textures/ui/space-grotesk-<weight>-<px>.png   white glyphs, coverage in alpha
     textures/ui/space-grotesk.fnt                 faces, glyph boxes, advances
-    textures/icon.png                             the window icon: the wordmark
 
 Source font: scripts/assets/fonts/space-grotesk/space-grotesk-latin.woff2, the
 file the RCL site serves (SIL OFL 1.1, see OFL.txt next to it).
@@ -142,24 +141,7 @@ def build_face(weight, size, only):
     return lines, (OUT / name).stat().st_size
 
 
-def write_icon():
-    """The window icon: the lowercase wordmark over its lime underline."""
-    size = 64
-    icon = Image.new("RGB", (size, size), (0x20, 0x21, 0x22))
-    draw = ImageDraw.Draw(icon)
-    font = ImageFont.truetype(str(SOURCE), 34, layout_engine=ImageFont.Layout.BASIC)
-    font.set_variation_by_axes([700])
-    left, top, right, bottom = draw.textbbox((0, 0), "rcl", font=font)
-    x = (size - (right - left)) // 2 - left
-    y = 10 - top
-    draw.text((x, y), "rcl", font=font, fill=(0xFA, 0xFA, 0xFA))
-    bar = y + bottom + 6
-    draw.rectangle((x + left, bar, x + right - 1, bar + 5), fill=(0xEE, 0xFF, 0x41))
-    icon.save(ROOT / "textures" / "icon.png", optimize=True)
-
-
 def main():
-    write_icon()
     OUT.mkdir(parents=True, exist_ok=True)
     for stale in OUT.glob("space-grotesk-*.png"):
         stale.unlink()

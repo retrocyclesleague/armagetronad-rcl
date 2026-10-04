@@ -4,11 +4,12 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 --binary PATH --platform PLATFORM [--version VERSION] [--out-dir DIR]" >&2
+  echo "Usage: $0 --binary PATH --platform PLATFORM [--launcher PATH] [--version VERSION] [--out-dir DIR]" >&2
   exit 1
 }
 
 BINARY=""
+LAUNCHER=""
 PLATFORM=""
 VERSION=""
 OUT_DIR="${PWD}"
@@ -16,6 +17,7 @@ OUT_DIR="${PWD}"
 while test $# -gt 0; do
   case "$1" in
     --binary) BINARY="$2"; shift 2 ;;
+    --launcher) LAUNCHER="$2"; shift 2 ;;
     --platform) PLATFORM="$2"; shift 2 ;;
     --version) VERSION="$2"; shift 2 ;;
     --out-dir) OUT_DIR="$2"; shift 2 ;;
@@ -154,6 +156,59 @@ if test "${PLATFORM}" = windows-x86_64; then
     echo "error: pacman is required to identify MinGW DLL owners and licenses" >&2
     exit 1
   fi
+  if ! command -v objdump >/dev/null 2>&1; then
+    echo "error: objdump is required to validate the Windows launcher" >&2
+    exit 1
+  fi
+
+  if test -z "$LAUNCHER"; then
+    LAUNCHER="${BUILD_ROOT}/Retrocycles-RCL.exe"
+  fi
+  if test ! -f "$LAUNCHER"; then
+    echo "error: native Windows launcher not found: $LAUNCHER" >&2
+    exit 1
+  fi
+
+  LAUNCHER_PE_OUTPUT="$(objdump -p "$LAUNCHER" 2>&1)" || {
+    echo "error: unable to inspect Windows launcher: $LAUNCHER" >&2
+    printf '%s\n' "$LAUNCHER_PE_OUTPUT" >&2
+    exit 1
+  }
+  if ! printf '%s\n' "$LAUNCHER_PE_OUTPUT" | \
+      grep -E 'Subsystem[[:space:]]+00000002[[:space:]]+\(Windows GUI\)' >/dev/null; then
+    echo "error: Windows launcher is not a GUI-subsystem executable: $LAUNCHER" >&2
+    exit 1
+  fi
+
+  LAUNCHER_LDD_OUTPUT="$(ldd "$LAUNCHER" 2>&1)" || {
+    echo "error: unable to inspect Windows launcher dependencies: $LAUNCHER" >&2
+    printf '%s\n' "$LAUNCHER_LDD_OUTPUT" >&2
+    exit 1
+  }
+  if printf '%s\n' "$LAUNCHER_LDD_OUTPUT" | \
+      grep -E '[[:space:]]not found([[:space:]]|$)' >/dev/null; then
+    echo "error: unresolved Windows launcher dependency: $LAUNCHER" >&2
+    printf '%s\n' "$LAUNCHER_LDD_OUTPUT" >&2
+    exit 1
+  fi
+  LAUNCHER_NON_SYSTEM_DLLS="$(printf '%s\n' "$LAUNCHER_LDD_OUTPUT" | awk '
+    tolower($0) ~ /\.dll/ {
+      path = ""
+      if ($2 == "=>")
+        path = $3
+      else if ($1 ~ /^\//)
+        path = $1
+      if (path != "" &&
+          tolower(path) !~ /^\/[a-z]\/windows\/(system32|syswow64)\//)
+        print path
+    }
+  ')"
+  if test -n "$LAUNCHER_NON_SYSTEM_DLLS"; then
+    echo "error: Windows launcher must depend only on Windows system DLLs" >&2
+    printf '%s\n' "$LAUNCHER_LDD_OUTPUT" >&2
+    exit 1
+  fi
+  cp "$LAUNCHER" "${PACKAGE_ROOT}/Retrocycles-RCL.exe"
 
   # Follow the full MinGW dependency graph. Windows system DLLs have no source
   # path in ldd output and are supplied by Windows; every resolved *.dll is
@@ -254,15 +309,7 @@ if test "${PLATFORM}" = windows-x86_64; then
     fi
   done < "$DLL_PACKAGE_SORTED_FILE"
 
-  cat > "${PACKAGE_ROOT}/Retrocycles-RCL.cmd" <<'EOF'
-@echo off
-setlocal
-set "RCL_ROOT=%~dp0"
-set "RCL_PROFILE=%APPDATA%\Retrocycles RCL Client"
-if not exist "%RCL_PROFILE%" mkdir "%RCL_PROFILE%"
-"%RCL_ROOT%bin\armagetronad.exe" --datadir "%RCL_ROOT%." --configdir "%RCL_ROOT%config" --userdatadir "%RCL_PROFILE%" %*
-EOF
-  RUN_LINE="  2. Run: Retrocycles-RCL.cmd (or double-click it after extracting)"
+  RUN_LINE="  2. Run: Retrocycles-RCL.exe (or double-click it after extracting)"
   EXAMPLE_DIR="C:\\Retrocycles-RCL"
   RUNTIME_NOTE="Runtime: required non-system MinGW DLLs are included in bin/. Windows supplies the remaining system libraries."
 else

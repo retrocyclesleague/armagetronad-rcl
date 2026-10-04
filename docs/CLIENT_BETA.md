@@ -42,7 +42,24 @@ bash scripts/smoke-client.sh
 bash scripts/package-client.sh \
   --binary build-client/src/armagetronad_main \
   --platform linux-x86_64
+
+# Windows (MSYS2 MINGW64 shell)
+bash scripts/build-windows-client.sh
+bash scripts/package-client.sh \
+  --binary build-client/src/armagetronad_main.exe \
+  --launcher build-client/Retrocycles-RCL.exe \
+  --platform windows-x86_64
+# Run: Retrocycles-RCL.exe at the root of the extracted package.
 ```
+
+The Windows package starts through `Retrocycles-RCL.exe`, a small native
+launcher at the package root (`src/win32/rclLauncher.cpp`). It runs
+`bin\armagetronad.exe` with the package as its data directory and
+`%APPDATA%\Retrocycles RCL Client` as the profile, the same profile the earlier
+`.cmd` launcher used. Arguments are passed on, so `--userdatadir <dir>` selects
+another profile. `Retrocycles-RCL.exe --rcl-check-install` checks the package
+layout and that the profile is writable without opening a window; CI runs it
+against the extracted archive.
 
 ## Beta manifest (resource repo)
 

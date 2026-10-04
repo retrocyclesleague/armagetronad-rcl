@@ -143,6 +143,7 @@ jobs:
           # licence checks fail on MSYS2 package drift, not only on our code.
           if ! bash scripts/package-client.sh \
             --binary "$BIN" \
+            --launcher build-client/Retrocycles-RCL.exe \
             --platform windows-x86_64 \
             --version "$VERSION" \
             --out-dir dist > package.log 2>&1; then
@@ -151,6 +152,21 @@ jobs:
             exit 1
           fi
           cat package.log
+
+      - name: Smoke packaged Windows client
+        run: |
+          ARCHIVE="$(find dist -maxdepth 1 -name 'Retrocycles-RCL-*-windows-x86_64.zip' -print -quit)"
+          test -n "$ARCHIVE"
+          SMOKE_DIR="$(mktemp -d)"
+          trap 'rm -rf "$SMOKE_DIR"' EXIT
+          python -m zipfile -e "$ARCHIVE" "$SMOKE_DIR"
+          PACKAGE_ROOT="$(find "$SMOKE_DIR" -mindepth 1 -maxdepth 1 -type d -name 'Retrocycles-RCL-*' -print -quit)"
+          test -n "$PACKAGE_ROOT"
+          EXPECTED_VERSION="$(sh batch/make/version .)"
+          CLIENT_BIN="$PACKAGE_ROOT/bin/armagetronad.exe" \
+            PACKAGE_ROOT="$PACKAGE_ROOT" \
+            EXPECTED_VERSION="$EXPECTED_VERSION" \
+            bash scripts/smoke-client.sh
 
       - uses: actions/upload-artifact@v4
         with:

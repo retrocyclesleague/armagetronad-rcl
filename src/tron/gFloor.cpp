@@ -206,10 +206,12 @@ static void MenuBackground(){
     // defaults, so FLOOR_DETAIL can safely be migrated and persisted.
     sg_ApplyRclHdFloorMigration();
 
-    // The league replay replaces the scrolling floor and title card.
+    // The league replay replaces the scrolling floor. The title card, while
+    // it shows at startup, lies over it.
     if (gMenuReplay::Render())
     {
         uRclTheme::NoteSceneBehind();
+        gLogo::Display();
         return;
     }
 

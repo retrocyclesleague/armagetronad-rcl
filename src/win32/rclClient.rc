@@ -1,0 +1,4 @@
+#include <windows.h>
+
+// Explorer, Alt-Tab and shortcuts use the same identity as SDL_WM_SetIcon.
+1 ICON "tron.ico"

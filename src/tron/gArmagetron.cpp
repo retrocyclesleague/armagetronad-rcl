@@ -72,6 +72,7 @@ public:
     bool     windowed_;
     bool     use_directx_;
     bool     dont_use_directx_;
+    bool     check_install_;
 
     gMainCommandLineAnalyzer()
     {
@@ -79,6 +80,7 @@ public:
         fullscreen_ = false;
         use_directx_ = false;
         dont_use_directx_ = false;
+        check_install_ = false;
     }
 
 
@@ -101,6 +103,12 @@ private:
             tConfItemBase::ExportAll();
             exit(0);
         }
+#if defined(WIN32) && !defined(DEDICATED)
+        else if ( parser.GetSwitch( "--rcl-check-install" ) )
+        {
+            check_install_ = true;
+        }
+#endif
 #ifdef WIN32
         else if ( parser.GetSwitch( "+directx") )
         {
@@ -130,11 +138,68 @@ private:
         s << "\n\nYes, I know this looks ugly. Sorry about that.\n";
 #endif
         s << "--exportallcfg               : print all configs and settings that can be saved to standard output\n";
+#ifdef WIN32
+        s << "--rcl-check-install          : validate the packaged Windows client and exit\n";
+#endif
 #endif
     }
 };
 
 static gMainCommandLineAnalyzer commandLineAnalyzer;
+
+#if defined(WIN32) && !defined(DEDICATED)
+// --rcl-check-install: the packaged launcher asks the client whether the
+// files it needs are in place and its profile directory can be written,
+// without opening a window.
+static bool sg_CheckInstallFile(tPath const &path, char const *name)
+{
+    std::ifstream input;
+    if (path.Open(input, name))
+        return true;
+
+    std::cerr << "Missing packaged file: " << name << "\n";
+    return false;
+}
+
+static int sg_CheckInstall()
+{
+    bool valid = true;
+    valid = sg_CheckInstallFile(tDirectories::Config(), "settings.cfg") && valid;
+    valid = sg_CheckInstallFile(tDirectories::Config(), "default.cfg") && valid;
+    valid = sg_CheckInstallFile(tDirectories::Data(), "language/languages.txt") && valid;
+    valid = sg_CheckInstallFile(tDirectories::Data(), "textures/title.png") && valid;
+    valid = sg_CheckInstallFile(tDirectories::Data(), "textures/ui/space-grotesk.fnt") && valid;
+    valid = sg_CheckInstallFile(tDirectories::Data(),
+                                "resource/included/map.dtd") && valid;
+
+    char const *probeName = "rcl-install-check.tmp";
+    std::ofstream output;
+    if (!tDirectories::Var().Open(output, probeName, std::ios::out, true))
+    {
+        std::cerr << "RCL profile directory is not writable.\n";
+        valid = false;
+    }
+    else
+    {
+        output << "ok\n";
+        output.close();
+        tString const probePath =
+            tDirectories::Var().GetWritePath(probeName);
+        if (!output)
+        {
+            std::cerr << "RCL profile write check failed.\n";
+            valid = false;
+        }
+        if (std::remove(static_cast<char const *>(probePath)) != 0)
+        {
+            std::cerr << "RCL profile cleanup check failed.\n";
+            valid = false;
+        }
+    }
+
+    return valid ? 0 : 2;
+}
+#endif
 
 extern bool sr_useDirectX; // rScreen.cpp
 #ifdef WIN32
@@ -330,9 +395,14 @@ static void welcome(){
             timeout = tSysTimeFloat() + 6;
 
             uInputProcessGuard inputProcessGuard;
-            while ((!su_GetSDLInput(tEvent) || tEvent.type!=SDL_KEYDOWN) &&
-                    tSysTimeFloat() < timeout)
+            while (tSysTimeFloat() < timeout)
             {
+                // any key skips the title card, except one with a global job
+                // of its own (the screenshot key)
+                if (su_GetSDLInput(tEvent) && tEvent.type==SDL_KEYDOWN &&
+                        !su_GlobalKey(tEvent.key.keysym.sym))
+                    break;
+
                 if ( sr_glOut )
                 {
                     sr_ResetRenderState(true);
@@ -664,6 +734,10 @@ int main(int argc,char **argv){
         if ( ! commandLine.Analyse(argc, argv) )
             return 0;
 
+#if defined(WIN32) && !defined(DEDICATED)
+        if (commandLineAnalyzer.check_install_)
+            return sg_CheckInstall();
+#endif
 
         {
             // embed version in recording

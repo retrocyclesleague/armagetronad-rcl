@@ -166,11 +166,12 @@ every bundled DLL and includes that package's installed license files under
 ## Space Grotesk
 
 The interface font. The client draws text from bitmap atlases in
-`textures/ui/`, rasterised from Space Grotesk by
-`scripts/generate-rcl-ui-font.py`; the font file itself
-(`scripts/assets/fonts/space-grotesk/`) is the one the RCL site serves and is
-not part of binary packages. The window icon (`textures/icon.png`) is set in
-the same font.
+`textures/ui/`, rasterised by `scripts/generate-rcl-ui-font.py` from the font
+file the RCL site serves. The title card, the window icon and the Windows
+icon (`textures/title.png`, `textures/icon.png`, `tron.ico`) are set in the
+same family by `scripts/generate-rcl-brand.py`, from the upstream variable
+font at the revision recorded next to it. Both font files live in
+`scripts/assets/fonts/space-grotesk/` and are not part of binary packages.
 
 > Copyright 2020 The Space Grotesk Project Authors (https://github.com/floriankarsten/space-grotesk)
 >

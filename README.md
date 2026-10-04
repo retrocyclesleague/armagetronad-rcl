@@ -45,7 +45,7 @@ Beta packages are built by the `build-client` workflow for every commit on
 
 | Platform | Package | Run |
 |----------|---------|-----|
-| Windows x86-64 | `Retrocycles-RCL-{version}-windows-x86_64.zip` | extract, double-click `Retrocycles-RCL.cmd` |
+| Windows x86-64 | `Retrocycles-RCL-{version}-windows-x86_64.zip` | extract, double-click `Retrocycles-RCL.exe` |
 | macOS Apple Silicon | `Retrocycles-RCL-{version}-macos-arm64.zip` | open `Retrocycles RCL.app` |
 | Linux x86-64 | `Retrocycles-RCL-{version}-linux-x86_64.tar.gz` | `./retrocycles-rcl` |
 

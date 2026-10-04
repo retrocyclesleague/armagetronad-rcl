@@ -120,10 +120,40 @@ if ! test -f "${BUILD}/Makefile" ||
   printf '%s\n' "${BUILD_PROFILE}" > "${BUILD_PROFILE_STAMP}"
 fi
 
+# The client carries the RCL icon as a resource, so Explorer, Alt-Tab and
+# shortcuts show the same identity as the window.
+"${WINDRES:-windres}" --include-dir "${ROOT}" \
+  --input "${ROOT}/src/win32/rclClient.rc" --output "${BUILD}/rclClient-resource.o"
+
 # The top-level all target regenerates command documentation by launching the
 # GUI client with --doc; that process does not terminate under MSYS2 CI.
-make -C "${BUILD}/src" -j"${JOBS}" armagetronad_main.exe
+make -C "${BUILD}/src" -j"${JOBS}" armagetronad_main.exe \
+  RCL_WINDOWS_RESOURCE=../rclClient-resource.o
 make -C "${BUILD}/resource" included
+
+# Build a native, statically linked GUI entry point for the packaged client.
+# Keeping it free of MinGW runtime DLLs lets it live at the package root while
+# the game and its dependency set remain together under bin/.
+RCL_VERSION="$(sh "${ROOT}/batch/make/version" "${ROOT}")"
+"${WINDRES:-windres}" \
+  --include-dir "${ROOT}" \
+  --define "RCL_VERSION_STRING=\\\"${RCL_VERSION}\\\"" \
+  --input "${ROOT}/src/win32/rclLauncher.rc" \
+  --output "${BUILD}/rclLauncher-resource.o"
+"${CXX:-g++}" \
+  -std=c++11 \
+  -Os \
+  -s \
+  -mwindows \
+  -static \
+  -static-libgcc \
+  -static-libstdc++ \
+  -Wl,--no-insert-timestamp \
+  -Wl,--dynamicbase,--nxcompat,--high-entropy-va \
+  -o "${BUILD}/Retrocycles-RCL.exe" \
+  "${ROOT}/src/win32/rclLauncher.cpp" \
+  "${BUILD}/rclLauncher-resource.o" \
+  -lshell32
 
 BIN=""
 for candidate in \
@@ -142,3 +172,4 @@ if test -z "$BIN"; then
 fi
 
 echo "Client binary: ${BIN}"
+echo "Client launcher: ${BUILD}/Retrocycles-RCL.exe"
