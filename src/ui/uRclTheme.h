@@ -72,7 +72,6 @@ namespace uRclTheme
     //! Sets the layout the functions below work with. Call it at the start
     //! of every frame of a menu; values says the page has rows with a control.
     void Configure( Layout layout, bool values );
-    Layout CurrentLayout();
 
     // ---- units: logical pixels to field coordinates (-1..1) ----
     REAL Scale();           //!< real pixels per logical pixel
@@ -149,10 +148,8 @@ namespace uRclTheme
     //! firstLine that still fills the frame, for the caller's scrolling.
     int DrawDialog( tString const & title, tString const & body, int firstLine, REAL alpha );
 
-    // ---- colours for code that draws its own text ----
+    //! the label colour, for menu items that draw their own text
     void SetLabelColor( bool selected, REAL alpha );
-    void SetValueColor( bool selected, REAL alpha );
-    void SetBodyColor( REAL alpha );
 }
 
 #endif

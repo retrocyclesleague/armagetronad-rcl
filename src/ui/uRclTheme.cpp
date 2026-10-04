@@ -119,8 +119,6 @@ namespace uRclTheme
         values_ = values;
     }
 
-    Layout CurrentLayout() { return layout_; }
-
     REAL Scale() { return std::max( PixelH() / referenceHeight, minimumScale ); }
     REAL LogicalWidth()  { return PixelW() / Scale(); }
     REAL LogicalHeight() { return PixelH() / Scale(); }
@@ -907,16 +905,6 @@ namespace uRclTheme
         SetTextColor( textPrimary, alpha );
     }
 
-    void SetValueColor( bool selected, REAL alpha )
-    {
-        SetTextColor( selected ? textPrimary : textSecondary, alpha );
-    }
-
-    void SetBodyColor( REAL alpha )
-    {
-        SetTextColor( textSecondary, alpha );
-    }
-
 #else   // DEDICATED: there is no interface to draw
 
     void Text( REAL, REAL, REAL, int, Color const &, REAL, char const *, int, REAL, REAL ) {}
@@ -931,8 +919,6 @@ namespace uRclTheme
     void DrawScrollMarks( bool, bool, REAL ) {}
     int DrawDialog( tString const &, tString const &, int, REAL ) { return 0; }
     void SetLabelColor( bool, REAL ) {}
-    void SetValueColor( bool, REAL ) {}
-    void SetBodyColor( REAL ) {}
 
 #endif
 }
