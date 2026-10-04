@@ -1,5 +1,11 @@
 # Dev log
 
+## 2026-10-05 - clean arena: cycles are arrows
+
+Jamie did not like the bikes. In the clean arena a cycle is now a low, faceted arrow in the player's colour (`sg_RenderCleanCycle` in `gCycle.cpp`): a lighter tint on top, a shade of the paint on the flanks, each face lit by the sun the way the walls' faces are, a pale line down the spine. Its tail is notched and the wall leaves it there; the live end of the wall comes down to the arrow's height (`hfuncClean`). Lean, blinking, the shadow and the mirrored image work as before. The lofted body, its texture and `scripts/generate-rcl-cycle-body.py` are gone; the classic arena keeps the classic body and wheels.
+
+Checked on Windows in local practice games, from a close camera and from the default one. Not checked: online, the moviepack (it keeps its own model), split screen.
+
 ## 2026-10-04 - clean arena rebuilt against the reference frames; default again
 
 The pale arena is the default again, and it now follows the two reference frames Jamie supplied. Their floor, sky, glint, wall and shadow colours were sampled and the renderer was set to those numbers, instead of being judged by eye as the first version was.

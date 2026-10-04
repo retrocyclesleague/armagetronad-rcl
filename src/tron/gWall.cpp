@@ -1454,6 +1454,8 @@ void gNetPlayerWall::RenderNormal(const eCoord &p1,const eCoord &p2,REAL ta,REAL
 }
 
 static inline REAL hfunc(REAL x){return 1-(x*x)/2;}
+// the clean arena's walls come down to the height of the arrow's tail
+static inline REAL hfuncClean(REAL x){return 1-REAL(.79)*(x*x);}
 //static inline REAL hfunc(REAL x){return 1-(x*x);}
 static inline REAL cfunc(REAL x){return (x*x);}
 //static inline REAL afunc(REAL x){return 1-(x*x)/2;}
@@ -1525,12 +1527,14 @@ void gNetPlayerWall::RenderBegin(const eCoord &p1,const eCoord &pp2,REAL ta,REAL
     {
         if ( hfrac > 0 )
         {
-            // The live tip rises out of the floor behind the cycle; follow
-            // the same five-step curve as the core in short straight pieces.
+            // The live tip rises behind the cycle; follow the same five-step
+            // curve as the core in short straight pieces. It ends in the
+            // notch of the arrow the cycle is drawn as, at the height the
+            // arrow has there.
             static const int pieces = 5;
             eCoord last = p1;
             REAL lastRat = ra;
-            REAL lastHeight = h * hfrac * hfunc( ra );
+            REAL lastHeight = h * hfrac * hfuncClean( ra );
             BeginQuads();
             for ( int i = 1; i <= pieces; ++i )
             {
@@ -1538,7 +1542,7 @@ void gNetPlayerWall::RenderBegin(const eCoord &p1,const eCoord &pp2,REAL ta,REAL
                 REAL rat = ra + frag * ( re - ra );
                 eCoord next( ( p1.x + frag * ( p2.x - p1.x ) ) * ( 1 - xfunc( rat ) ) + ppos.x * xfunc( rat ),
                              ( p1.y + frag * ( p2.y - p1.y ) ) * ( 1 - xfunc( rat ) ) + ppos.y * xfunc( rat ) );
-                REAL height = h * hfrac * hfunc( rat );
+                REAL height = h * hfrac * hfuncClean( rat );
 
                 // fresh off the cycle, the wall still glows
                 REAL const fresh = .6f * cfunc( ( lastRat + rat ) * .5f );

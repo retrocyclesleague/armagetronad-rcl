@@ -2079,16 +2079,12 @@ struct gCycleVisuals
     // loads a specific texture from a specific folder
     static rSurface * LoadTextureSafe2( Slot slot, int mp )
     {
-        // the clean arena has its own cycle body, with its own texture
-        bool const clean = sr_cleanArena && slot == SLOT_BODY && !mp;
-
         static std::unique_ptr<rSurface> cache[SLOT_MAX][2];
-        static std::unique_ptr<rSurface> cleanBody;
-        std::unique_ptr<rSurface> & surface = clean ? cleanBody : cache[slot][mp];
+        std::unique_ptr<rSurface> & surface = cache[slot][mp];
         if ( surface.get() == NULL )
         {
             static char const * names[SLOT_MAX]={"bike.png","cycle_body.png", "cycle_wheel.png"};
-            char const * name = clean ? "cycle_body_clean.png" : names[slot];
+            char const * name = names[slot];
 
             char const * folder = mp ? "moviepack" : "textures";
             tString file = tString(folder) + "/" + name;
@@ -2161,8 +2157,6 @@ struct gCycleVisuals
         {
             tString base = tString(folder) + "/cycle_";
 
-            if (!bodyModel && sr_cleanArena && !mpFolder)
-                bodyModel = LoadModelSafe( base + "body_clean.mod" );
             if (!bodyModel) bodyModel = LoadModelSafe( base + "body.mod" );
             if (!frontModel) frontModel = LoadModelSafe( base + "front.mod" );
             if (!rearModel) rearModel = LoadModelSafe( base + "rear.mod" );
@@ -4947,6 +4941,111 @@ void gCycleWallsDisplayListManager::RenderAll( eCamera const * camera, gCycle * 
 bool sg_HideCycles = false;
 static tConfItem<bool> sg_HideCyclesConf("HIDE_CYCLES", sg_HideCycles);
 
+// ---- clean arena: the cycle is an arrow ----
+
+namespace
+{
+struct gArrowPoint
+{
+    REAL x, y, z;
+};
+
+// one flat face, lit by the clean arena's sun the way the walls' faces are
+void sg_ArrowFace( gArrowPoint const * p, int count, eCoord const & dir,
+                   REAL r, REAL g, REAL b )
+{
+    // the face's normal in the cycle's frame, turned away from the inside
+    REAL const ux = p[1].x - p[0].x, uy = p[1].y - p[0].y, uz = p[1].z - p[0].z;
+    REAL const vx = p[2].x - p[0].x, vy = p[2].y - p[0].y, vz = p[2].z - p[0].z;
+    REAL nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+    REAL const length = sqrt( nx * nx + ny * ny + nz * nz );
+    if ( !( length > 0 ) )
+        return;
+    static const gArrowPoint inside = { .3f, 0, .15f };
+    REAL const outward = nx * ( p[0].x - inside.x ) + ny * ( p[0].y - inside.y ) + nz * ( p[0].z - inside.z );
+    REAL const scale = ( outward < 0 ? -1 : 1 ) / length;
+    nx *= scale;
+    ny *= scale;
+    nz *= scale;
+
+    // how squarely it faces the sun, with the cycle's heading taken in
+    eCoord toSun;
+    REAL reach;
+    se_CleanArenaSun( toSun, reach );
+    REAL const norm = 1 / sqrt( reach * reach + 1 );
+    REAL const facing = ( ( nx * dir.x - ny * dir.y ) * toSun.x +
+                          ( nx * dir.y + ny * dir.x ) * toSun.y ) * reach * norm + nz * norm;
+    REAL lit = ( facing + .15f ) / .75f;
+    if ( lit < 0 ) lit = 0;
+    if ( lit > 1 ) lit = 1;
+    REAL const light = .64f + .36f * lit;
+
+    glColor4f( r * light, g * light, b * light, 1 );
+    for ( int i = 0; i < count; ++i )
+        glVertex3f( p[i].x, p[i].y, p[i].z );
+}
+
+// The clean arena's cycle: a low, faceted arrow in the player's colour. It is
+// drawn in the cycle's own frame (x ahead, half size), where the classic body
+// and wheels would be. The wall leaves it through the notch in its tail.
+void sg_RenderCleanCycle( eCoord const & dir, gRealColor const & color )
+{
+    static const gArrowPoint nose  = {  2.45f, 0, .10f };
+    static const gArrowPoint crest = {   .60f, 0, .72f };
+    static const gArrowPoint notch = {  -.28f, 0, .42f };
+    static const gArrowPoint left  = { -1.35f,  .82f, .12f };
+    static const gArrowPoint right = { -1.35f, -.82f, .12f };
+
+    REAL r = color.r, g = color.g, b = color.b;
+    sr_CleanPaint( r, g, b );
+
+    // the top is a lighter tint of the paint, the flanks are a shade of it
+    static const REAL tint = .30f, flank = .80f, spine = .85f;
+    REAL const tr = r + ( 1 - r ) * tint, tg = g + ( 1 - g ) * tint, tb = b + ( 1 - b ) * tint;
+
+    RenderEnd();
+    glPushAttrib( GL_ENABLE_BIT | GL_CURRENT_BIT );
+    glDisable( GL_LIGHTING );
+    glDisable( GL_TEXTURE_2D );
+    glDisable( GL_CULL_FACE );
+
+    BeginTriangles();
+    {
+        gArrowPoint const top[4][3] = { { nose, crest, left }, { crest, notch, left },
+                                        { nose, right, crest }, { crest, right, notch } };
+        for ( int i = 0; i < 4; ++i )
+            sg_ArrowFace( top[i], 3, dir, tr, tg, tb );
+    }
+    RenderEnd();
+
+    BeginQuads();
+    {
+        gArrowPoint const * rim[5] = { &nose, &left, &notch, &right, &nose };
+        for ( int i = 0; i < 4; ++i )
+        {
+            gArrowPoint const & a = *rim[i];
+            gArrowPoint const & c = *rim[i + 1];
+            gArrowPoint const face[4] = { a, c, { c.x, c.y, 0 }, { a.x, a.y, 0 } };
+            sg_ArrowFace( face, 4, dir, r * flank, g * flank, b * flank );
+        }
+    }
+    RenderEnd();
+
+    // a pale line down the spine
+    sr_DepthOffset( true );
+    BeginLines();
+    glColor4f( r + ( 1 - r ) * spine, g + ( 1 - g ) * spine, b + ( 1 - b ) * spine, 1 );
+    glVertex3f( nose.x, nose.y, nose.z );
+    glVertex3f( crest.x, crest.y, crest.z );
+    glVertex3f( crest.x, crest.y, crest.z );
+    glVertex3f( notch.x, notch.y, notch.z );
+    RenderEnd();
+    sr_DepthOffset( false );
+
+    glPopAttrib();
+}
+}
+
 void gCycle::Render(const eCamera *cam){
     /*
     // for use when there's rendering problems on one specific occasion
@@ -5091,7 +5190,12 @@ void gCycle::Render(const eCamera *cam){
 
             ModelMatrix();
 
-            if ( !blinking )
+            if ( !blinking && sr_cleanArena )
+            {
+                // no body and wheels there; the cycle is an arrow
+                sg_RenderCleanCycle( dir, color_ );
+            }
+            else if ( !blinking )
             {
                 bodyTex->Select();
                 body->Render();
@@ -5320,15 +5424,15 @@ void gCycle::Render(const eCamera *cam){
                 REAL reach;
                 se_CleanArenaSun( toSun, reach );
 
-                // the reach of a cycle's height, in the cycle's own half-size frame
-                static const REAL height = .5f;
+                // the reach of the arrow's height, in the cycle's own half-size frame
+                static const REAL height = .3f;
                 eCoord const fall = toSun * ( -reach * height * 2 );
                 eCoord const along( eCoord::F( fall, dir ), eCoord::F( fall, eCoord( -dir.y, dir.x ) ) );
                 REAL const length = sqrt( along.NormSquared() );
                 eCoord const e1 = length > 0 ? along * ( 1 / length ) : eCoord( 1, 0 );
                 eCoord const e2( -e1.y, e1.x );
-                eCoord const centre = eCoord( .75f, 0 ) + along * .5f;
-                REAL const reachHalf = length * .5f + 1.4f, widthHalf = 1.1f;
+                eCoord const centre = eCoord( .4f, 0 ) + along * .5f;
+                REAL const reachHalf = length * .5f + 1.6f, widthHalf = 1.2f;
 
                 glDisable(GL_CULL_FACE);
                 glDepthMask(GL_FALSE);
