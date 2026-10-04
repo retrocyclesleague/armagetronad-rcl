@@ -2071,6 +2071,13 @@ void RenderAllViewports(eGrid *grid){
     if(sr_glOut){
         sr_ResetRenderState();
 
+        // From here on the frame shows the arena: names, scores, console and
+        // HUD are written straight on it, in ink where it is the pale one.
+        if ( sr_cleanArena )
+            sr_CleanArenaDrawn();
+        else
+            sr_cleanInk = false;
+
         // enable distance based fog
         /*
         glFogi( GL_FOG_MODE, GL_EXP );
@@ -2096,7 +2103,11 @@ void RenderAllViewports(eGrid *grid){
 
     // render the console and scores so it appears behind the global HUD
     ePlayerNetID::DisplayScores();
-    if( sr_con.autoDisplayAtSwap )
+
+    // Over the pale arena the console is written in ink. Under a menu that
+    // would be lost in the layers that hold the arena back; the menu's
+    // background writes the console onto them instead.
+    if( sr_con.autoDisplayAtSwap && !( sr_cleanInk && uMenu::MenuActive() ) )
     {
         sr_con.Render();
     }

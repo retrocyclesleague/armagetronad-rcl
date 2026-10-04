@@ -188,10 +188,13 @@ void rConsole::Render(){
             static int lastIn  = currentIn;
             REAL predictBottom = lastBottom - ( lastTop - currentTop + currentIn - lastIn ) * out.GetCHeight();
 
-            if ( lastTop != currentTop || lastIn != currentIn )
+            // the list holds the text in the colours it was first drawn in
+            static bool lastInk = sr_cleanInk;
+            if ( lastTop != currentTop || lastIn != currentIn || lastInk != sr_cleanInk )
             {
                 lastTop = currentTop;
                 lastIn  = currentIn;
+                lastInk = sr_cleanInk;
                 sr_consoleDisplayList.Clear();
             }
 
@@ -205,12 +208,11 @@ void rConsole::Render(){
 
             out.SetIndent(sr_indent);
 
-            // light text needs a dark plate over the clean arena's pale floor
-            REAL const plate = ( sr_cleanArena && sr_chatLayer < .55f ) ? .55f : sr_chatLayer;
-            if( sr_alphaBlend && plate > 0 && predictBottom < out.GetTop() )
+            // ink on the clean arena's pale sky needs no plate behind it
+            if( sr_alphaBlend && sr_chatLayer > 0 && !sr_cleanInk && predictBottom < out.GetTop() )
             {
                 RenderEnd();
-                glColor4f(0, 0, 0, plate);
+                glColor4f(0, 0, 0, sr_chatLayer);
                 glRectf(-1,predictBottom-.4*out.GetCHeight(),1,1);
             }
 

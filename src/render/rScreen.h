@@ -139,13 +139,31 @@ extern bool sr_blacklistDisplayLists;   // use GL display lists (override for bu
 
 extern int sr_floorMirror;
 
-// The clean arena look: a pale open floor without grid or rim walls, lit from
-// one point, with solid trails that cast soft shadows.
+// The clean arena look: a pale, glossy open floor without grid or rim walls
+// under a low sun, with solid trails that cast long soft shadows.
 extern bool sr_cleanArena;
 extern int sr_antialias;                   //!< multisample count, applied at display init
-extern const REAL sr_cleanFloorColor[3];   //!< floor
-extern const REAL sr_cleanSkyColor[3];     //!< background and distance haze
+extern const REAL sr_cleanFloorColor[3];   //!< floor at the viewer's feet; also what the floor mirrors where nothing stands
 extern const REAL sr_cleanShadowColor[3];  //!< shadows on the floor
+
+//! True while what is drawn lies straight on the clean arena's pale floor and
+//! sky, until something covers them (a menu) or the frame ends. Text drawn
+//! meanwhile has its light colours darkened to ink.
+extern bool sr_cleanInk;
+
+//! says that the clean arena is being drawn into the current frame
+void sr_CleanArenaDrawn();
+
+//! true if the clean arena was on screen within the last moments
+bool sr_CleanArenaRecent();
+
+//! darkens a text colour to ink, keeping its hue
+void sr_CleanInk( REAL & r, REAL & g, REAL & b );
+
+//! The colour a player's or a zone's own colour takes in the clean arena:
+//! with the glare taken out, so it sits on the pale floor like paint rather
+//! than like light.
+void sr_CleanPaint( REAL & r, REAL & g, REAL & b );
 
 #define rFLOOR_OFF        0
 #define rFLOOR_GRID       1

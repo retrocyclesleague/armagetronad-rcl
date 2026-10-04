@@ -4749,15 +4749,18 @@ static tConfItem<bool> sg_HideCyclesWallsConf("HIDE_CYCLES_WALLS", sg_HideCycles
 static void sg_RenderWallOverlay( eCamera const * camera, gNetPlayerWall * list, bool cached,
                                   gNetPlayerWall::gWallRenderMode mode );
 
-// clean arena: floor shadows without depth writes, then the solid walls
+// clean arena: what lies on and under the floor first, then the solid walls
 static void sg_RenderCleanWalls( eCamera const * camera, gNetPlayerWall * list, bool cached )
 {
     if ( !list )
         return;
     if ( sr_alphaBlend )
     {
+        // shadows and the walls' sheen must not hide anything drawn later
         glDepthMask( GL_FALSE );
         sg_RenderWallOverlay( camera, list, cached, gNetPlayerWall::gWallRenderMode_Shadow );
+        RenderEnd();
+        sg_RenderWallOverlay( camera, list, cached, gNetPlayerWall::gWallRenderMode_Sheen );
         RenderEnd();
     }
     glDepthMask( GL_TRUE );
@@ -4846,6 +4849,14 @@ void gCycleWallsDisplayListManager::RenderAll( eCamera const * camera, gCycle * 
 
 void gCycleWallsDisplayListManager::RenderAll( eCamera const * camera, gCycle * cycle )
 {
+    // The lists hold the passes of one look, not of both. A negative glow
+    // intensity marks them as the clean arena's.
+    if ( sr_cleanArena != ( glowIntensity_ < 0 ) )
+    {
+        Clear( 0 );
+        glowIntensity_ = sr_cleanArena ? -1 : 0;
+    }
+
     // render everything you can with a display list
     RenderAllWithDisplayList( camera, cycle );
 
@@ -4854,8 +4865,13 @@ void gCycleWallsDisplayListManager::RenderAll( eCamera const * camera, gCycle * 
 
     if ( sr_cleanArena )
     {
-        // Clean arena: shadows on the floor first, then the thick opaque
-        // walls over the thin core. Finished walls are cached like the glow.
+        // Clean arena: the core passes above only kept the lists in order.
+        // The walls are drawn here: shadows and sheen on the floor, then the
+        // solid walls. Finished walls are cached like the glow. The mirrored
+        // pass leaves them out; their sheen is their reflection.
+        if ( camera && !camera->RenderingMain() )
+            return;
+
         RenderEnd();
         glPushAttrib( GL_COLOR_BUFFER_BIT | GL_CURRENT_BIT | GL_DEPTH_BUFFER_BIT |
                       GL_ENABLE_BIT | GL_TEXTURE_BIT );
@@ -5294,7 +5310,45 @@ void gCycle::Render(const eCamera *cam){
 
         glEnable(GL_CULL_FACE);
 
-        if(!blinking && sr_floorDetail>rFLOOR_GRID && rTextureGroups::TextureMode[rTextureGroups::TEX_FLOOR]>0 && sr_alphaBlend){
+        if ( sr_cleanArena )
+        {
+            // The clean arena's sun stands low: the cycle's shadow is a soft
+            // patch that reaches away from it, like those of the walls.
+            if ( !blinking && sr_alphaBlend && ( !cam || cam->RenderingMain() ) )
+            {
+                eCoord toSun;
+                REAL reach;
+                se_CleanArenaSun( toSun, reach );
+
+                // the reach of a cycle's height, in the cycle's own half-size frame
+                static const REAL height = .5f;
+                eCoord const fall = toSun * ( -reach * height * 2 );
+                eCoord const along( eCoord::F( fall, dir ), eCoord::F( fall, eCoord( -dir.y, dir.x ) ) );
+                REAL const length = sqrt( along.NormSquared() );
+                eCoord const e1 = length > 0 ? along * ( 1 / length ) : eCoord( 1, 0 );
+                eCoord const e2( -e1.y, e1.x );
+                eCoord const centre = eCoord( .75f, 0 ) + along * .5f;
+                REAL const reachHalf = length * .5f + 1.4f, widthHalf = 1.1f;
+
+                glDisable(GL_CULL_FACE);
+                glDepthMask(GL_FALSE);
+                BeginTriangleFan();
+                glColor4f( sr_cleanShadowColor[0], sr_cleanShadowColor[1], sr_cleanShadowColor[2], .30f );
+                glVertex3f( centre.x, centre.y, .03f );
+                glColor4f( sr_cleanShadowColor[0], sr_cleanShadowColor[1], sr_cleanShadowColor[2], 0 );
+                static const int segments = 20;
+                for ( int i = 0; i <= segments; ++i )
+                {
+                    REAL const angle = i * ( 2 * M_PI / segments );
+                    eCoord const rim = centre + e1 * ( cos( angle ) * reachHalf ) + e2 * ( sin( angle ) * widthHalf );
+                    glVertex3f( rim.x, rim.y, .03f );
+                }
+                RenderEnd();
+                glDepthMask(GL_TRUE);
+                glEnable(GL_CULL_FACE);
+            }
+        }
+        else if(!blinking && sr_floorDetail>rFLOOR_GRID && rTextureGroups::TextureMode[rTextureGroups::TEX_FLOOR]>0 && sr_alphaBlend){
             glColor3f(0,0,0);
             cycle_shad.Select();
             BeginQuads();

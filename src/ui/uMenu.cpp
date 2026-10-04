@@ -963,8 +963,12 @@ void uMenu::GenericBackground(REAL top){
             // throw tGenericException("test"); // (test exception throw to see if error handling works right)
             (*idle)();
 
-            // render the console so it appears behind the menu
-            if( sr_con.autoDisplayAtSwap )
+            // Render the console so it appears behind the menu. Where the
+            // pale arena was just drawn, ink would sink into the layers that
+            // hold the arena back; there, the game left the console to us
+            // and it follows the layer, in its usual light colours.
+            bool const consoleAfterLayer = sr_cleanInk;
+            if( sr_con.autoDisplayAtSwap && !consoleAfterLayer )
             {
                 sr_con.Render();
             }
@@ -1001,6 +1005,12 @@ void uMenu::GenericBackground(REAL top){
                 glColor4f(0, 0, 0, alpha);
                 glRectf(-1,-1,1,top);
             }
+
+            if( sr_con.autoDisplayAtSwap && consoleAfterLayer )
+            {
+                sr_cleanInk = false;
+                sr_con.Render();
+            }
         }
         catch ( ... )
         {
@@ -1017,6 +1027,9 @@ void uMenu::GenericBackground(REAL top){
     }
     else
         tDelay(100000);
+
+    // what is drawn from here on lies on the menu, not on the arena behind it
+    sr_cleanInk = false;
 #endif
     sr_ResetRenderState(true);
 }

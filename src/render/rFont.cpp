@@ -471,6 +471,12 @@ void rTextField::FlushLine(int len,bool newline){
     REAL b = color_.b_;
     REAL a = color_.a_;
 
+    // Straight on the clean arena's pale floor, light text is written in ink
+    // and needs no shadow to stand out.
+    bool const ink = sr_cleanInk;
+    if ( ink )
+        sr_CleanInk( r, g, b );
+
     if (sr_glOut && ui_)
     {
         // The interface font: every character sits where its predecessors'
@@ -512,9 +518,9 @@ void rTextField::FlushLine(int len,bool newline){
             rUiFont::Select( face );
             sr_lastSelected = 0;
 
-            if( sr_textShadow && sr_styleShadow && (
+            if( sr_textShadow && sr_styleShadow && !ink && (
                 ( color_.IsDark() && (sr_textShadow&1) ) ||
-                (!color_.IsDark() && ( (sr_textShadow&2) || sr_cleanArena ) )
+                (!color_.IsDark() && (sr_textShadow&2) )
             ))
             {
                 // one pixel down and to the right
@@ -591,9 +597,9 @@ void rTextField::FlushLine(int len,bool newline){
             glEnable(GL_TEXTURE_2D);
         }
         
-        if( sr_textShadow && sr_styleShadow && (
+        if( sr_textShadow && sr_styleShadow && !ink && (
             ( color_.IsDark() && (sr_textShadow&1) ) ||
-            (!color_.IsDark() && ( (sr_textShadow&2) || sr_cleanArena ) )
+            (!color_.IsDark() && (sr_textShadow&2) )
         ))
         {
             RenderEnd(true);

@@ -2121,6 +2121,72 @@ void gZone::Render( const eCamera * cam )
 
     glMultMatrixf(&m[0][0]);
 
+    if ( sr_cleanArena )
+    {
+        // Light added to the pale floor would hardly show. The zone is
+        // painted instead: its boundary as bold dashes on the floor, each
+        // under a veil that thins out upwards. Flat on the floor, it needs
+        // no mirror image.
+        if ( !cam || cam->RenderingMain() )
+        {
+            REAL red = color_.r, green = color_.g, blue = color_.b;
+            sr_CleanPaint( red, green, blue );
+
+            // full once the zone has appeared
+            REAL const strength = alpha > .7f ? 1 : alpha / .7f;
+            // the dash: its width in radii, and its height over the floor in zone heights
+            REAL const band = r > 1.2f ? .3f / r : .25f;
+            REAL const rise = h > .1f ? .02f / h : .02f;
+
+            RenderEnd();
+            glDisable(GL_LIGHT0);
+            glDisable(GL_LIGHT1);
+            glDisable(GL_LIGHTING);
+            glDisable(GL_CULL_FACE);
+            glDisable(GL_TEXTURE_2D);
+            glDepthMask(GL_FALSE);
+            glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+
+            int const steps = sg_zoneSegSteps > 4 ? sg_zoneSegSteps : 4;
+            BeginQuads();
+            for ( int i = sg_zoneSegments - 1; i>=0; --i )
+            {
+                REAL a = i * 2 * M_PI / REAL( sg_zoneSegments );
+                REAL sa = sin(a);
+                REAL ca = cos(a);
+
+                for ( int s = 0; s<steps; ++s )
+                {
+                    REAL b = a + seglen / steps;
+                    REAL sb = sin(b);
+                    REAL cb = cos(b);
+
+                    glColor4f( red, green, blue, strength );
+                    glVertex3f( sa * ( 1 - band ), ca * ( 1 - band ), rise );
+                    glVertex3f( sa, ca, rise );
+                    glVertex3f( sb, cb, rise );
+                    glVertex3f( sb * ( 1 - band ), cb * ( 1 - band ), rise );
+
+                    glColor4f( red, green, blue, .42f * strength );
+                    glVertex3f( sa, ca, rise );
+                    glVertex3f( sb, cb, rise );
+                    glColor4f( red, green, blue, 0 );
+                    glVertex3f( sb, cb, 1 );
+                    glVertex3f( sa, ca, 1 );
+
+                    a = b;
+                    sa = sb;
+                    ca = cb;
+                }
+            }
+            RenderEnd();
+            glDepthMask(GL_TRUE);
+        }
+
+        glPopMatrix();
+        return;
+    }
+
     glColor4f( color_.r ,color_.g,color_.b, alpha );
 
     bool useAlpha = sr_alphaBlend ? !sg_zoneAlphaToggle : sg_zoneAlphaToggle;

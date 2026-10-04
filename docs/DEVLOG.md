@@ -1,5 +1,21 @@
 # Dev log
 
+## 2026-10-04 - clean arena rebuilt against the reference frames; default again
+
+The pale arena is the default again, and it now follows the two reference frames Jamie supplied. Their floor, sky, glint, wall and shadow colours were sampled and the renderer was set to those numbers, instead of being judged by eye as the first version was.
+
+- Default and migration: `RCL_CLEAN_ARENA` defaults to on. Builds from earlier today defaulted to off and saved that into the profile; `RCL_APPLY_CLEAN_ARENA` in `settings_client.cfg` switches it on once per profile (`RCL_CLEAN_ARENA_APPLIED`). What is chosen afterwards under Display & Graphics / Detail is kept. Off still gives the dark grid arena.
+- Sky and floor (`eDisplay.cpp`): a sky dome with warm haze over the horizon. The floor is drawn as rings around the viewer, spaced in camera heights, so it takes on the haze towards the horizon and no line shows there. A low sun at a fixed bearing (`se_CleanArenaSun`) gives the halo in the sky and the glint on the floor; the glint is drawn in the mirrored direction, so it moves with the viewer like a reflection. The frame is cleared to black again; the mirrored pass paints its own backdrop.
+- Trails (`gWall.cpp`, `gCycle.cpp`): the clean arena draws its own walls in place of the classic core, which only keeps the display lists in order. Walls are solid boxes in the player's colour with the glare taken out (`sr_CleanPaint`), in two tones by whether a face catches the sun, with a lighter top. Shadows reach 3.2 wall heights, even over two thirds of that and soft at the far edge. The wall's sheen in the floor is drawn directly (`gWallRenderMode_Sheen`), fading with depth, instead of through the mirrored pass. Drawn half width .07; collision is unchanged on the centre plane.
+- Rim: a fine line with bold white dashes on the floor, instead of the kerb.
+- Zones: light added to a pale floor hardly shows, so zones are painted: dashes on the floor under a veil that thins out upwards. Sparks are drawn as embers for the same reason.
+- Cycle: a pale shell with the player's colour in the canopy and in a fine line along it (`scripts/generate-rcl-cycle-body.py`), and a soft shadow that falls away from the sun. The mirrored pass still gives its reflection.
+- Text: no plates behind it. Text drawn straight on the pale arena is darkened to ink and keeps its hue (`sr_cleanInk`, `sr_CleanInk`): names, console, scores, centre messages, HUD. Under a menu the console is drawn on the menu's layer, in its light colours. Between rounds the frame stays pale instead of flashing black.
+
+Checked in the Windows build, in local practice games against AIs at 1600x900: the frames against the reference (near floor 177,192,205, far floor, sky band and glint core within a few levels of the sampled values; shadow at .89-.92 of the floor against .90-.93); walls, shadows and sheen from the chase camera and a low camera; a win zone; an explosion; console text in play, between rounds and under the in-game menu; the in-game menu over the arena; `RCL_CLEAN_ARENA 0` still giving the classic arena, walls and zone. Frame rate, uncapped, over twelve frames of one practice game each: 337-1045 fps with the clean arena against 627-1633 with the classic one. The games were set up alike but the scenes were not matched; it says the clean arena costs frame time (the mirrored pass and the extra wall passes), not how much.
+
+Not checked: online play of any kind, Fortress zones in team colours, a full server's trails, split screen, alpha blending off, the moviepack, zones other than the win zone, macOS and Linux beyond CI compiling them.
+
 ## 2026-10-04 - title card, Windows launcher, default camera
 
 Ported from the unpushed `codex/windows-first-run-config` checkout at Jamie's request, now that this branch is the product line.

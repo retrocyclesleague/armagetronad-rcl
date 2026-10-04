@@ -4220,6 +4220,6 @@ detail_antialias_4_text        4x
 detail_antialias_8_text        8x
 detail_antialias_on_help       Samples per pixel. Higher is smoother and costs more.
 detail_clean_arena_text        Clean Arena:
-detail_clean_arena_help        A pale open floor without grid or rim walls, lit from one point, with solid trails that cast soft shadows. Off restores the dark grid arena.
+detail_clean_arena_help        A pale, glossy open floor under a low sun: no grid and no rim walls, solid trails that cast long soft shadows. Off restores the dark grid arena.
 rcl_clean_arena_help           Clean arena look: pale open floor, solid trails and soft shadows.
 rcl_ui_font_help               Draw text with the Space Grotesk interface font. Off falls back to the classic fixed-width font.

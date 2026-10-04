@@ -153,7 +153,7 @@ private:
     gNetPlayerWall *                wallsWithDisplayList_;          //!< linked list of all walls with display list
     rDisplayList                    displayList_;                   //!< combined display list
     rDisplayList                    glowDisplayList_;               //!< trail glow of the same walls
-    REAL                            glowIntensity_;                 //!< glow intensity glowDisplayList_ was built with
+    REAL                            glowIntensity_;                 //!< glow intensity glowDisplayList_ was built with; negative while the lists hold the clean arena's walls
     REAL                            wallsWithDisplayListMinDistance_; //!< minimal distance of the walls with display list
     int                             wallsInDisplayList_;            //!< number of walls in the current display list
 };

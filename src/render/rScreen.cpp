@@ -1002,11 +1002,79 @@ bool    sr_smoothShading=true;
 
 int sr_floorMirror=0;
 
-bool sr_cleanArena=false;
+bool sr_cleanArena=true;
 static tConfItem<bool> sr_cleanArenaConf("RCL_CLEAN_ARENA", sr_cleanArena);
-const REAL sr_cleanFloorColor[3]  = { .72f, .78f, .81f };
-const REAL sr_cleanSkyColor[3]    = { .82f, .87f, .90f };
+const REAL sr_cleanFloorColor[3]  = { .694f, .753f, .804f };
 const REAL sr_cleanShadowColor[3] = { .20f, .27f, .36f };
+bool sr_cleanInk=false;
+
+static double sr_cleanArenaLastDrawn = -100;
+
+void sr_CleanArenaDrawn()
+{
+    sr_cleanInk = true;
+    sr_cleanArenaLastDrawn = tSysTimeFloat();
+}
+
+bool sr_CleanArenaRecent()
+{
+    return sr_cleanArena && tSysTimeFloat() - sr_cleanArenaLastDrawn < 3;
+}
+
+void sr_CleanPaint( REAL & r, REAL & g, REAL & b )
+{
+    REAL high = r > g ? r : g;
+    if ( b > high ) high = b;
+    if ( high > 1 )
+    {
+        r /= high;
+        g /= high;
+        b /= high;
+        high = 1;
+    }
+    REAL low = r < g ? r : g;
+    if ( b < low ) low = b;
+    if ( low < 0 ) low = 0;
+
+    // no fuller and no brighter than paint in daylight gets
+    static const REAL fullest = .66f, brightest = .77f;
+    if ( high > 0 && high - low > fullest * high )
+    {
+        REAL const keep = fullest * high / ( high - low );
+        r = high - ( high - r ) * keep;
+        g = high - ( high - g ) * keep;
+        b = high - ( high - b ) * keep;
+    }
+    r *= brightest;
+    g *= brightest;
+    b *= brightest;
+}
+
+void sr_CleanInk( REAL & r, REAL & g, REAL & b )
+{
+    // The lighter a colour was, the darker its ink: white, the usual text
+    // colour, comes out darkest, and dimmer greys stay a little behind it.
+    REAL const light = .30f * r + .59f * g + .11f * b;
+    REAL const target = .24f + ( 1 - light ) * .16f;
+    if ( !( light > target ) )
+        return;
+
+    REAL const scale = target / light;
+    r *= scale;
+    g *= scale;
+    b *= scale;
+
+    // greys take on the slate of the arena's shadows
+    REAL high = r > g ? r : g;
+    if ( b > high ) high = b;
+    REAL low = r < g ? r : g;
+    if ( b < low ) low = b;
+    if ( high - low < .04f )
+    {
+        r *= .86f;
+        b *= 1.14f;
+    }
+}
 int sr_floorDetail=rFLOOR_TEXTURE;
 bool sr_highRim=true;
 bool sr_upperSky=false;

@@ -8,8 +8,8 @@ body's coordinates.
 
 The engine textures a .mod by projecting from the side (u from x, v from z)
 and replaces transparent texels with the player's colour. The texture is
-drawn in that same projection: coloured upper shell, pale lower fairing,
-dark canopy glass and a headlight.
+drawn in that same projection: a pale shell, with the player's colour in the
+canopy that glows on top of it and in a fine line where the shell parts.
 
     python3 scripts/generate-rcl-cycle-body.py
 """
@@ -118,30 +118,28 @@ def build_texture(vertices):
             top, bottom = curve(TOP, x), curve(BOTTOM, x)
             height = (z - bottom) / max(top - bottom, 1e-3)
 
-            # start as player colour (transparent), slightly shaded low down
-            grey, alpha = 255.0, 0.0
+            # the pale shell, a little darker towards its underside
+            grey = 248.0 - 26 * (1 - smooth(0.0, 0.5, height))
+            alpha = 255.0
 
-            # pale lower fairing with a dark seam above it
-            fairing = 1 - smooth(0.36, 0.39, height)
-            grey, alpha = 236.0, max(alpha, fairing * 255)
-            seam = smooth(0.375, 0.39, height) * (1 - smooth(0.40, 0.415, height))
-            if seam > 0:
-                grey = grey * (1 - seam) + 22 * seam
-                alpha = max(alpha, seam * 255)
+            # a fine line in the player's colour where the shell parts
+            seam = smooth(0.365, 0.38, height) * (1 - smooth(0.405, 0.42, height))
+            alpha *= 1 - seam
 
-            # canopy glass
-            glass = ((x - 0.70) / 0.62) ** 2 + ((z - (top - 0.02)) / 0.34) ** 2
-            cover = 1 - smooth(0.92, 1.0, glass)
+            # The canopy glows in the player's colour. Towards its crown the
+            # glow whitens, the way a light does at its brightest.
+            glass = ((x - 0.72) / 0.84) ** 2 + ((z - top) / 0.44) ** 2
+            cover = 1 - smooth(0.88, 1.0, glass)
             if cover > 0:
-                shine = 20 + 70 * smooth(0.55, 0.0, glass) * smooth(0.2, 1.0, height)
-                grey = grey * (1 - cover) + shine * cover
-                alpha = max(alpha, cover * 255)
+                crown = 0.5 * smooth(0.6, 0.0, glass)
+                grey = grey * (1 - cover) + 255 * cover
+                alpha = alpha * (1 - cover) + crown * 255 * cover
 
-            # headlight in the nose
+            # a dark lens in the nose
             lamp = 1 - smooth(0.05, 0.085, math.hypot(x - 2.30, (z - 0.66) * 1.2))
             if lamp > 0:
-                grey = grey * (1 - lamp) + 255 * lamp
-                alpha = max(alpha, lamp * 255)
+                grey = grey * (1 - lamp) + 48 * lamp
+                alpha = alpha * (1 - lamp) + 255 * lamp
 
             value = int(round(grey))
             pixels[px, py] = (value, value, value, int(round(alpha)))

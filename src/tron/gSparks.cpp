@@ -28,6 +28,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "gSparks.h"
 #include "eTimer.h"
 #include "rRender.h"
+#include "rScreen.h"
 #include "tRandom.h"
 
 bool white_sparks=false;
@@ -108,7 +109,11 @@ void gSpark::Kill(){createTime=lastTime-100000;}
 
 #ifndef DEDICATED
 void gSpark::Render(const eCamera *cam){
-    glBlendFunc(GL_SRC_ALPHA,GL_ONE);
+    // light added to the clean arena's pale floor would not show; there,
+    // sparks are drawn as embers over it
+    bool const embers = sr_cleanArena;
+    if ( !embers )
+        glBlendFunc(GL_SRC_ALPHA,GL_ONE);
 
     //glMatrixMode(GL_MODELVIEW);
     //glPushMatrix();
@@ -147,6 +152,12 @@ void gSpark::Render(const eCamera *cam){
             REAL b=heat[i];
             if (b>1) b=1;
             if (b<0) b=0;
+
+            if ( embers )
+            {
+                g *= .72f;
+                b *= .25f;
+            }
 
             glColor4f(r,g,b,a);
         }

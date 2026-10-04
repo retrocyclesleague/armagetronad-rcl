@@ -237,9 +237,12 @@ public:
         gWallRenderMode_Quads = 2,
         gWallRenderMode_Glow = 4,
         gWallRenderMode_Shadow = 8,     //!< clean arena: shadow on the floor
-        gWallRenderMode_Solid = 16,     //!< clean arena: thick opaque wall
-        //! passes drawn over the core; they never change list membership
-        gWallRenderMode_Overlay = gWallRenderMode_Glow | gWallRenderMode_Shadow | gWallRenderMode_Solid
+        gWallRenderMode_Solid = 16,     //!< clean arena: solid wall
+        gWallRenderMode_Sheen = 32,     //!< clean arena: the wall, mirrored in the floor
+        //! the clean arena's passes; they take the place of the core
+        gWallRenderMode_Clean = gWallRenderMode_Shadow | gWallRenderMode_Solid | gWallRenderMode_Sheen,
+        //! passes drawn after the core; they never change list membership
+        gWallRenderMode_Overlay = gWallRenderMode_Glow | gWallRenderMode_Clean
     };
 
     static bool TrailGlowEnabled();

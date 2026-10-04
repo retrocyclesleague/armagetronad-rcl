@@ -355,39 +355,102 @@ void paint_sr_lowerSky(eGrid *grid, int viewer,bool sr_upperSky, eCoord const & 
         glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
 }
 
-void se_CleanArenaLight( eCoord & position, REAL & height, REAL & size )
+// ---- the clean arena: an open, glossy plane under a low sun ----
+
+void se_CleanArenaSun( eCoord & toSun, REAL & reach )
 {
-    eRectangle const & bounds = eWallRim::GetBounds();
-    eCoord const low = bounds.GetLow();
-    eCoord const high = bounds.GetHigh();
-    size = high.x - low.x > high.y - low.y ? high.x - low.x : high.y - low.y;
-    if ( !( size > 1 ) || size > 1E+6f )
-    {
-        // no arena yet
-        size = 500;
-        position = eCoord( 0, 0 );
-    }
-    else
-    {
-        // off centre, so shadows have a prevailing direction
-        position = eCoord( low.x + ( high.x - low.x ) * .30f,
-                           low.y + ( high.y - low.y ) * .68f );
-    }
-    height = size * .28f;
+    // The bearing is fixed in the arena and lies off the grid axes, so walls
+    // in either direction throw a shadow with some width.
+    toSun = eCoord( -.8f, .6f );
+    reach = 3.2f;
 }
 
-// The open plane: rings around the viewer that fade into the sky colour with
-// distance, so the floor has no visible edge and no horizon line.
-static void se_CleanArenaFloor( eCoord const & centre, REAL alpha )
+namespace
 {
-    eCoord light;
-    REAL height, size;
-    se_CleanArenaLight( light, height, size );
+// everything here is drawn around the eye and far beyond the arena, without
+// depth, so it stays put while the camera moves
+const REAL se_cleanFar = 20000;
 
-    static const int segments = 48;
-    static const int rings = 9;
-    static const REAL radius[rings] = { 0, .25f, .5f, 1, 2, 4, 8, 16, 60 };
-    static const REAL haze[rings]   = { 0, 0, 0, .04f, .16f, .40f, .70f, .92f, 1 };
+// A glow around a direction: rings of the given angular radius, in degrees,
+// each blended towards one colour by its own share.
+void se_CleanArenaGlow( eCoord const & eye, REAL eyeHeight, REAL dx, REAL dy, REAL dz,
+                        REAL const * radius, REAL const * share, int rings,
+                        REAL r, REAL g, REAL b )
+{
+    // two directions across the one the glow lies in
+    REAL const level = sqrt( dx * dx + dy * dy );
+    if ( !( level > 1E-4f ) )
+        return;
+    REAL const ux = dy / level, uy = -dx / level;
+    REAL const vx = uy * dz, vy = -ux * dz, vz = ux * dy - uy * dx;
+
+    static const int segments = 40;
+    for ( int ring = 0; ring < rings - 1; ++ring )
+    {
+        BeginQuadStrip();
+        for ( int i = 0; i <= segments; ++i )
+        {
+            REAL const angle = i * ( 2 * M_PI / segments );
+            REAL const c = cos( angle ), s = sin( angle );
+            for ( int edge = 0; edge < 2; ++edge )
+            {
+                REAL const rho = radius[ring + edge] * ( M_PI / 180 );
+                REAL const along = cos( rho ) * se_cleanFar, across = sin( rho ) * se_cleanFar;
+                glColor4f( r, g, b, share[ring + edge] );
+                glVertex3f( eye.x + dx * along + ( ux * c + vx * s ) * across,
+                            eye.y + dy * along + ( uy * c + vy * s ) * across,
+                            eyeHeight + dz * along + vz * s * across );
+            }
+        }
+        RenderEnd();
+    }
+}
+
+// What the floor mirrors where nothing stands on it: its own plain colour,
+// over the whole view.
+void se_CleanArenaBackdrop()
+{
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+    glDisable(GL_TEXTURE_2D);
+
+    ProjMatrix();
+    glPushMatrix();
+    glLoadIdentity();
+    glColor4f( sr_cleanFloorColor[0], sr_cleanFloorColor[1], sr_cleanFloorColor[2], 1 );
+    BeginQuads();
+    glVertex2f( -1, -1 );
+    glVertex2f(  1, -1 );
+    glVertex2f(  1,  1 );
+    glVertex2f( -1,  1 );
+    RenderEnd();
+    glPopMatrix();
+}
+
+// where the sun stands, as a direction
+void se_CleanArenaSunDirection( REAL & dx, REAL & dy, REAL & dz )
+{
+    eCoord toSun;
+    REAL reach;
+    se_CleanArenaSun( toSun, reach );
+    REAL const norm = 1 / sqrt( reach * reach + 1 );
+    dx = toSun.x * reach * norm;
+    dy = toSun.y * reach * norm;
+    dz = norm;
+}
+
+// The sky: haze over the horizon that clears upwards, and the sun in it.
+void se_CleanArenaSky( eCoord const & eye, REAL eyeHeight )
+{
+    // it starts just under the horizon, where the far floor covers it; what
+    // the floor mirrors further down must stay as it is
+    static const int segments = 24;
+    static const int rings = 11;
+    static const REAL elevation[rings] = { -.5f, 0, 1, 2.5f, 6.5f, 8.5f, 10.5f, 12.5f, 20, 40, 90 };
+    static const unsigned char colour[rings][3] = {
+        { 212, 211, 213 }, { 212, 211, 213 }, { 215, 212, 214 }, { 219, 214, 215 },
+        { 219, 214, 215 }, { 211, 213, 215 }, { 203, 212, 215 }, { 193, 210, 214 },
+        { 184, 205, 213 }, { 174, 198, 211 }, { 166, 193, 210 } };
 
     glDisable(GL_TEXTURE_2D);
     for ( int ring = 0; ring < rings - 1; ++ring )
@@ -399,30 +462,52 @@ static void se_CleanArenaFloor( eCoord const & centre, REAL alpha )
             REAL const c = cos( angle ), s = sin( angle );
             for ( int edge = 0; edge < 2; ++edge )
             {
-                REAL const h = haze[ring + edge];
-                glColor4f( sr_cleanFloorColor[0] + ( sr_cleanSkyColor[0] - sr_cleanFloorColor[0] ) * h,
-                           sr_cleanFloorColor[1] + ( sr_cleanSkyColor[1] - sr_cleanFloorColor[1] ) * h,
-                           sr_cleanFloorColor[2] + ( sr_cleanSkyColor[2] - sr_cleanFloorColor[2] ) * h,
-                           alpha );
-                glVertex2f( centre.x + c * radius[ring + edge] * size,
-                            centre.y + s * radius[ring + edge] * size );
+                unsigned char const * rgb = colour[ring + edge];
+                REAL const up = elevation[ring + edge] * ( M_PI / 180 );
+                REAL const level = cos( up ) * se_cleanFar;
+                glColor4f( rgb[0] / 255.f, rgb[1] / 255.f, rgb[2] / 255.f, 1 );
+                glVertex3f( eye.x + c * level, eye.y + s * level, eyeHeight + sin( up ) * se_cleanFar );
             }
         }
         RenderEnd();
     }
+
+    if ( !sr_alphaBlend )
+        return;
+
+    // the sun: a wide warm halo in the haze and a pale disc
+    REAL dx, dy, dz;
+    se_CleanArenaSunDirection( dx, dy, dz );
+
+    static const REAL haloRadius[] = { 0, 1.6f, 2.4f, 4, 7, 10, 14, 18, 24, 32 };
+    static const REAL haloShare[]  = { .62f, .62f, .58f, .52f, .45f, .40f, .28f, .12f, .03f, 0 };
+    se_CleanArenaGlow( eye, eyeHeight, dx, dy, dz, haloRadius, haloShare, 10,
+                       1, .855f, .729f );
+
+    static const REAL discRadius[] = { 0, 1.4f, 2.0f };
+    static const REAL discShare[]  = { .95f, .95f, 0 };
+    se_CleanArenaGlow( eye, eyeHeight, dx, dy, dz, discRadius, discShare, 3,
+                       1, .969f, .910f );
 }
 
-// brightens the floor under the light and lets it fall off with distance
-static void se_CleanArenaLightPool( REAL alpha )
+// The floor: rings around the viewer. What a glossy floor shows depends on
+// the angle it is seen at, so the rings are spaced in camera heights: close
+// by it mirrors what stands on it, towards the horizon it takes on the haze.
+void se_CleanArenaFloor( eCoord const & centre, REAL eyeHeight, bool mirror )
 {
-    eCoord light;
-    REAL height, size;
-    se_CleanArenaLight( light, height, size );
-
+    // The last rings lie within two degrees of the horizon. They take the
+    // floor up to the colour the sky starts with, so no line shows there.
     static const int segments = 48;
-    static const int rings = 6;
-    static const REAL radius[rings] = { 0, .12f, .30f, .55f, .90f, 1.6f };
-    static const REAL glow[rings]   = { .30f, .25f, .15f, .07f, .02f, 0 };
+    static const int rings = 14;
+    static const REAL radius[rings] = { 0, 1, 1.5f, 2, 3, 6, 7.6f, 10.6f, 17, 29, 57, 115, 290, 3000 };
+    static const unsigned char colour[rings][3] = {
+        { 177, 192, 205 }, { 177, 192, 205 }, { 177, 193, 205 }, { 178, 195, 205 },
+        { 178, 198, 204 }, { 179, 200, 204 }, { 184, 201, 206 }, { 187, 202, 207 },
+        { 192, 203, 208 }, { 197, 205, 209 }, { 203, 207, 211 }, { 207, 209, 212 },
+        { 210, 210, 213 }, { 212, 211, 213 } };
+    static const REAL mirrored[rings] = { .30f, .30f, .30f, .30f, .30f, .24f, .20f, .15f, .08f, 0, 0, 0, 0, 0 };
+
+    REAL const unit = eyeHeight > 4 ? eyeHeight : 4;
 
     glDisable(GL_TEXTURE_2D);
     for ( int ring = 0; ring < rings - 1; ++ring )
@@ -432,13 +517,42 @@ static void se_CleanArenaLightPool( REAL alpha )
         {
             REAL const angle = i * ( 2 * M_PI / segments );
             REAL const c = cos( angle ), s = sin( angle );
-            glColor4f( 1, 1, 1, glow[ring] * alpha );
-            glVertex2f( light.x + c * radius[ring] * size, light.y + s * radius[ring] * size );
-            glColor4f( 1, 1, 1, glow[ring + 1] * alpha );
-            glVertex2f( light.x + c * radius[ring + 1] * size, light.y + s * radius[ring + 1] * size );
+            for ( int edge = 0; edge < 2; ++edge )
+            {
+                int const at = ring + edge;
+                REAL const alpha = mirror ? 1 - mirrored[at] : 1;
+
+                // What lies under the floor shows through by the share it
+                // mirrors; where nothing stands, that is the plain floor
+                // colour the frame was cleared to. Allow for it, so the
+                // floor ends up the colour it is meant to have.
+                REAL rgb[3];
+                for ( int k = 0; k < 3; ++k )
+                {
+                    rgb[k] = sr_cleanFloorColor[k] + ( colour[at][k] / 255.f - sr_cleanFloorColor[k] ) / alpha;
+                    if ( rgb[k] < 0 ) rgb[k] = 0;
+                    if ( rgb[k] > 1 ) rgb[k] = 1;
+                }
+                glColor4f( rgb[0], rgb[1], rgb[2], alpha );
+                glVertex2f( centre.x + c * radius[at] * unit, centre.y + s * radius[at] * unit );
+            }
         }
         RenderEnd();
     }
+}
+
+// The sun's glint: where the floor mirrors the sun, it shows as a pale warm
+// light on the floor that moves with the viewer.
+void se_CleanArenaGlint( eCoord const & eye, REAL eyeHeight )
+{
+    REAL dx, dy, dz;
+    se_CleanArenaSunDirection( dx, dy, dz );
+
+    static const REAL radius[] = { 0, 1.7f, 2.1f, 4, 6, 8, 10, 12, 14, 20 };
+    static const REAL share[]  = { .50f, .50f, .39f, .35f, .27f, .19f, .135f, .07f, .04f, 0 };
+    se_CleanArenaGlow( eye, eyeHeight, dx, dy, -dz, radius, share, 10,
+                       1, .914f, .776f );
+}
 }
 
 void eGrid::display_simple( eCamera* cam, int viewer,bool floor,
@@ -478,6 +592,10 @@ void eGrid::display_simple( eCamera* cam, int viewer,bool floor,
 
     eCoord camPos = cam->CameraGlancePos();
     // eWallRim::Bound( camPos, 10 );
+
+    // the mirrored pass leaves the cleared floor colour as its backdrop
+    if ( sr_cleanArena && cam->RenderingMain() )
+        se_CleanArenaSky( camPos, cam->CameraZ() );
 
     if (!sr_cleanArena && (sr_upperSky || se_BlackSky())){
         if (se_BlackSky()){
@@ -522,10 +640,10 @@ void eGrid::display_simple( eCamera* cam, int viewer,bool floor,
 
         if ( sr_cleanArena && floorDetail != rFLOOR_OFF )
         {
-            // one flat, pale floor to the horizon; no grid, no texture
-            se_CleanArenaFloor( camPos, flooralpha );
+            // one pale, glossy floor to the horizon; no grid, no texture
+            se_CleanArenaFloor( camPos, cam->CameraZ(), sr_alphaBlend && flooralpha < 1 );
             if ( sr_alphaBlend )
-                se_CleanArenaLightPool( flooralpha );
+                se_CleanArenaGlint( camPos, cam->CameraZ() );
             floorDetail = rFLOOR_OFF;
         }
 
@@ -778,11 +896,15 @@ void eGrid::Render( eCamera* cam, int viewer, REAL& zNear ){
         zNear = z;
     }
 
-    // the clean arena's soft reflections are part of that look, whatever the
-    // floor mirror setting says for the classic arena
-    int const mirror = ( sr_cleanArena && sr_floorMirror < rMIRROR_WALLS ) ? rMIRROR_WALLS : sr_floorMirror;
+    // The clean arena's glossy floor is part of that look, whatever the floor
+    // mirror setting says for the classic arena. Trails put their own sheen
+    // on it; the mirrored pass is there for everything else that stands on it.
+    int const mirror = sr_cleanArena ? ( sr_alphaBlend ? rMIRROR_WALLS : rMIRROR_OFF ) : sr_floorMirror;
 
     if (mirror){
+        if ( sr_cleanArena )
+            se_CleanArenaBackdrop();
+
         ModelMatrix();
         glScalef(1,1,-1);
 
@@ -819,8 +941,8 @@ void eGrid::Render( eCamera* cam, int viewer, REAL& zNear ){
         cam->SetRenderingMain(true);
         display_simple(cam, viewer,true,
                        sr_upperSky,sr_lowerSky,
-                       // reflections read as a soft sheen on the clean arena's pale floor
-                       1-( ( sr_cleanArena && sr_floorMirror_strength < .22f ) ? .22f : sr_floorMirror_strength ),
+                       // the clean arena's floor knows how much it mirrors at which distance
+                       sr_cleanArena ? REAL(.7f) : 1-sr_floorMirror_strength,
                        true,true,zNear);
 
     }

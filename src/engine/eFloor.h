@@ -54,9 +54,9 @@ void se_glFloorTexture_b();
 REAL se_GridSize();
 bool se_BlackSky();
 
-//! the clean arena's point light: position over the floor, its height, and
-//! the arena's extent
-void se_CleanArenaLight( eCoord & position, REAL & height, REAL & size );
+//! the clean arena's sun: the direction over the floor towards it, and how
+//! far a shadow reaches for every unit of height that throws it
+void se_CleanArenaSun( eCoord & toSun, REAL & reach );
 void se_FloorColor(REAL& r, REAL& g, REAL &b);
 
 void se_MakeColorValid(REAL& r, REAL & g, REAL& b, REAL f);

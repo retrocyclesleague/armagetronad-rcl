@@ -102,6 +102,27 @@ static void sg_MigrateRclHdFloor(std::istream &)
 static tConfItemFunc sg_migrateRclHdFloorConf(
     "RCL_APPLY_FLOOR_HD_MIGRATION", &sg_MigrateRclHdFloor);
 
+// The pale open arena is RCL's look and the default. For a day, builds had it
+// off by default, and a profile opened with one of them has that saved as if
+// it had been chosen. Switch it on once per profile, by the same route as the
+// floor above; the persisted marker keeps whatever is chosen in Display &
+// Graphics afterwards.
+static bool sg_rclCleanArenaApplied = false;
+static tConfItem<bool> sg_rclCleanArenaAppliedConf(
+    "RCL_CLEAN_ARENA_APPLIED", sg_rclCleanArenaApplied);
+
+static void sg_ApplyRclCleanArena(std::istream &)
+{
+    if (sg_rclCleanArenaApplied)
+        return;
+
+    sr_cleanArena = true;
+    sg_rclCleanArenaApplied = true;
+}
+
+static tConfItemFunc sg_applyRclCleanArenaConf(
+    "RCL_APPLY_CLEAN_ARENA", &sg_ApplyRclCleanArena);
+
 /*
 static tString lala_floor_a("Anonymous/original/textures/floor_a.png");
 static nSettingItem<tString> lalala_floor_a("TEXTURE_FLOOR_A", lala_floor_a);

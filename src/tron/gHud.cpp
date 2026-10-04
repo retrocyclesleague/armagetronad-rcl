@@ -678,25 +678,15 @@ static void display_hud_subby_all()
 {
     sr_ResetRenderState(true);
 
-    // The gauges and scores use light text; over the clean arena's pale
-    // floor they sit on a dark strip, like the menus' panel.
-    if ( sr_cleanArena && subby_ShowHUD && sr_alphaBlend &&
-         se_mainGameTimer && se_mainGameTimer->IsSynced() )
+    // The gauges cache their text. Over the clean arena it is written in
+    // ink, under a menu it is not; the caches have to follow.
     {
-        RenderEnd();
-        glDisable(GL_TEXTURE_2D);
-        BeginQuads();
-        Color( .039f, .039f, .039f, 0 );
-        Vertex( -1, -.66f );
-        Vertex( 1, -.66f );
-        Color( .039f, .039f, .039f, .62f );
-        Vertex( 1, -.76f );
-        Vertex( -1, -.76f );
-        Vertex( -1, -.76f );
-        Vertex( 1, -.76f );
-        Vertex( 1, -1 );
-        Vertex( -1, -1 );
-        RenderEnd();
+        static bool lastInk = sr_cleanInk;
+        if ( lastInk != sr_cleanInk )
+        {
+            lastInk = sr_cleanInk;
+            rDisplayList::ClearAll();
+        }
     }
 
     display_fps_subby();
