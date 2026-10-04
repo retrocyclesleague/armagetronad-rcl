@@ -29,6 +29,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define ArmageTron_floor_H
 
 #include "defs.h"
+#include "eCoord.h"
 
 class eFloor{
 public:
@@ -52,6 +53,10 @@ void se_glFloorTexture_b();
 
 REAL se_GridSize();
 bool se_BlackSky();
+
+//! the clean arena's point light: position over the floor, its height, and
+//! the arena's extent
+void se_CleanArenaLight( eCoord & position, REAL & height, REAL & size );
 void se_FloorColor(REAL& r, REAL& g, REAL &b);
 
 void se_MakeColorValid(REAL& r, REAL & g, REAL& b, REAL f);

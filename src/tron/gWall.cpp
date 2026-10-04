@@ -45,6 +45,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "tMath.h"
 #include "ePlayer.h"
 #include "eTess2.h"
+#include "eFloor.h"
 #include "nConfig.h"
 
 #include <fstream>
@@ -232,6 +233,30 @@ static REAL sg_arenaWallShadowDist = 100.0;
 static tSettingItem<REAL> sg_arenaWallShadowDistConf("ARENA_WALL_SHADOW_DIST",sg_arenaWallShadowDist);
 
 void gWallRim::RenderReal(const eCamera *cam){
+    if ( sr_cleanArena )
+    {
+        // The arena is an open plane. The boundary still kills, so mark it
+        // with a low kerb instead of a wall.
+        if ( Edge() )
+        {
+            const eCoord & a = EndPoint(0);
+            const eCoord & b = EndPoint(1);
+            static const REAL kerb = .35f;
+
+            RenderEnd();
+            glDisable(GL_TEXTURE_2D);
+            BeginQuads();
+            glColor4f( sr_cleanFloorColor[0] * .78f, sr_cleanFloorColor[1] * .78f, sr_cleanFloorColor[2] * .78f, 1 );
+            glVertex3f( a.x, a.y, 0 );
+            glVertex3f( b.x, b.y, 0 );
+            glColor4f( sr_cleanFloorColor[0] * .90f, sr_cleanFloorColor[1] * .90f, sr_cleanFloorColor[2] * .90f, 1 );
+            glVertex3f( b.x, b.y, kerb );
+            glVertex3f( a.x, a.y, kerb );
+            RenderEnd();
+        }
+        return;
+    }
+
     if ( Edge() ){
         const eCoord *p1=&EndPoint(0);
         const eCoord *p2=&EndPoint(1);
@@ -888,6 +913,103 @@ bool sg_TrailGlowSide( const eCoord &p1, const eCoord &p2, eCoord &side )
     return true;
 }
 
+// ---- clean arena: thick opaque trails and their floor shadows ----
+
+// Half the drawn thickness. Collision stays on the centre plane, so keep this
+// well below the distances players grind at.
+static const REAL sg_cleanWallHalfWidth = .05f;
+static const REAL sg_cleanShadowAlpha = .34f;
+static const REAL sg_cleanShadowRise = .015f;
+
+// where the top of a wall at p, of the given height, throws its shadow
+eCoord sg_CleanShadowPoint( const eCoord &p, REAL height )
+{
+    eCoord light;
+    REAL lightHeight, size;
+    se_CleanArenaLight( light, lightHeight, size );
+    REAL const drop = lightHeight - height;
+    if ( !( drop > .1f ) )
+        return p;
+
+    // A true point light gives no shadow under the lamp and very long ones
+    // at the edges; keep the length readable everywhere.
+    eCoord offset = ( p - light ) * ( height / drop );
+    REAL const length = sqrt( offset.NormSquared() );
+    REAL const shortest = height * .7f, longest = height * 1.7f;
+    if ( length > longest )
+        offset = offset * ( longest / length );
+    else if ( length < shortest && length > 1E-4f )
+        offset = offset * ( shortest / length );
+    return p + offset;
+}
+
+void sg_CleanShadow( const eCoord &p1, const eCoord &p2, REAL h1, REAL h2, REAL alpha )
+{
+    eCoord const s1 = sg_CleanShadowPoint( p1, h1 );
+    eCoord const s2 = sg_CleanShadowPoint( p2, h2 );
+    REAL const a = sg_cleanShadowAlpha * alpha;
+
+    // darkest at the foot of the wall, gone at the far edge: a soft shadow
+    glColor4f( sr_cleanShadowColor[0], sr_cleanShadowColor[1], sr_cleanShadowColor[2], a );
+    glVertex3f( p1.x, p1.y, sg_cleanShadowRise );
+    glVertex3f( p2.x, p2.y, sg_cleanShadowRise );
+    glColor4f( sr_cleanShadowColor[0], sr_cleanShadowColor[1], sr_cleanShadowColor[2], 0 );
+    glVertex3f( s2.x, s2.y, sg_cleanShadowRise );
+    glVertex3f( s1.x, s1.y, sg_cleanShadowRise );
+}
+
+// the two faces and the top of a straight wall piece, as a box
+void sg_CleanSolid( const eCoord &p1, const eCoord &p2, REAL height,
+                    REAL r, REAL g, REAL b, REAL alpha )
+{
+    eCoord const delta = p2 - p1;
+    REAL const length = sqrt( delta.NormSquared() );
+    if ( !( length > 0 ) || !( height > 0 ) )
+        return;
+    eCoord const along = delta * ( sg_cleanWallHalfWidth / length );
+    eCoord const side( -along.y, along.x );
+
+    // run past both ends by the half width, so corners close up
+    eCoord const a = p1 - along;
+    eCoord const c = p2 + along;
+
+    // the face turned towards the light is the brighter one
+    eCoord light;
+    REAL lightHeight, size;
+    se_CleanArenaLight( light, lightHeight, size );
+    bool const lit = eCoord::F( side, light - ( p1 + p2 ) * .5f ) > 0;
+    REAL const bright = .96f, dim = .74f;
+
+    for ( int sign = -1; sign <= 1; sign += 2 )
+    {
+        eCoord const o = side * REAL( sign );
+        REAL const shade = ( ( sign > 0 ) == lit ) ? bright : dim;
+        glColor4f( r * shade, g * shade, b * shade, alpha );
+        glVertex3f( a.x + o.x, a.y + o.y, 0 );
+        glVertex3f( a.x + o.x, a.y + o.y, height );
+        glVertex3f( c.x + o.x, c.y + o.y, height );
+        glVertex3f( c.x + o.x, c.y + o.y, 0 );
+    }
+
+    // end caps
+    glColor4f( r * .85f, g * .85f, b * .85f, alpha );
+    glVertex3f( a.x - side.x, a.y - side.y, 0 );
+    glVertex3f( a.x - side.x, a.y - side.y, height );
+    glVertex3f( a.x + side.x, a.y + side.y, height );
+    glVertex3f( a.x + side.x, a.y + side.y, 0 );
+    glVertex3f( c.x - side.x, c.y - side.y, 0 );
+    glVertex3f( c.x - side.x, c.y - side.y, height );
+    glVertex3f( c.x + side.x, c.y + side.y, height );
+    glVertex3f( c.x + side.x, c.y + side.y, 0 );
+
+    // top, lifted towards white
+    glColor4f( r + ( 1 - r ) * .30f, g + ( 1 - g ) * .30f, b + ( 1 - b ) * .30f, alpha );
+    glVertex3f( a.x - side.x, a.y - side.y, height );
+    glVertex3f( a.x + side.x, a.y + side.y, height );
+    glVertex3f( c.x + side.x, c.y + side.y, height );
+    glVertex3f( c.x - side.x, c.y - side.y, height );
+}
+
 void sg_TrailGlowPlane( const eCoord &p1, const eCoord &p2,
                         const eCoord &offset, REAL bottom, REAL top,
                         REAL r, REAL g, REAL b, REAL alpha )
@@ -1056,7 +1178,7 @@ void gNetPlayerWall::RenderList(bool list, gWallRenderMode renderMode ){
                 // Cache invalidation belongs to the original core passes. The
                 // cosmetic glow is rendered after the core and must not reset
                 // display-list inhibition every frame for the live tip.
-                if ( !( renderMode & gWallRenderMode_Glow ) )
+                if ( !( renderMode & gWallRenderMode_Overlay ) )
                     ClearDisplayList();
 
                 if (ta+gBEG_LEN>=time){
@@ -1135,7 +1257,7 @@ void gNetPlayerWall::RenderNormal(const eCoord &p1,const eCoord &p2,REAL ta,REAL
             // The original line/quad pass owns list mutation. Glow traversal
             // is deliberately read-only so cached/live list membership cannot
             // change between the core and cosmetic passes.
-            if ( !( mode & gWallRenderMode_Glow ) )
+            if ( !( mode & gWallRenderMode_Overlay ) )
                 Remove();
             return;
         }
@@ -1155,6 +1277,19 @@ void gNetPlayerWall::RenderNormal(const eCoord &p1,const eCoord &p2,REAL ta,REAL
         }
     }
     REAL h=1;
+
+    if ( mode & ( gWallRenderMode_Shadow | gWallRenderMode_Solid ) )
+    {
+        if ( hfrac > 0 )
+        {
+            BeginQuads();
+            if ( mode & gWallRenderMode_Shadow )
+                sg_CleanShadow( p1, p2, h * hfrac, h * hfrac, a );
+            else
+                sg_CleanSolid( p1, p2, h * hfrac, r, g, b, a );
+        }
+        return;
+    }
 
     if ( mode & gWallRenderMode_Glow )
     {
@@ -1302,6 +1437,34 @@ void gNetPlayerWall::RenderBegin(const eCoord &p1,const eCoord &pp2,REAL ta,REAL
         con << "Bad wall data!\n";
         st_Breakpoint();
 #endif
+        return;
+    }
+
+    if ( mode & ( gWallRenderMode_Shadow | gWallRenderMode_Solid ) )
+    {
+        if ( hfrac > 0 )
+        {
+            // The live tip rises out of the floor behind the cycle; follow
+            // the same five-step curve as the core in short straight pieces.
+            static const int pieces = 5;
+            eCoord last = p1;
+            REAL lastHeight = h * hfrac * hfunc( ra );
+            BeginQuads();
+            for ( int i = 1; i <= pieces; ++i )
+            {
+                REAL frag = i / REAL( pieces );
+                REAL rat = ra + frag * ( re - ra );
+                eCoord next( ( p1.x + frag * ( p2.x - p1.x ) ) * ( 1 - xfunc( rat ) ) + ppos.x * xfunc( rat ),
+                             ( p1.y + frag * ( p2.y - p1.y ) ) * ( 1 - xfunc( rat ) ) + ppos.y * xfunc( rat ) );
+                REAL height = h * hfrac * hfunc( rat );
+                if ( mode & gWallRenderMode_Shadow )
+                    sg_CleanShadow( last, next, lastHeight, height, a );
+                else
+                    sg_CleanSolid( last, next, ( lastHeight + height ) * .5f, r, g, b, a );
+                last = next;
+                lastHeight = height;
+            }
+        }
         return;
     }
 

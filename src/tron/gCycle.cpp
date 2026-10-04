@@ -4740,7 +4740,32 @@ void gCycleWallsDisplayListManager::RenderAllWithDisplayList( eCamera const * ca
 bool sg_HideCyclesWalls = false;
 static tConfItem<bool> sg_HideCyclesWallsConf("HIDE_CYCLES_WALLS", sg_HideCyclesWalls);
 
+static void sg_RenderWallOverlay( eCamera const * camera, gNetPlayerWall * list, bool cached,
+                                  gNetPlayerWall::gWallRenderMode mode );
+
+// clean arena: floor shadows without depth writes, then the solid walls
+static void sg_RenderCleanWalls( eCamera const * camera, gNetPlayerWall * list, bool cached )
+{
+    if ( !list )
+        return;
+    if ( sr_alphaBlend )
+    {
+        glDepthMask( GL_FALSE );
+        sg_RenderWallOverlay( camera, list, cached, gNetPlayerWall::gWallRenderMode_Shadow );
+        RenderEnd();
+    }
+    glDepthMask( GL_TRUE );
+    sg_RenderWallOverlay( camera, list, cached, gNetPlayerWall::gWallRenderMode_Solid );
+    RenderEnd();
+}
+
 static void sg_RenderTrailGlowList( eCamera const * camera, gNetPlayerWall * list, bool cached )
+{
+    sg_RenderWallOverlay( camera, list, cached, gNetPlayerWall::gWallRenderMode_Glow );
+}
+
+static void sg_RenderWallOverlay( eCamera const * camera, gNetPlayerWall * list, bool cached,
+                                  gNetPlayerWall::gWallRenderMode mode )
 {
     gNetPlayerWall * run = list;
     while ( run )
@@ -4755,7 +4780,7 @@ static void sg_RenderTrailGlowList( eCamera const * camera, gNetPlayerWall * lis
             }
         }
 
-        run->RenderList( cached, gNetPlayerWall::gWallRenderMode_Glow );
+        run->RenderList( cached, mode );
         run = next;
     }
 }
@@ -4821,7 +4846,38 @@ void gCycleWallsDisplayListManager::RenderAll( eCamera const * camera, gCycle * 
     // then, render the rest
     RenderAll( camera, cycle, wallList_ );
 
-    if ( gNetPlayerWall::TrailGlowEnabled() )
+    if ( sr_cleanArena )
+    {
+        // Clean arena: shadows on the floor first, then the thick opaque
+        // walls over the thin core. Finished walls are cached like the glow.
+        RenderEnd();
+        glPushAttrib( GL_COLOR_BUFFER_BIT | GL_CURRENT_BIT | GL_DEPTH_BUFFER_BIT |
+                      GL_ENABLE_BIT | GL_TEXTURE_BIT );
+        glEnable( GL_DEPTH_TEST );
+        glDepthFunc( GL_LEQUAL );
+        glEnable( GL_BLEND );
+        glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+        glDisable( GL_ALPHA_TEST );
+        glDisable( GL_TEXTURE_2D );
+        glDisable( GL_LIGHTING );
+        glDisable( GL_CULL_FACE );
+
+        if ( sg_HideCyclesWalls )
+        {
+            glowDisplayList_.Clear( 0 );
+            sg_RenderCleanWalls( camera, wallsWithDisplayList_, false );
+        }
+        else if ( wallsWithDisplayList_ && !glowDisplayList_.Call() )
+        {
+            rDisplayListFiller filler( glowDisplayList_ );
+            sg_RenderCleanWalls( camera, wallsWithDisplayList_, true );
+        }
+        sg_RenderCleanWalls( camera, wallList_, false );
+
+        RenderEnd();
+        glPopAttrib();
+    }
+    else if ( gNetPlayerWall::TrailGlowEnabled() )
     {
         // The shell is an additive overlay on the already-rendered core. Keep
         // depth testing so walls remain occluded normally, but never let the
@@ -4938,8 +4994,9 @@ void gCycle::Render(const eCamera *cam){
         GLfloat color[4]={1,1,1,1};
         static GLfloat lposa[4] = { 320, 240, 200,0};
         static GLfloat lposb[4] = { -240, -100, 200,0};
-        static GLfloat lighta[4] = { 1, .7, .7, 1 };
-        static GLfloat lightb[4] = { .7, .7, 1, 1 };
+        // neutral key light and a cooler fill
+        static GLfloat lighta[4] = { 1, 1, 1, 1 };
+        static GLfloat lightb[4] = { .55, .6, .68, 1 };
 
         glMaterialfv(GL_FRONT_AND_BACK,GL_SPECULAR,color);
         glMaterialfv(GL_FRONT_AND_BACK,GL_DIFFUSE,color);

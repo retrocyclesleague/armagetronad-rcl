@@ -355,6 +355,92 @@ void paint_sr_lowerSky(eGrid *grid, int viewer,bool sr_upperSky, eCoord const & 
         glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
 }
 
+void se_CleanArenaLight( eCoord & position, REAL & height, REAL & size )
+{
+    eRectangle const & bounds = eWallRim::GetBounds();
+    eCoord const low = bounds.GetLow();
+    eCoord const high = bounds.GetHigh();
+    size = high.x - low.x > high.y - low.y ? high.x - low.x : high.y - low.y;
+    if ( !( size > 1 ) || size > 1E+6f )
+    {
+        // no arena yet
+        size = 500;
+        position = eCoord( 0, 0 );
+    }
+    else
+    {
+        // off centre, so shadows have a prevailing direction
+        position = eCoord( low.x + ( high.x - low.x ) * .30f,
+                           low.y + ( high.y - low.y ) * .68f );
+    }
+    height = size * .28f;
+}
+
+// The open plane: rings around the viewer that fade into the sky colour with
+// distance, so the floor has no visible edge and no horizon line.
+static void se_CleanArenaFloor( eCoord const & centre, REAL alpha )
+{
+    eCoord light;
+    REAL height, size;
+    se_CleanArenaLight( light, height, size );
+
+    static const int segments = 48;
+    static const int rings = 9;
+    static const REAL radius[rings] = { 0, .25f, .5f, 1, 2, 4, 8, 16, 60 };
+    static const REAL haze[rings]   = { 0, 0, 0, .04f, .16f, .40f, .70f, .92f, 1 };
+
+    glDisable(GL_TEXTURE_2D);
+    for ( int ring = 0; ring < rings - 1; ++ring )
+    {
+        BeginQuadStrip();
+        for ( int i = 0; i <= segments; ++i )
+        {
+            REAL const angle = i * ( 2 * M_PI / segments );
+            REAL const c = cos( angle ), s = sin( angle );
+            for ( int edge = 0; edge < 2; ++edge )
+            {
+                REAL const h = haze[ring + edge];
+                glColor4f( sr_cleanFloorColor[0] + ( sr_cleanSkyColor[0] - sr_cleanFloorColor[0] ) * h,
+                           sr_cleanFloorColor[1] + ( sr_cleanSkyColor[1] - sr_cleanFloorColor[1] ) * h,
+                           sr_cleanFloorColor[2] + ( sr_cleanSkyColor[2] - sr_cleanFloorColor[2] ) * h,
+                           alpha );
+                glVertex2f( centre.x + c * radius[ring + edge] * size,
+                            centre.y + s * radius[ring + edge] * size );
+            }
+        }
+        RenderEnd();
+    }
+}
+
+// brightens the floor under the light and lets it fall off with distance
+static void se_CleanArenaLightPool( REAL alpha )
+{
+    eCoord light;
+    REAL height, size;
+    se_CleanArenaLight( light, height, size );
+
+    static const int segments = 48;
+    static const int rings = 6;
+    static const REAL radius[rings] = { 0, .12f, .30f, .55f, .90f, 1.6f };
+    static const REAL glow[rings]   = { .30f, .25f, .15f, .07f, .02f, 0 };
+
+    glDisable(GL_TEXTURE_2D);
+    for ( int ring = 0; ring < rings - 1; ++ring )
+    {
+        BeginQuadStrip();
+        for ( int i = 0; i <= segments; ++i )
+        {
+            REAL const angle = i * ( 2 * M_PI / segments );
+            REAL const c = cos( angle ), s = sin( angle );
+            glColor4f( 1, 1, 1, glow[ring] * alpha );
+            glVertex2f( light.x + c * radius[ring] * size, light.y + s * radius[ring] * size );
+            glColor4f( 1, 1, 1, glow[ring + 1] * alpha );
+            glVertex2f( light.x + c * radius[ring + 1] * size, light.y + s * radius[ring + 1] * size );
+        }
+        RenderEnd();
+    }
+}
+
 void eGrid::display_simple( eCamera* cam, int viewer,bool floor,
                             bool sr_upperSky,bool sr_lowerSky,
                             REAL flooralpha,
@@ -393,7 +479,7 @@ void eGrid::display_simple( eCamera* cam, int viewer,bool floor,
     eCoord camPos = cam->CameraGlancePos();
     // eWallRim::Bound( camPos, 10 );
 
-    if (sr_upperSky || se_BlackSky()){
+    if (!sr_cleanArena && (sr_upperSky || se_BlackSky())){
         if (se_BlackSky()){
             //glDisable(GL_TEXTURE);
             glDisable(GL_TEXTURE_2D);
@@ -420,7 +506,7 @@ void eGrid::display_simple( eCamera* cam, int viewer,bool floor,
         }
     }
 
-    if (sr_lowerSky && !sr_highRim){
+    if (!sr_cleanArena && sr_lowerSky && !sr_highRim){
         paint_sr_lowerSky(this, viewer,sr_upperSky, camPos);
     }
 
@@ -433,6 +519,15 @@ void eGrid::display_simple( eCamera* cam, int viewer,bool floor,
         // no multitexturing without alpha blending
         if ( !sr_alphaBlend && floorDetail > rFLOOR_TEXTURE )
             floorDetail = rFLOOR_TEXTURE;
+
+        if ( sr_cleanArena && floorDetail != rFLOOR_OFF )
+        {
+            // one flat, pale floor to the horizon; no grid, no texture
+            se_CleanArenaFloor( camPos, flooralpha );
+            if ( sr_alphaBlend )
+                se_CleanArenaLightPool( flooralpha );
+            floorDetail = rFLOOR_OFF;
+        }
 
         switch(floorDetail){
         case rFLOOR_OFF:
@@ -548,7 +643,7 @@ void eGrid::display_simple( eCamera* cam, int viewer,bool floor,
             eWallRim::RenderAll( cameras(viewer) );
         }
 
-        if (sr_lowerSky && sr_highRim){
+        if (!sr_cleanArena && sr_lowerSky && sr_highRim){
             //      glEnable(GL_TEXTURE_GEN_S);
             //      glEnable(GL_TEXTURE_GEN_T);
             //      glEnable(GL_TEXTURE_GEN_Q);
@@ -720,7 +815,8 @@ void eGrid::Render( eCamera* cam, int viewer, REAL& zNear ){
         cam->SetRenderingMain(true);
         display_simple(cam, viewer,true,
                        sr_upperSky,sr_lowerSky,
-                       1-sr_floorMirror_strength,
+                       // reflections read as a soft sheen on the clean arena's pale floor
+                       1-( ( sr_cleanArena && sr_floorMirror_strength < .22f ) ? .22f : sr_floorMirror_strength ),
                        true,true,zNear);
 
     }

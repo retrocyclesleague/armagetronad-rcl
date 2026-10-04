@@ -410,7 +410,7 @@ static int countBits(unsigned int count)
 
 // multisample anti-aliasing: samples per pixel, 0 or 1 for none. Takes effect
 // when the display is (re)initialised.
-static int sr_antialias = 4;
+int sr_antialias = 4;
 static tConfItem<int> sr_antialiasConf("RCL_ANTIALIAS", sr_antialias);
 
 // flag indicating whether directX is supposed to be used for input (defaults to false, crashes on my Win7)
@@ -999,7 +999,13 @@ bool    sr_glOut=true;
 bool    sr_smoothShading=true;
 
 
-int sr_floorMirror=0;
+int sr_floorMirror=rMIRROR_WALLS;
+
+bool sr_cleanArena=true;
+static tConfItem<bool> sr_cleanArenaConf("RCL_CLEAN_ARENA", sr_cleanArena);
+const REAL sr_cleanFloorColor[3]  = { .72f, .78f, .81f };
+const REAL sr_cleanSkyColor[3]    = { .82f, .87f, .90f };
+const REAL sr_cleanShadowColor[3] = { .20f, .27f, .36f };
 int sr_floorDetail=rFLOOR_TEXTURE;
 bool sr_highRim=true;
 bool sr_upperSky=false;

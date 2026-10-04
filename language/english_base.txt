@@ -4208,3 +4208,14 @@ log_turns_winner_help     If set to 1, spawned and finished position, direction 
 
 menu_replay_help               Plays an anonymous league match replay behind the out-of-game menus.
 rcl_antialias_help             Anti-aliasing samples per pixel (0 switches it off, 4 is the default). Applied when the display is next initialised.
+detail_antialias_text          Anti-aliasing:
+detail_antialias_help          Smooths jagged edges. Takes effect the next time the screen mode is applied or the game starts.
+detail_antialias_off_text      Off
+detail_antialias_off_help      No anti-aliasing.
+detail_antialias_2_text        2x
+detail_antialias_4_text        4x
+detail_antialias_8_text        8x
+detail_antialias_on_help       Samples per pixel. Higher is smoother and costs more.
+detail_clean_arena_text        Clean Arena:
+detail_clean_arena_help        A pale open floor without grid or rim walls, lit from one point, with solid trails that cast soft shadows. Off restores the dark grid arena.
+rcl_clean_arena_help           Clean arena look: pale open floor, solid trails and soft shadows.

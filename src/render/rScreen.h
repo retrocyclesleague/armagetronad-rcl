@@ -135,6 +135,14 @@ extern bool sr_blacklistDisplayLists;   // use GL display lists (override for bu
 
 extern int sr_floorMirror;
 
+// The clean arena look: a pale open floor without grid or rim walls, lit from
+// one point, with solid trails that cast soft shadows.
+extern bool sr_cleanArena;
+extern int sr_antialias;                   //!< multisample count, applied at display init
+extern const REAL sr_cleanFloorColor[3];   //!< floor
+extern const REAL sr_cleanSkyColor[3];     //!< background and distance haze
+extern const REAL sr_cleanShadowColor[3];  //!< shadows on the floor
+
 #define rFLOOR_OFF        0
 #define rFLOOR_GRID       1
 #define rFLOOR_TEXTURE    2

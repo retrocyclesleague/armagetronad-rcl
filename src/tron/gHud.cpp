@@ -54,7 +54,7 @@ REAL subby_SpeedGaugeSize=.175, subby_SpeedGaugeLocX=0.0, subby_SpeedGaugeLocY=-
 REAL subby_BrakeGaugeSize=.175, subby_BrakeGaugeLocX=0.48, subby_BrakeGaugeLocY=-0.9;
 REAL subby_RubberGaugeSize=.175, subby_RubberGaugeLocX=-0.48, subby_RubberGaugeLocY=-0.9;
 bool subby_RubberMeterColorChange = true, subby_BrakeMeterColorChange = false;
-bool subby_ShowHUD=true, subby_ShowSpeedFastest=true, subby_ShowScore=true, subby_ShowAlivePeople=true, subby_ShowPing=true, subby_ShowSpeedMeter=true, subby_ShowBrakeMeter=true, subby_ShowRubberMeter=true;
+bool subby_ShowHUD=true, subby_ShowSpeedFastest=false, subby_ShowScore=true, subby_ShowAlivePeople=true, subby_ShowPing=false, subby_ShowSpeedMeter=true, subby_ShowBrakeMeter=true, subby_ShowRubberMeter=true;
 bool showTime=false;
 bool show24hour=false;
 REAL subby_ScoreLocX=-0.95, subby_ScoreLocY=-0.85, subby_ScoreSize =.13;
@@ -62,7 +62,7 @@ REAL subby_FastestLocX=-0.2, subby_FastestLocY=-0.95, subby_FastestSize =.13;
 REAL subby_AlivePeopleLocX=.45, subby_AlivePeopleLocY=-0.95, subby_AlivePeopleSize =.13;
 REAL subby_PingLocX=.80, subby_PingLocY=-0.95, subby_PingSize =.13;
 
-bool showPosition = true;
+bool showPosition = false;
 REAL subby_CoordLocX = -0.557, subby_CoordLoxY = -0.75, subby_CoordSize = 0.13;
 
 REAL max_player_speed=0;
@@ -677,6 +677,28 @@ static void drawMinimap()
 static void display_hud_subby_all()
 {
     sr_ResetRenderState(true);
+
+    // The gauges and scores use light text; over the clean arena's pale
+    // floor they sit on a dark strip, like the menus' panel.
+    if ( sr_cleanArena && subby_ShowHUD && sr_alphaBlend &&
+         se_mainGameTimer && se_mainGameTimer->IsSynced() )
+    {
+        RenderEnd();
+        glDisable(GL_TEXTURE_2D);
+        BeginQuads();
+        Color( .039f, .039f, .039f, 0 );
+        Vertex( -1, -.66f );
+        Vertex( 1, -.66f );
+        Color( .039f, .039f, .039f, .62f );
+        Vertex( 1, -.76f );
+        Vertex( -1, -.76f );
+        Vertex( -1, -.76f );
+        Vertex( 1, -.76f );
+        Vertex( 1, -1 );
+        Vertex( -1, -1 );
+        RenderEnd();
+    }
+
     display_fps_subby();
 
     rViewportConfiguration* viewportConfiguration = rViewportConfiguration::CurrentViewportConfiguration();

@@ -418,6 +418,21 @@ static uSelectEntry<int> mfmc(mfm,"$detail_floor_mirror_ow_text",
 
 static uSelectEntry<int> mfme(mfm,"$detail_floor_mirror_ev_text","$detail_floor_mirror_ev_help",rMIRROR_ALL);
 
+static uMenuItemSelection<int> sg_antialiasMenu
+(&screen_menu_detail,
+ "$detail_antialias_text",
+ "$detail_antialias_help",
+ sr_antialias);
+static uSelectEntry<int> sg_antialiasOff(sg_antialiasMenu,"$detail_antialias_off_text","$detail_antialias_off_help",0);
+static uSelectEntry<int> sg_antialias2(sg_antialiasMenu,"$detail_antialias_2_text","$detail_antialias_on_help",2);
+static uSelectEntry<int> sg_antialias4(sg_antialiasMenu,"$detail_antialias_4_text","$detail_antialias_on_help",4);
+static uSelectEntry<int> sg_antialias8(sg_antialiasMenu,"$detail_antialias_8_text","$detail_antialias_on_help",8);
+
+static uMenuItemToggle sg_cleanArenaMenu
+(&screen_menu_detail,"$detail_clean_arena_text",
+ "$detail_clean_arena_help",
+ sr_cleanArena);
+
 static uMenuItemToggle fs_dither
 (&screen_menu_detail,"$detail_dither_text",
  "$detail_dither_help",

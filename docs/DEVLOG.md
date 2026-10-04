@@ -1,5 +1,13 @@
 # Dev log
 
+## 2026-10-04 - clean arena, new cycle body, HUD and menu controls
+
+- Clean arena (`RCL_CLEAN_ARENA`, default on, toggle under Display Settings / Detail): pale open floor that fades into the sky colour instead of a grid, no rim walls (a low kerb marks the boundary, which still kills), a point light with a pool of light on the floor, solid trails with thickness, soft floor shadows, and floor reflections at a stronger sheen. Colours and the light live in `rScreen.cpp` and `eDisplay.cpp` (`se_CleanArenaLight`).
+- Trails: the thick shell and the shadows are overlay passes on the existing wall renderer (`gWallRenderMode_Shadow`, `gWallRenderMode_Solid`), cached in the same display list as the glow. The drawn half width is .05; collision is unchanged on the centre plane.
+- Cycle body: `scripts/generate-rcl-cycle-body.py` writes `models/cycle_body.mod` (lofted shell, 1122 vertices, replacing the 22-vertex body) and `textures/cycle_body.png` (player-coloured shell, pale fairing, canopy, headlight). `scripts/generate-rcl-textures.py` still has the old body texture as a source and would overwrite it. Cycle lights are neutral instead of red and blue.
+- Text over the bright scene: bright text gets a dark drop shadow, the console plate is darker, and the HUD sits on a dark strip. HUD defaults drop the position, fastest and ping readouts.
+- Menu replay drawn in the same look. Detail menu gains Anti-aliasing and Clean Arena.
+- The "Turn Angle" and "deleting cycle" console lines are `#ifdef DEBUG` only; release builds, which CI now packages, do not print them.
 ## 2026-10-04 - map downloads on Windows, glow cache, anti-aliasing, floor reflections
 
 - Map downloads: `tResourceManager` used libxml2's nanohttp, which MSYS2's libxml2 2.15 no longer has, so every map fetch failed on the Windows client. The plain HTTP client moved to `tools/tHttp` and resource downloads use it when `LIBXML_HTTP_ENABLED` is not defined.

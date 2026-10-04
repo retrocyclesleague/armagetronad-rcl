@@ -234,7 +234,7 @@ namespace uRclTheme
         sceneNoted = false;
         if (scene)
         {
-            DrawQuad(-1, 1, -1, 1, backdrop, .30f * alpha);
+            DrawQuad(-1, 1, -1, 1, backdrop, .14f * alpha);
         }
         else
         {
@@ -243,7 +243,7 @@ namespace uRclTheme
         }
 
         DrawQuad(menuLeft, menuRight, -.88f, .66f,
-                 panel, (scene ? .66f : .82f) * alpha);
+                 panel, (scene ? .76f : .82f) * alpha);
         DrawCornerMarks(.75f * alpha);
 #else
         (void)full;

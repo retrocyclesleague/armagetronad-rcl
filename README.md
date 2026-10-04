@@ -11,6 +11,8 @@ Current release line: `0.2.9+sty+ct+ap+rcl`.
 
 ![Main menu over the Fortress replay](docs/images/main-menu.png)
 
+![A local game in the clean arena](docs/images/clean-arena.png)
+
 ## what the client adds
 
 - **Play Now**: pick Fort, Sumobar or TST and the client joins a live,

@@ -205,10 +205,12 @@ void rConsole::Render(){
 
             out.SetIndent(sr_indent);
 
-            if( sr_alphaBlend && sr_chatLayer > 0 && predictBottom < out.GetTop() )
+            // light text needs a dark plate over the clean arena's pale floor
+            REAL const plate = ( sr_cleanArena && sr_chatLayer < .55f ) ? .55f : sr_chatLayer;
+            if( sr_alphaBlend && plate > 0 && predictBottom < out.GetTop() )
             {
                 RenderEnd();
-                glColor4f(0, 0, 0, sr_chatLayer);
+                glColor4f(0, 0, 0, plate);
                 glRectf(-1,predictBottom-.4*out.GetCHeight(),1,1);
             }
 

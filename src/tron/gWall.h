@@ -235,7 +235,11 @@ public:
     {
         gWallRenderMode_Lines = 1,
         gWallRenderMode_Quads = 2,
-        gWallRenderMode_Glow = 4
+        gWallRenderMode_Glow = 4,
+        gWallRenderMode_Shadow = 8,     //!< clean arena: shadow on the floor
+        gWallRenderMode_Solid = 16,     //!< clean arena: thick opaque wall
+        //! passes drawn over the core; they never change list membership
+        gWallRenderMode_Overlay = gWallRenderMode_Glow | gWallRenderMode_Shadow | gWallRenderMode_Solid
     };
 
     static bool TrailGlowEnabled();

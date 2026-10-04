@@ -761,7 +761,10 @@ void  rSysDep::ClearGL(){
         }
         */
 
-        glClearColor(0.0,0.0,0.0,1.0);
+        if (sr_cleanArena)
+            glClearColor(sr_cleanSkyColor[0],sr_cleanSkyColor[1],sr_cleanSkyColor[2],1.0);
+        else
+            glClearColor(0.0,0.0,0.0,1.0);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     }
 }

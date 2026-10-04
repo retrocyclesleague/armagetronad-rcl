@@ -364,7 +364,7 @@ void rTextField::FlushLine(int len,bool newline){
         
         if( sr_textShadow && (
             ( color_.IsDark() && (sr_textShadow&1) ) ||
-            (!color_.IsDark() && (sr_textShadow&2) )
+            (!color_.IsDark() && ( (sr_textShadow&2) || sr_cleanArena ) )
         ))
         {
             RenderEnd(true);

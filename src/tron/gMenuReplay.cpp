@@ -479,79 +479,106 @@ namespace
     }
 
     // ------------------------------------------------------------------ scene
+    // Drawn in the clean arena look: a pale open floor lit from one point,
+    // solid trails and their soft shadows. Colours come from rScreen.
 
-    void Wall(Vec const & a, Vec const & b, float height)
+    float const wallHalfWidth = .55f;
+
+    Vec LightPosition()
     {
-        Vertex(a.x, a.y, 0);
-        Vertex(b.x, b.y, 0);
-        Vertex(b.x, b.y, height);
-        Vertex(a.x, a.y, height);
+        Vec light = { replay.minX + (replay.maxX - replay.minX) * .30f,
+                      replay.minY + (replay.maxY - replay.minY) * .68f,
+                      Size() * .28f };
+        return light;
+    }
+
+    // where the top of a wall at p throws its shadow
+    Vec ShadowPoint(Vec const & p, float height)
+    {
+        Vec const light = LightPosition();
+        Vec offset = { p.x - light.x, p.y - light.y, 0 };
+        offset = offset * (height / std::max(1.0f, light.z - height));
+        float const length = Length(offset);
+        float const shortest = height * .7f, longest = height * 1.7f;
+        if (length > longest)
+            offset = offset * (longest / length);
+        else if (length < shortest && length > 1E-4f)
+            offset = offset * (shortest / length);
+        Vec const result = { p.x + offset.x, p.y + offset.y, .05f };
+        return result;
     }
 
     void DrawFloor()
     {
-        float const margin = Size();
+        float const size = Size();
+        Vec const centre = Centre();
+        int const segments = 48;
+
+        // the plane, fading into the sky colour with distance
+        static float const radius[6] = { 0, .7f, 1.2f, 2.5f, 5, 14 };
+        static float const haze[6]   = { 0, 0, .08f, .40f, .80f, 1 };
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        Color(.012f, .012f, .012f, 1);
-        BeginQuads();
-        Vertex(replay.minX - margin, replay.minY - margin, -.5f);
-        Vertex(replay.maxX + margin, replay.minY - margin, -.5f);
-        Vertex(replay.maxX + margin, replay.maxY + margin, -.5f);
-        Vertex(replay.minX - margin, replay.maxY + margin, -.5f);
-        RenderEnd();
+        for (int ring = 0; ring < 5; ++ring)
+        {
+            BeginQuadStrip();
+            for (int i = 0; i <= segments; ++i)
+            {
+                float const a = 2 * pi * i / segments;
+                for (int edge = 0; edge < 2; ++edge)
+                {
+                    float const h = haze[ring + edge];
+                    Color(sr_cleanFloorColor[0] + (sr_cleanSkyColor[0] - sr_cleanFloorColor[0]) * h,
+                          sr_cleanFloorColor[1] + (sr_cleanSkyColor[1] - sr_cleanFloorColor[1]) * h,
+                          sr_cleanFloorColor[2] + (sr_cleanSkyColor[2] - sr_cleanFloorColor[2]) * h, 1);
+                    Vertex(centre.x + cosf(a) * radius[ring + edge] * size,
+                           centre.y + sinf(a) * radius[ring + edge] * size, -.05f);
+                }
+            }
+            RenderEnd();
+        }
 
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE);
-        glLineWidth(1);
-        BeginLines();
-        int line = 0;
-        for (float x = replay.minX; x <= replay.maxX + .5f; x += 25, ++line)
+        // the pool of light under the lamp
+        Vec const light = LightPosition();
+        static float const poolRadius[6] = { 0, .12f, .30f, .55f, .90f, 1.6f };
+        static float const poolGlow[6]   = { .30f, .25f, .15f, .07f, .02f, 0 };
+        for (int ring = 0; ring < 5; ++ring)
         {
-            float const shade = line % 4 == 0 ? .20f : .09f;
-            Color(shade, shade, shade, 1);
-            Vertex(x, replay.minY, 0);
-            Vertex(x, replay.maxY, 0);
+            BeginQuadStrip();
+            for (int i = 0; i <= segments; ++i)
+            {
+                float const a = 2 * pi * i / segments;
+                Color(1, 1, 1, poolGlow[ring]);
+                Vertex(light.x + cosf(a) * poolRadius[ring] * size,
+                       light.y + sinf(a) * poolRadius[ring] * size, 0);
+                Color(1, 1, 1, poolGlow[ring + 1]);
+                Vertex(light.x + cosf(a) * poolRadius[ring + 1] * size,
+                       light.y + sinf(a) * poolRadius[ring + 1] * size, 0);
+            }
+            RenderEnd();
         }
-        line = 0;
-        for (float y = replay.minY; y <= replay.maxY + .5f; y += 25, ++line)
-        {
-            float const shade = line % 4 == 0 ? .20f : .09f;
-            Color(shade, shade, shade, 1);
-            Vertex(replay.minX, y, 0);
-            Vertex(replay.maxX, y, 0);
-        }
-        RenderEnd();
 
-        // Rim in the league accent.
-        Vec const corner[5] = { { replay.minX, replay.minY, 0 },
-                                { replay.maxX, replay.minY, 0 },
-                                { replay.maxX, replay.maxY, 0 },
-                                { replay.minX, replay.maxY, 0 },
-                                { replay.minX, replay.minY, 0 } };
-        float const rim = wallHeight * 2;
-        Color(.910f, 1.0f, .278f, .10f);
-        BeginQuads();
-        for (int i = 0; i < 4; ++i)
-            Wall(corner[i], corner[i + 1], rim);
-        RenderEnd();
-        Color(.910f, 1.0f, .278f, .55f);
-        BeginLines();
-        for (int i = 0; i < 4; ++i)
-        {
-            Vertex(corner[i].x, corner[i].y, rim);
-            Vertex(corner[i + 1].x, corner[i + 1].y, rim);
-        }
+        // the arena's edge, as a line on the floor
+        glLineWidth(1.5f);
+        Color(sr_cleanFloorColor[0] * .72f, sr_cleanFloorColor[1] * .72f,
+              sr_cleanFloorColor[2] * .72f, 1);
+        BeginLineLoop();
+        Vertex(replay.minX, replay.minY, .05f);
+        Vertex(replay.maxX, replay.minY, .05f);
+        Vertex(replay.maxX, replay.maxY, .05f);
+        Vertex(replay.minX, replay.maxY, .05f);
         RenderEnd();
     }
 
     void DrawZones(float t)
     {
         int const segments = 48;
+        float const height = wallHeight * .5f;
         for (size_t z = 0; z < replay.zones.size(); ++z)
         {
             Zone const & zone = replay.zones[z];
             float const spin = t * .35f * (z % 2 ? -1 : 1);
             BeginQuads();
-            Color(zone.r, zone.g, zone.b, .32f);
+            Color(zone.r, zone.g, zone.b, .55f);
             for (int i = 0; i < segments; i += 2)
             {
                 float const a = spin + 2 * pi * i / segments;
@@ -560,23 +587,71 @@ namespace
                                    zone.y + sinf(a) * zone.radius, 0 };
                 Vec const to = { zone.x + cosf(b) * zone.radius,
                                  zone.y + sinf(b) * zone.radius, 0 };
-                Wall(from, to, wallHeight * 1.4f);
+                Vertex(from.x, from.y, 0);
+                Vertex(to.x, to.y, 0);
+                Vertex(to.x, to.y, height);
+                Vertex(from.x, from.y, height);
             }
             RenderEnd();
 
-            Color(zone.r, zone.g, zone.b, .7f);
+            Color(zone.r * .8f, zone.g * .8f, zone.b * .8f, .9f);
             BeginLineLoop();
             for (int i = 0; i < segments; ++i)
             {
                 float const a = 2 * pi * i / segments;
                 Vertex(zone.x + cosf(a) * zone.radius,
-                           zone.y + sinf(a) * zone.radius, .2f);
+                       zone.y + sinf(a) * zone.radius, .1f);
             }
             RenderEnd();
         }
     }
 
-    void DrawLife(Life const & life, float t)
+    // one straight piece of trail: its shadow, or the box itself
+    void TrailPiece(Vec const & p1, Vec const & p2, Life const & life,
+                    float alpha, bool shadow)
+    {
+        if (shadow)
+        {
+            Vec const s1 = ShadowPoint(p1, wallHeight);
+            Vec const s2 = ShadowPoint(p2, wallHeight);
+            Color(sr_cleanShadowColor[0], sr_cleanShadowColor[1], sr_cleanShadowColor[2], .34f * alpha);
+            Vertex(p1.x, p1.y, .05f);
+            Vertex(p2.x, p2.y, .05f);
+            Color(sr_cleanShadowColor[0], sr_cleanShadowColor[1], sr_cleanShadowColor[2], 0);
+            Vertex(s2.x, s2.y, .05f);
+            Vertex(s1.x, s1.y, .05f);
+            return;
+        }
+
+        Vec const forward = { 0, 1, 0 };
+        Vec const along = Normalized(p2 - p1, forward) * wallHalfWidth;
+        Vec const side = { -along.y, along.x, 0 };
+        Vec const a = p1 - along;
+        Vec const c = p2 + along;
+        Vec const light = LightPosition();
+        Vec const toLight = { light.x - (p1.x + p2.x) * .5f, light.y - (p1.y + p2.y) * .5f, 0 };
+        bool const lit = side.x * toLight.x + side.y * toLight.y > 0;
+
+        for (int sign = -1; sign <= 1; sign += 2)
+        {
+            Vec const o = side * static_cast<float>(sign);
+            float const shade = ((sign > 0) == lit) ? .96f : .74f;
+            Color(life.r * shade, life.g * shade, life.b * shade, alpha);
+            Vertex(a.x + o.x, a.y + o.y, 0);
+            Vertex(a.x + o.x, a.y + o.y, wallHeight);
+            Vertex(c.x + o.x, c.y + o.y, wallHeight);
+            Vertex(c.x + o.x, c.y + o.y, 0);
+        }
+
+        Color(life.r + (1 - life.r) * .30f, life.g + (1 - life.g) * .30f,
+              life.b + (1 - life.b) * .30f, alpha);
+        Vertex(a.x - side.x, a.y - side.y, wallHeight);
+        Vertex(a.x + side.x, a.y + side.y, wallHeight);
+        Vertex(c.x + side.x, c.y + side.y, wallHeight);
+        Vertex(c.x - side.x, c.y - side.y, wallHeight);
+    }
+
+    void DrawLife(Life const & life, float t, bool shadow)
     {
         std::vector<Point> const & points = life.points;
         if (t < points.front().t)
@@ -597,50 +672,39 @@ namespace
             head = end;
         }
 
-        // Walk the trail back from the head, twice: faces, then top edges.
-        for (int pass = 0; pass < 2; ++pass)
+        // walk the trail back from the head
+        BeginQuads();
+        float remaining = wallLength;
+        Vec from = head;
+        for (int i = index; i >= 0 && remaining > 0; --i)
         {
-            Color(life.r, life.g, life.b, (pass == 0 ? .34f : .95f) * alpha);
-            if (pass == 0)
-                BeginQuads();
-            else
-                BeginLines();
-            float remaining = wallLength;
-            Vec from = head;
-            for (int i = index; i >= 0 && remaining > 0; --i)
+            Vec to = { points[i].x, points[i].y, 0 };
+            float length = Length(to - from);
+            if (length > remaining)
             {
-                Vec to = { points[i].x, points[i].y, 0 };
-                float length = Length(to - from);
-                if (length > remaining)
-                {
-                    to = Mix(from, to, remaining / length);
-                    length = remaining;
-                }
-                if (pass == 0)
-                    Wall(from, to, wallHeight);
-                else
-                {
-                    Vertex(from.x, from.y, wallHeight);
-                    Vertex(to.x, to.y, wallHeight);
-                }
-                remaining -= length;
-                from = to;
+                to = Mix(from, to, remaining / length);
+                length = remaining;
             }
-            RenderEnd();
+            if (length > 1E-3f)
+                TrailPiece(to, from, life, alpha, shadow);
+            remaining -= length;
+            from = to;
         }
+        RenderEnd();
 
-        if (alive)
+        if (alive && !shadow)
         {
+            // the cycle: a pale wedge ahead of its trail
             Vec const sky = { 0, 0, 1 };
             Vec const side = Cross(heading, sky);
-            Vec const tip = head + heading * 5;
-            Vec const left = head - heading * 3 + side * 2.4f;
-            Vec const right = head - heading * 3 - side * 2.4f;
-            Color(.6f + .4f * life.r, .6f + .4f * life.g, .6f + .4f * life.b, 1);
+            Vec const tip = head + heading * 6;
+            Vec const left = head - heading * 1 + side * 2.2f;
+            Vec const right = head - heading * 1 - side * 2.2f;
+            Color(.90f + .10f * life.r, .90f + .10f * life.g, .90f + .10f * life.b, 1);
             BeginTriangles();
-            Vertex(tip.x, tip.y, wallHeight);
-            Vertex(left.x, left.y, wallHeight);
-            Vertex(right.x, right.y, wallHeight);
+            Vertex(tip.x, tip.y, wallHeight * .8f);
+            Vertex(left.x, left.y, wallHeight * .8f);
+            Vertex(right.x, right.y, wallHeight * .8f);
             RenderEnd();
         }
     }
@@ -709,7 +773,10 @@ bool gMenuReplay::Render()
                  GL_DEPTH_BUFFER_BIT);
 
     glDisable(GL_TEXTURE_2D);
-    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
+    glDepthMask(GL_TRUE);
+    glDisable(GL_ALPHA_TEST);
     glDisable(GL_CULL_FACE);
     glDisable(GL_LIGHTING);
     glEnable(GL_BLEND);
@@ -717,11 +784,16 @@ bool gMenuReplay::Render()
     ApplyCamera(pose);
     DrawFloor();
     DrawZones(t);
-    glLineWidth(1.5f);
+    // shadows lie on the floor and must not hide each other or the trails
+    glDepthMask(GL_FALSE);
     for (size_t i = 0; i < round.lives.size(); ++i)
-        DrawLife(round.lives[i], t);
+        DrawLife(round.lives[i], t, true);
+    glDepthMask(GL_TRUE);
+    for (size_t i = 0; i < round.lives.size(); ++i)
+        DrawLife(round.lives[i], t, false);
+    glDisable(GL_DEPTH_TEST);
 
-    // Cut between rounds through black.
+    // Cut between rounds through the sky colour.
     float const fade = std::max(1 - t / 1.2f,
                                 (t - round.duration) / roundLeadOut);
     ProjMatrix();
@@ -731,7 +803,7 @@ bool gMenuReplay::Render()
     if (fade > 0)
     {
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        Color(0, 0, 0, std::min(1.0f, fade));
+        Color(sr_cleanSkyColor[0], sr_cleanSkyColor[1], sr_cleanSkyColor[2], std::min(1.0f, fade));
         BeginQuads();
         Vertex(-1, -1);
         Vertex(1, -1);
