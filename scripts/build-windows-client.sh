@@ -75,6 +75,10 @@ build_zthread() {
     make -j"${JOBS}"
     make install
   )
+  # Leave the work directory before removing it. windres starts its
+  # preprocessor through cmd.exe, which refuses to run from a directory that
+  # no longer exists.
+  cd "${ROOT}"
   rm -rf "${work}"
 }
 
