@@ -7,7 +7,14 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include <libxml/xmlversion.h>
+#ifdef LIBXML_HTTP_ENABLED
 #include <libxml/nanohttp.h>
+#else
+#include "tHttp.h"
+#include <sstream>
+#include <string>
+#endif
 
 #include "tConfiguration.h"
 #include "tDirectories.h"
@@ -32,6 +39,44 @@ static int myHTTPFetch(const char *URI, const char *filename, const char *savepa
     con << tOutput( "$resource_downloading", URI );
     // con << "Downloading " << URI << "...\n";
 
+#ifndef LIBXML_HTTP_ENABLED
+    // libxml2 without an HTTP client (2.15, as shipped by MSYS2): fetch the
+    // resource ourselves. Repositories are plain http://host/path.
+    {
+        (void)ctxt; (void)buf; (void)len;
+        std::string const uri( URI );
+        std::string const scheme( "http://" );
+        std::string::size_type const slash = uri.find( '/', scheme.size() );
+        if ( uri.compare( 0, scheme.size(), scheme ) != 0 || slash == std::string::npos ) {
+            con << tOutput( "$resource_fetcherror_noconnect", URI );
+            return 1;
+        }
+
+        std::ostringstream content;
+        rc = st_PlainHttpGet( uri.substr( scheme.size(), slash - scheme.size() ),
+                              uri.substr( slash ), content, 16 * 1024 * 1024, 20 );
+        if ( rc < 0 ) {
+            con << tOutput( "$resource_fetcherror_noconnect", URI );
+            return 1;
+        }
+        if ( rc != 200 ) {
+            con << tOutput( rc == 404 ? "$resource_fetcherror_404" : "$resource_fetcherror", rc );
+            return 2;
+        }
+
+        fd = fopen(savepath, "wb");
+        if (fd == NULL) {
+            con << tOutput( "$resource_no_write", savepath );
+            return 3;
+        }
+        std::string const data = content.str();
+        Ignore( fwrite(data.data(), data.size(), 1, fd) );
+        fclose(fd);
+
+        con << "OK\n";
+        return 0;
+    }
+#else
     ctxt = xmlNanoHTTPOpen(URI, NULL);
     if (ctxt == NULL) {
         con << tOutput( "$resource_fetcherror_noconnect", URI );
@@ -65,6 +110,7 @@ static int myHTTPFetch(const char *URI, const char *filename, const char *savepa
     con << "OK\n";
 
     return 0;
+#endif
 }
 
 static int myFetch(const char *URIs, const char *filename, const char *savepath) {

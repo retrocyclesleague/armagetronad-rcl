@@ -52,183 +52,10 @@ the executable is not distributed).
 #include <libxml/nanohttp.h>
 #endif
 
-// libxml2 2.15 removed its HTTP client and ships stubs that always fail (this
-// is what current MSYS2 provides). The authority protocol is a plain HTTP
-// GET, so speak it directly, with a time budget. Callers that must not stall
-// (the client's RCL sign-in) use this path even where libxml2 could fetch,
-// because libxml2's own timeout cannot be shortened.
-#include <chrono>
-#include <cstdlib>
-#include <cstring>
-#ifdef _WIN32
-#include <winsock.h>
-typedef SOCKET sn_HttpSocket;
-typedef int sn_HttpLength;
-#else
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/select.h>
-#include <sys/time.h>
-#include <netinet/in.h>
-#include <netdb.h>
-#include <unistd.h>
-#include <fcntl.h>
-typedef int sn_HttpSocket;
-typedef socklen_t sn_HttpLength;
-#endif
+#include "tHttp.h"
 
 namespace
 {
-    // tSysTimeFloat() only moves when the main loop advances a frame, which
-    // does not happen while a request blocks; budgets need a real clock.
-    double sn_HttpTime()
-    {
-        return std::chrono::duration< double >(
-                   std::chrono::steady_clock::now().time_since_epoch() ).count();
-    }
-
-    void sn_HttpClose( sn_HttpSocket s )
-    {
-#ifdef _WIN32
-        closesocket( s );
-#else
-        close( s );
-#endif
-    }
-
-    // wait until the socket is readable/writable, has failed, time is up or
-    // the idle callback gives up. With a callback, the wait is cut into short
-    // slices so the caller can draw a frame and read input in between.
-    bool sn_HttpWait( sn_HttpSocket s, bool write, double deadline, nKrawall::FetchIdle * idle )
-    {
-        while ( true )
-        {
-            double left = deadline - sn_HttpTime();
-            if ( left <= 0 )
-                return false;
-            if ( idle && left > .02 )
-                left = .02;
-
-            fd_set ready, failed;
-            FD_ZERO( &ready );
-            FD_SET( s, &ready );
-            failed = ready;
-            timeval timeout;
-            timeout.tv_sec = static_cast< long >( left );
-            timeout.tv_usec = static_cast< long >( ( left - timeout.tv_sec ) * 1000000 );
-            int const selected = select( static_cast< int >( s ) + 1, write ? NULL : &ready,
-                                         write ? &ready : NULL, &failed, &timeout );
-            if ( selected != 0 )
-                return selected > 0;
-            if ( idle && !(*idle)() )
-                return false;
-        }
-    }
-
-    int sn_PlainHttpGet( std::string host, std::string const & path, std::ostream & target, int maxlen,
-                         double budget, nKrawall::FetchIdle * idle )
-    {
-        if ( budget <= 0 )
-            return -1;
-
-#ifdef _WIN32
-        static bool started = false;
-        if ( !started )
-        {
-            WSADATA data;
-            WSAStartup( MAKEWORD( 1, 1 ), &data );
-            started = true;
-        }
-#endif
-
-        int port = 80;
-        std::string::size_type const colon = host.find( ':' );
-        if ( colon != std::string::npos )
-        {
-            port = atoi( host.c_str() + colon + 1 );
-            host.erase( colon );
-        }
-
-        hostent const * entry = gethostbyname( host.c_str() );
-        if ( !entry || entry->h_addrtype != AF_INET || !entry->h_addr_list[0] )
-            return -1;
-
-        sockaddr_in address;
-        memset( &address, 0, sizeof( address ) );
-        address.sin_family = AF_INET;
-        address.sin_port = htons( static_cast< unsigned short >( port ) );
-        memcpy( &address.sin_addr, entry->h_addr_list[0], sizeof( address.sin_addr ) );
-
-        sn_HttpSocket s = socket( AF_INET, SOCK_STREAM, 0 );
-#ifdef _WIN32
-        if ( s == INVALID_SOCKET )
-            return -1;
-        unsigned long nonblocking = 1;
-        ioctlsocket( s, FIONBIO, &nonblocking );
-#else
-        if ( s < 0 )
-            return -1;
-        fcntl( s, F_SETFL, fcntl( s, F_GETFL, 0 ) | O_NONBLOCK );
-#endif
-
-        double const deadline = sn_HttpTime() + budget;
-        connect( s, reinterpret_cast< sockaddr * >( &address ), sizeof( address ) );
-
-        int error = 0;
-        sn_HttpLength errorLength = sizeof( error );
-        if ( !sn_HttpWait( s, true, deadline, idle ) ||
-             getsockopt( s, SOL_SOCKET, SO_ERROR, reinterpret_cast< char * >( &error ), &errorLength ) != 0 ||
-             error != 0 )
-        {
-            sn_HttpClose( s );
-            return -1;
-        }
-
-        std::string const request = "GET " + path + " HTTP/1.0\r\nHost: " + host +
-            "\r\nUser-Agent: armagetronad-rcl\r\nAccept: */*\r\nConnection: close\r\n\r\n";
-        std::string::size_type sent = 0;
-        while ( sent < request.size() )
-        {
-            int const count = sn_HttpWait( s, true, deadline, idle )
-                ? send( s, request.data() + sent, static_cast< int >( request.size() - sent ), 0 )
-                : -1;
-            if ( count <= 0 )
-            {
-                sn_HttpClose( s );
-                return -1;
-            }
-            sent += count;
-        }
-
-        std::string response;
-        std::string::size_type const cap = static_cast< std::string::size_type >( maxlen > 0 ? maxlen : 0 ) + 16384;
-        char buffer[2048];
-        while ( response.size() < cap && sn_HttpWait( s, false, deadline, idle ) )
-        {
-            int const count = recv( s, buffer, sizeof( buffer ), 0 );
-            if ( count <= 0 )
-                break;
-            response.append( buffer, count );
-        }
-        sn_HttpClose( s );
-
-        // "HTTP/1.1 200 OK", headers, blank line, body
-        std::string::size_type const space = response.find( ' ' );
-        std::string::size_type body = response.find( "\r\n\r\n" );
-        if ( response.compare( 0, 5, "HTTP/" ) != 0 || space == std::string::npos ||
-             body == std::string::npos || space > body )
-            return -1;
-        body += 4;
-
-        std::string::size_type length = response.size() - body;
-        if ( maxlen < 0 )
-            maxlen = 0;
-        if ( length > static_cast< std::string::size_type >( maxlen ) )
-            length = maxlen;
-        target.write( response.data() + body, length );
-        return atoi( response.c_str() + space + 1 );
-    }
-
     std::string sn_AuthorityPath( char const * query )
     {
         return std::string( "/armaauth/0.1/" ) + query;
@@ -243,7 +70,7 @@ static tSettingItem< tString > sn_md5Suffix( "MD5_SUFFIX", sn_md5.suffix );
 int nKrawall::FetchURL( tString const & authority, char const * query, std::ostream & target, int maxlen )
 {
 #ifndef LIBXML_HTTP_ENABLED
-    return sn_PlainHttpGet( std::string( static_cast< char const * >( authority ) ),
+    return st_PlainHttpGet( std::string( static_cast< char const * >( authority ) ),
                             sn_AuthorityPath( query ), target, maxlen, 6, NULL );
 #else
     std::ostringstream fullURL;
@@ -283,7 +110,7 @@ int nKrawall::FetchURL( tString const & authority, char const * query, std::ostr
 int nKrawall::FetchURLBounded( tString const & authority, char const * query, std::ostream & target,
                                double budget, FetchIdle * idle, int maxlen )
 {
-    return sn_PlainHttpGet( std::string( static_cast< char const * >( authority ) ),
+    return st_PlainHttpGet( std::string( static_cast< char const * >( authority ) ),
                             sn_AuthorityPath( query ), target, maxlen, budget, idle );
 }
 
