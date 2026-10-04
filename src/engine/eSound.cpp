@@ -264,11 +264,18 @@ void se_SoundInit()
 
 void se_SoundExit(){
 #ifndef DEDICATED
-    eSoundLocker locker;
+    {
+        // the mixer must not run while the sounds it plays are unloaded
+        eSoundLocker locker;
 
-    eWavData::UnloadAll();
-    se_SoundPause(true);
+        eWavData::UnloadAll();
+        se_SoundPause(true);
+    }
 
+    // Closing the device waits for the audio thread to end. That thread takes
+    // the audio lock on every pass, so closing with the lock held (as this
+    // function used to) hangs whenever the thread is waiting for it: at exit,
+    // and in optimised builds at startup, where sound is initialised twice.
     if (sound_is_there){
 #ifdef DEBUG
         con << tOutput("$sound_disabling");
