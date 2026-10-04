@@ -98,6 +98,7 @@ bootstrap_if_needed() {
 
 configure_and_build() {
     cd "${ROOT}"
+    progtitle="Retrocycles RCL" \
     ./configure \
         --disable-binreloc \
         --disable-restoreold \

@@ -300,6 +300,10 @@ void su_InputConfig(int player);
 void su_InputConfigCamera(int player);
 void su_InputConfigGlobal();
 bool su_HandleEvent(SDL_Event &e, bool delayed );	// handle event during gameplay
+
+//! If the key has a global job (taking a screenshot, switching to fullscreen),
+//! does it and returns true. For screens that take any key as an answer.
+bool su_GlobalKey(int sym);
 void su_HandleDelayedEvents( );				// set menu state
 
 void su_InputSync(); // tells the input system that a new frame has been drawn;

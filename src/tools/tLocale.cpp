@@ -377,6 +377,31 @@ static const tString LANGUAGE("language");
 static const tString INCLUDE("include");
 // static const tString CHECK("check");
 
+#ifndef DEDICATED
+// lowercases an authored string; colour codes (0xRRGGBB, 0xRESETT) and the
+// character after a backslash (template parameters) stay as they are
+static void st_LowercaseAuthored( tString & text )
+{
+    int const length = text.Len() - 1;
+    for ( int i = 0; i < length; ++i )
+    {
+        char const c = text(i);
+        if ( c == '0' && i + 7 < length && text(i+1) == 'x' )
+        {
+            i += 7;
+        }
+        else if ( c == '\\' )
+        {
+            ++i;
+        }
+        else if ( c >= 'A' && c <= 'Z' )
+        {
+            text[i] = static_cast< char >( c - 'A' + 'a' );
+        }
+    }
+}
+#endif
+
 void tLocaleItem::Load(const char *file, bool complete)  // load the language definitions from a file
 {
     // bool check = false;
@@ -504,6 +529,15 @@ void tLocaleItem::Load(const char *file, bool complete)  // load the language de
                             break;
                         }
                 }
+
+#ifndef DEDICATED
+                // The RCL interface is written in lowercase. That is done
+                // here, to the authored English strings, and nowhere else:
+                // what players write themselves (names, chat, server names)
+                // never passes through this.
+                if ( currentLanguage && currentLanguage->Name().StrPos( "English" ) >= 0 )
+                    st_LowercaseAuthored( r->translation );
+#endif
 
                 r->language = currentLanguage;
                 //	r->translation.ReadLine(s);

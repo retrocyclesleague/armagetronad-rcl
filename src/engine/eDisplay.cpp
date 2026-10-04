@@ -159,7 +159,7 @@ static inline void TexVertex( REAL x, REAL y, REAL h)
 static void finite_xy_plane( const eCoord &pos,const eCoord &dir,REAL h, eRectangle rect )
 {
     // expand plane to camera position to avoid embarrasing reflection bug
-    if ( sr_floorMirror )
+    if ( sr_floorMirror || sr_cleanArena )
         rect.Include( pos );
 
     // fetch rectangle coordinates
@@ -778,7 +778,11 @@ void eGrid::Render( eCamera* cam, int viewer, REAL& zNear ){
         zNear = z;
     }
 
-    if (sr_floorMirror){
+    // the clean arena's soft reflections are part of that look, whatever the
+    // floor mirror setting says for the classic arena
+    int const mirror = ( sr_cleanArena && sr_floorMirror < rMIRROR_WALLS ) ? rMIRROR_WALLS : sr_floorMirror;
+
+    if (mirror){
         ModelMatrix();
         glScalef(1,1,-1);
 
@@ -788,11 +792,11 @@ void eGrid::Render( eCamera* cam, int viewer, REAL& zNear ){
         bool us=false;
         bool ls=false;
 
-        if (sr_floorMirror>=rMIRROR_ALL){
+        if (mirror>=rMIRROR_ALL){
             us=sr_upperSky;
             ls=sr_lowerSky;
         }
-        else if (sr_floorMirror>=rMIRROR_WALLS){
+        else if (mirror>=rMIRROR_WALLS){
             if (sr_lowerSky)
                 ls=true;
             else if (sr_upperSky)
@@ -803,8 +807,8 @@ void eGrid::Render( eCamera* cam, int viewer, REAL& zNear ){
         display_simple(cam, viewer,false,
                        us,ls,
                        0,
-                       sr_floorMirror>=rMIRROR_WALLS,
-                       sr_floorMirror>=rMIRROR_OBJECTS,
+                       mirror>=rMIRROR_WALLS,
+                       mirror>=rMIRROR_OBJECTS,
                        zNear);
         z=CameraHeight(viewer);
         glFrontFace(GL_CCW);

@@ -86,10 +86,21 @@ fi
 
 build_zthread
 
+# What configure is given. Make cannot tell that these changed, so a tree
+# configured differently is cleaned and configured again.
+RCL_TITLE="Retrocycles RCL"
+BUILD_PROFILE="title=${RCL_TITLE};debug=${RCL_DEBUGLEVEL:-0};code=${RCL_CODELEVEL:-0}"
+BUILD_PROFILE_STAMP="${BUILD}/.rcl-build-profile"
+
 mkdir -p "${BUILD}"
-if ! test -f "${BUILD}/Makefile"; then
+if ! test -f "${BUILD}/Makefile" ||
+    test "$(cat "${BUILD_PROFILE_STAMP}" 2>/dev/null || true)" != "${BUILD_PROFILE}"; then
+  if test -f "${BUILD}/Makefile"; then
+    make -C "${BUILD}" clean
+  fi
   (
     cd "${BUILD}"
+    progtitle="${RCL_TITLE}" \
     ../configure \
       --prefix="${BUILD}/install" \
       --with-zthread-prefix="${DEPS}" \
@@ -106,6 +117,7 @@ if ! test -f "${BUILD}/Makefile"; then
       DEBUGLEVEL="${RCL_DEBUGLEVEL:-0}" \
       CODELEVEL="${RCL_CODELEVEL:-0}"
   )
+  printf '%s\n' "${BUILD_PROFILE}" > "${BUILD_PROFILE_STAMP}"
 fi
 
 # The top-level all target regenerates command documentation by launching the

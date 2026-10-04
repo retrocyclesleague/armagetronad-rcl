@@ -54,7 +54,7 @@ REAL subby_SpeedGaugeSize=.175, subby_SpeedGaugeLocX=0.0, subby_SpeedGaugeLocY=-
 REAL subby_BrakeGaugeSize=.175, subby_BrakeGaugeLocX=0.48, subby_BrakeGaugeLocY=-0.9;
 REAL subby_RubberGaugeSize=.175, subby_RubberGaugeLocX=-0.48, subby_RubberGaugeLocY=-0.9;
 bool subby_RubberMeterColorChange = true, subby_BrakeMeterColorChange = false;
-bool subby_ShowHUD=true, subby_ShowSpeedFastest=false, subby_ShowScore=true, subby_ShowAlivePeople=true, subby_ShowPing=false, subby_ShowSpeedMeter=true, subby_ShowBrakeMeter=true, subby_ShowRubberMeter=true;
+bool subby_ShowHUD=true, subby_ShowSpeedFastest=true, subby_ShowScore=true, subby_ShowAlivePeople=true, subby_ShowPing=true, subby_ShowSpeedMeter=true, subby_ShowBrakeMeter=true, subby_ShowRubberMeter=true;
 bool showTime=false;
 bool show24hour=false;
 REAL subby_ScoreLocX=-0.95, subby_ScoreLocY=-0.85, subby_ScoreSize =.13;
@@ -413,16 +413,16 @@ static void display_hud_subby( ePlayer* player ){
                         if(subby_ShowSpeedMeter)
                         {
                             static gGLMeter meter[MAX_PLAYERS];
-                            meter[player->ID()].Display(h->Speed(),h->MaximalSpeed(),subby_SpeedGaugeLocX,subby_SpeedGaugeLocY,subby_SpeedGaugeSize,"Speed");  // easy to use configurable meters
+                            meter[player->ID()].Display(h->Speed(),h->MaximalSpeed(),subby_SpeedGaugeLocX,subby_SpeedGaugeLocY,subby_SpeedGaugeSize,"speed");  // easy to use configurable meters
                         }
                         if(subby_ShowRubberMeter)
                         {
                             static gGLMeter meter[MAX_PLAYERS];
                             
                             if(!subby_RubberMeterColorChange)
-                                meter[player->ID()].Display(h->GetRubber(),sg_rubberCycle,subby_RubberGaugeLocX,subby_RubberGaugeLocY,subby_RubberGaugeSize," Rubber Used");
+                                meter[player->ID()].Display(h->GetRubber(),sg_rubberCycle,subby_RubberGaugeLocX,subby_RubberGaugeLocY,subby_RubberGaugeSize," rubber used");
                             else
-                                meter[player->ID()].Display(h->GetRubber(),sg_rubberCycle,subby_RubberGaugeLocX,subby_RubberGaugeLocY,subby_RubberGaugeSize," Rubber Used", true, false, (h->GetRubber()/sg_rubberCycle), 1-(h->GetRubber()/sg_rubberCycle), 0);
+                                meter[player->ID()].Display(h->GetRubber(),sg_rubberCycle,subby_RubberGaugeLocX,subby_RubberGaugeLocY,subby_RubberGaugeSize," rubber used", true, false, (h->GetRubber()/sg_rubberCycle), 1-(h->GetRubber()/sg_rubberCycle), 0);
                             
                             if ( gCycle::RubberMalusActive() )
                             {
@@ -435,9 +435,9 @@ static void display_hud_subby( ePlayer* player ){
                             static gGLMeter meter[MAX_PLAYERS];
                             
                             if(!subby_BrakeMeterColorChange)
-                                meter[player->ID()].Display(h->GetBrakingReservoir(), 1.0,subby_BrakeGaugeLocX,subby_BrakeGaugeLocY,subby_BrakeGaugeSize, " Brakes");
+                                meter[player->ID()].Display(h->GetBrakingReservoir(), 1.0,subby_BrakeGaugeLocX,subby_BrakeGaugeLocY,subby_BrakeGaugeSize, " brakes");
                             else
-                                meter[player->ID()].Display(h->GetBrakingReservoir(), 1.0,subby_BrakeGaugeLocX,subby_BrakeGaugeLocY,subby_BrakeGaugeSize, " Brakes", true, false, 1-h->GetBrakingReservoir(), h->GetBrakingReservoir(), 0);
+                                meter[player->ID()].Display(h->GetBrakingReservoir(), 1.0,subby_BrakeGaugeLocX,subby_BrakeGaugeLocY,subby_BrakeGaugeSize, " brakes", true, false, 1-h->GetBrakingReservoir(), h->GetBrakingReservoir(), 0);
                         }
 
                         //  bool displayfastest = true;// put into global, set via menusytem... subby to do.make sr_DISPLAYFASTESTout
@@ -455,7 +455,7 @@ static void display_hud_subby( ePlayer* player ){
                                 messageColor << "0xbf9d50";
 
                                 snprintf( fasteststring, sizeof( fasteststring ), "%.1f", max );
-                                message << "  Fastest: " << name << " " << fasteststring;
+                                message << "  fastest: " << name << " " << fasteststring;
                                 message.RemoveHex(); //cheers tank;
                                 int length = message.Len();
 
@@ -484,8 +484,8 @@ static void display_hud_subby( ePlayer* player ){
 
                                 float size = subby_ScoreSize;
                                 rTextField score(subby_ScoreLocX,subby_ScoreLocY,.15*size,.3*size);
-                                score <<               " Scores\n";
-                                score << "0xefefef" << "Me:  Top:\n";
+                                score <<               " scores\n";
+                                score << "0xefefef" << "me:  top:\n";
                                 score << colour << myscore << "     0xffff00" << topscore ;
                             }
                         }
@@ -498,7 +498,7 @@ static void display_hud_subby( ePlayer* player ){
                                 rDisplayListFiller filler( cache.list_ );
 
                                 tString message;
-                                message << "Enemies: " << alivepeople << " Friends: " << alivemates;
+                                message << "enemies: " << alivepeople << " friends: " << alivemates;
                                 int length = message.Len();
                                 float size = subby_AlivePeopleSize;
                                 rTextField enemies_alive(subby_AlivePeopleLocX-((.15*size*(length-1.5))/2.0),subby_AlivePeopleLocY,.15*size,.3*size);
@@ -514,7 +514,7 @@ static void display_hud_subby( ePlayer* player ){
                                 rDisplayListFiller filler( cache.list_ );
 
                                 tString message;
-                                message << "Ping: " << int(myping * 1000) << " ms" ;
+                                message << "ping: " << int(myping * 1000) << " ms" ;
                                 int length = message.Len();
                                 float size = subby_PingSize;
                                 rTextField ping(subby_PingLocX-((.15*size*(length-1.5))/2.0),subby_PingLocY,.15*size,.3*size);
@@ -527,8 +527,8 @@ static void display_hud_subby( ePlayer* player ){
                             tString output;
                             float posX = h->Position().x;
                             float posY = h->Position().y;
-                            output << "Position X: " << posX << "\n";
-                            output << "Position Y: " << posY;
+                            output << "position x: " << posX << "\n";
+                            output << "position y: " << posY;
                             int length = output.Len();
                             float size = subby_CoordSize;
                             rTextField location(subby_CoordLocX-((.15*size*(length-1.5))/2.0),subby_CoordLoxY,.15*size,.3*size);

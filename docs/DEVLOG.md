@@ -1,5 +1,23 @@
 # Dev log
 
+## 2026-10-04 - interface brief: Space Grotesk, one component system, dark default
+
+Work against `RCL_CLIENT_MODERNISATION_BRIEF.md` (phase 0 and the phase 1 menu slice, plus the parts of phase 2 that came with it). The description of the system is in `docs/CLIENT_ARCHITECTURE.md`, section Interface.
+
+- Text: proportional Space Grotesk everywhere (`render/rUiFont.*`, atlases in `textures/ui/` from `scripts/generate-rcl-ui-font.py`), drawn texel for pixel. `RCL_UI_FONT 0` restores the bitmap font.
+- Interface strings are lowercased when the English language file loads, not at draw time; user and server text keep their case. HUD literals lowercased by hand.
+- `uRclTheme` rewritten: the kit's inverse palette with one lime (`#EEFF41`), logical-pixel layout, a navigation rail on the left, the same wordmark on every screen, rows with real controls (toggle, selector, slider, text field, key binding), dialogs with wrapped text. `uMenu` draws rows through it and handles hover, click, selector arrows and slider drags; rows end at the column's edge, so the pointer no longer selects from anywhere on the screen.
+- Menus: play now is the main menu's primary action, resume the in-game menu's. Local Game is Practice, Exit Game is Quit, Player moved under Settings (player & controls), Extras and Config Files under Settings / Advanced. Escape on the main menu goes to Quit before it quits.
+- Server browser: measured columns with right-aligned numbers, sort column lit in the header, selected server's details under the list, authored name colours kept but lifted where they would sink into the background.
+- Number rows no longer clamp settings when a menu is built; unknown selector values show as "custom".
+- Binding capture ignores mouse movement for the first 0.4 s, so the click that starts it cannot end it.
+- Dialogs: a key with a global job (the screenshot key) does it instead of dismissing the message; words wider than a line (paths in About) wrap instead of being shortened.
+- Arena: the dark grid arena and the original cycle are the default again. The pale arena and the lofted cycle body (`cycle_body_clean`) remain behind `RCL_CLEAN_ARENA` / Display & Graphics / Detail. The menu replay is drawn dark and quiet, with solid cycles on the floor.
+- Product name: configure gets `progtitle="Retrocycles RCL"` on all three client build scripts, so the window title and `\g` in strings say so. The Windows script re-configures when its inputs change. Window icon is the wordmark.
+- Fixed: `se_SoundExit` closed the audio device while holding the audio lock. Under sdl12-compat that hangs whenever the audio thread is waiting for the lock: at exit, and in optimised builds at startup, where sound is initialised twice. Before: 3 of 6 optimised launches hung there (stack in `se_SoundExit`); after: 0 of 51.
+- Space Grotesk notice (SIL OFL 1.1) added to `THIRD_PARTY_NOTICES.md`; packaging requires the font metrics file.
+
+Checked in the running Windows client (optimised build) at 1280x720 and 1920x1080: main menu, settings pages, key bindings, sign-in prompt, server browser, About dialog and its scrolling, in-game menu over a local game, HUD, quitting through the menu (the process ends). Keyboard throughout; pointer hover, click, toggle and selector stepping with synthetic events. Not checked: a physical mouse (slider dragging in particular), the chat and console prompts after the last layout changes, the binding-capture state on screen, first-run setup, split screen, ultrawide, fullscreen switches, online play, macOS and Linux clients beyond CI compiling them. Frame rate in a local 1080p game was in the same range with the new font and the old one (roughly 1050-1600 fps, uncapped, scenes not matched); that is not a frame-time study.
 ## 2026-10-04 - clean arena, new cycle body, HUD and menu controls
 
 - Clean arena (`RCL_CLEAN_ARENA`, default on, toggle under Display Settings / Detail): pale open floor that fades into the sky colour instead of a grid, no rim walls (a low kerb marks the boundary, which still kills), a point light with a pool of light on the floor, solid trails with thickness, soft floor shadows, and floor reflections at a stronger sheen. Colours and the light live in `rScreen.cpp` and `eDisplay.cpp` (`se_CleanArenaLight`).

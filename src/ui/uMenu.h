@@ -34,6 +34,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "tString.h"
 #include "tCallback.h"
 #include "tLocale.h"
+#include "uRclTheme.h"
 
 #include "rSDL.h"
 #ifndef DEDICATED
@@ -52,9 +53,10 @@ class uMenuMouseGuard;
 enum uMenuStyle
 {
     uMenuStyle_Classic = 0,
-    uMenuStyle_RclPanel,
-    uMenuStyle_RclFull,
-    uMenuStyle_RclPrompt
+    uMenuStyle_RclPanel,    //!< a titled page of rows
+    uMenuStyle_RclFull,     //!< a table across the window
+    uMenuStyle_RclPrompt,   //!< one input row along the bottom
+    uMenuStyle_RclHome      //!< the main menu
 };
 
 class uMenu{
@@ -78,12 +80,15 @@ protected:
 
     uMenuStyle           style_;
     int                  selected;
+    tString              footnote_;         //!< quiet status text at the foot of the menu
 
     REAL YPos(int num);
 #ifndef DEDICATED
     virtual REAL ItemDrawY(int itemIndex);
     virtual REAL ItemRowHalf(int itemIndex);
-    int ItemAt(REAL mouseY);
+    int ItemAt(REAL mouseX, REAL mouseY);
+    void ApplyTheme();                      //!< gives the theme this menu's layout and takes the list's place from it
+    void Back();                            //!< what Escape does
     void ActivateSelected();
     void EnterMenuMouseMode();
     void LeaveMenuMouseMode();
@@ -93,6 +98,7 @@ protected:
     bool                 menuMouseMode_;
     REAL                 styleEnterTime_;
     int                  mouseSelection_;   //!< row last selected by the mouse, -1 if the keyboard moved it since
+    int                  dragItem_;         //!< slider row the mouse is dragging, -1 if none
 #endif
 public:
     static bool          wrap;
@@ -123,6 +129,7 @@ public:
     REAL GetBot() const {return menuBot;}
     void SetSelected(int s) {selected = s;}
     void SetStyle(uMenuStyle style) {style_ = style;}
+    void SetFootnote(tString const & footnote) {footnote_ = footnote;}
     uMenuStyle GetStyle() const {return style_;}
     bool RclStyle() const {return style_ != uMenuStyle_Classic;}
     int  NumItems()         {return items.Len();}
@@ -185,7 +192,8 @@ class uMenuItem{
     friend class uMenu;
 
     int idnum;
-    uMenuItem(){}
+    bool primary_;
+    uMenuItem():idnum(-1),primary_(false),menu(0){}
 protected:
     uMenu  *menu;
     tOutput helpText;
@@ -196,13 +204,13 @@ protected:
                             REAL alpha=1,int center=0);
 public:
     uMenuItem(uMenu *M,const tOutput &help)
-            :idnum(-1),menu(M),helpText(help){
+            :idnum(-1),primary_(false),menu(M),helpText(help){
         menu->items.Add(this,idnum);
     }
 
 #ifdef SLOPPYLOCALE
     uMenuItem(uMenu *M,const char *help)
-            :idnum(-1),menu(M),helpText(help){
+            :idnum(-1),primary_(false),menu(M),helpText(help){
         menu->items.Add(this,idnum);
     }
 #endif
@@ -249,6 +257,22 @@ public:
     int GetID(){return idnum;}
 
     virtual bool IsSelectable(){return true;};
+
+    //! The menu's primary action is its one filled accent row.
+    void SetPrimary(bool primary){primary_ = primary;}
+    bool IsPrimary() const {return primary_;}
+
+    //! what the row shows next to its label: an uRclTheme::Control
+    virtual int Control(){return uRclTheme::Control_None;}
+    //! the state of a toggle
+    virtual bool ControlOn(){return false;}
+    //! where a slider stands, 0 to 1; negative if the row has no range to show
+    virtual REAL ControlFraction(){return -1;}
+    //! moves a slider there; false if the row has none
+    virtual bool SetControlFraction(REAL){return false;}
+    //! The mouse clicked the row at x. Returns false to have the row entered
+    //! as the enter key would.
+    virtual bool Click(REAL){return false;}
 
 protected:
     void SetColor( bool selected, REAL alpha );            //!< Sets the color of text output for this menuitem
@@ -351,20 +375,51 @@ public:
     }
 
     virtual void Render(REAL x,REAL y,REAL alpha=1,bool selected=0){
+        // A value none of the choices stands for (set in a config file, or
+        // imported) is left alone and named as what it is.
+        bool known=false;
         for(int i=choices.Len()-1;i>=0;i--)
-            if (choices(i)->value==*target)
+            if (choices(i)->value==*target){
                 select=i;
+                known=true;
+            }
 
         DisplayText(REAL(x-.02),y,title,selected,alpha,1);
         if (choices.Len()>0)
-            DisplayText(REAL(x+.02),y,choices(select)->description,selected,alpha,-1);
+        {
+            if (known || !menu->RclStyle())
+                DisplayText(REAL(x+.02),y,choices(select)->description,selected,alpha,-1);
+            else
+                DisplayText(REAL(x+.02),y,tOutput("$menuitem_custom"),selected,alpha,-1);
+        }
+    }
+
+    virtual int Control(){return uRclTheme::Control_Selector;}
+
+    // a click steps through the choices and starts over after the last one;
+    // on the left arrow, it steps back
+    virtual bool Click(REAL x){
+        if (choices.Len()<=1)
+            return true;
+        REAL const arrow = uRclTheme::ValueX();
+        if (x >= arrow - uRclTheme::W(8) && x < arrow + uRclTheme::W(20))
+            LeftRight(-1);
+        else if (select < choices.Len()-1)
+            LeftRight(1);
+        else
+            for(int i=choices.Len()-1;i>0;i--)
+                LeftRight(-1);
+        return true;
     }
 
     virtual tString Help(){
         tString ret;
         ret << helpText;
-        ret << "\n";
-        ret << choices(select)->helpText;
+        if (select >= 0 && select < choices.Len())
+        {
+            ret << "\n";
+            ret << choices(select)->helpText;
+        }
         return ret;
     }
 
@@ -399,6 +454,10 @@ public:
 
     virtual void LeftRight(int);
     virtual void Enter();
+
+    virtual int Control(){return uRclTheme::Control_Toggle;}
+    virtual bool ControlOn(){return *target;}
+    virtual bool Click(REAL){return false;}
 };
 
 
@@ -427,6 +486,10 @@ public:
     virtual tString GetLabel(){return tString(title);}
 
     virtual void LeftRight(int);
+
+    virtual int Control(){return uRclTheme::Control_Slider;}
+    virtual REAL ControlFraction();
+    virtual bool SetControlFraction(REAL fraction);
 
     virtual void Render(REAL x,REAL y,REAL alpha=1,bool selected=0);
 };
@@ -457,6 +520,10 @@ public:
 
     virtual void LeftRight(int);
 
+    virtual int Control(){return uRclTheme::Control_Slider;}
+    virtual REAL ControlFraction();
+    virtual bool SetControlFraction(REAL fraction);
+
     virtual void Render(REAL x,REAL y,REAL alpha=1,bool selected=0);
 };
 
@@ -484,6 +551,8 @@ public:
     virtual void Render(REAL x,REAL y,REAL alpha=1,bool selected=0);
 
     virtual bool Event(SDL_Event &e);
+
+    virtual int Control(){return uRclTheme::Control_Text;}
 
     uMenu *MyMenu(){return menu;}
 

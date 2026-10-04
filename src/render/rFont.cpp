@@ -27,9 +27,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "rFont.h"
 #include "rScreen.h"
+#include "rUiFont.h"
 #include "tConfiguration.h"
 #include "tColor.h"
 #include <ctype.h>
+#include <math.h>
 
 #ifndef DEDICATED
 #include "rRender.h"
@@ -222,12 +224,140 @@ static REAL sr_smallFontThresholdHeight = 8;
 static tSettingItem< REAL > sr_smallFontThresholdWidthConf(  "FONT_SMALL_THRESHOLD_WIDTH", sr_smallFontThresholdWidth );
 static tSettingItem< REAL > sr_smallFontThresholdHeightConf( "FONT_SMALL_THRESHOLD_HEIGHT", sr_smallFontThresholdHeight );
 
+// ---------------------------------------------------------------------------
+// the proportional interface font
+// ---------------------------------------------------------------------------
+
+static int  sr_styleWeight   = rUiFont::Regular;
+static REAL sr_styleTracking = 0;
+static bool sr_styleShadow   = true;
+static bool sr_fixedWidth    = false;
+
+void rTextField::SetStyle( int weight, REAL tracking )
+{
+    sr_styleWeight = weight;
+    sr_styleTracking = tracking;
+}
+
+int rTextField::GetStyleWeight(){ return sr_styleWeight; }
+REAL rTextField::GetStyleTracking(){ return sr_styleTracking; }
+
+void rTextField::SetShadow( bool shadow ){ sr_styleShadow = shadow; }
+bool rTextField::GetShadow(){ return sr_styleShadow; }
+
+void rTextField::SetFixedWidth( bool fixedWidth ){ sr_fixedWidth = fixedWidth; }
+bool rTextField::GetFixedWidth(){ return sr_fixedWidth; }
+
+#ifndef DEDICATED
+namespace
+{
+    struct rUiPlacement
+    {
+        rUiFont::Face const * face;
+        REAL pixelW, pixelH;    // one font pixel in field units
+        REAL tracking;          // field units
+        REAL baseline;          // from the top of a line down to the baseline
+        bool snap;
+    };
+}
+
+// Picks the interface face for a field with the given cells. Returns false
+// when the field has to use the legacy font.
+static bool sr_PlaceUiFont( REAL cwidth, REAL cheight, rUiPlacement & place )
+{
+    if ( sr_fixedWidth || !rUiFont::Available() )
+        return false;
+
+    // field units span -1..1 over the viewport
+    REAL const unitW = sr_viewportPixelWidth * .5f;
+    REAL const unitH = sr_viewportPixelHeight * .5f;
+    if ( !( unitW > 0 && unitH > 0 ) )
+        return false;
+
+    REAL const cellW = cwidth * unitW;
+    REAL const cellH = cheight * unitH;
+    REAL em = cellH * rUiFont::emPerCell;
+
+    // The legacy cell is half as wide as it is tall, and callers narrow it to
+    // make text fit. Glyphs are never stretched: a narrowed cell makes the
+    // text smaller instead. Proportional text is a little narrower than the
+    // grid anyway, so only a clear squeeze has an effect.
+    REAL const narrowest = cellH * .39f;
+    if ( cellW < narrowest )
+        em *= cellW / narrowest;
+
+    REAL scale = 1;
+    place.face = rUiFont::Pick( sr_styleWeight, em, scale );
+    if ( !place.face )
+        return false;
+
+    place.pixelW = scale / unitW;
+    place.pixelH = scale / unitH;
+    place.tracking = sr_styleTracking * em / unitW;
+    place.snap = ( scale == 1 );
+
+    // centre the font's line box in the cell
+    REAL const box = ( rUiFont::Ascent( place.face ) + rUiFont::Descent( place.face ) ) * scale;
+    place.baseline = ( ( cellH - box ) * .5f + rUiFont::Ascent( place.face ) * scale ) / unitH;
+    return true;
+}
+
+// moves a coordinate to the nearest screen pixel edge
+static inline REAL sr_SnapToPixel( REAL xy, int viewportPixels )
+{
+    REAL const unit = viewportPixels * .5f;
+    return floorf( ( xy + 1 ) * unit + .5f ) / unit - 1;
+}
+#endif
+
+REAL rTextField::CharAdvance(unsigned char c) const
+{
+    return rUiFont::Advance( static_cast< rUiFont::Face const * >( ui_ ), c ) * uiPixelW_ + uiTracking_;
+}
+
+REAL rTextField::TextWidth( const char * text, REAL cwidth, REAL cheight, ColorMode colorMode )
+{
+#ifndef DEDICATED
+    rUiPlacement place;
+    if ( sr_PlaceUiFont( cwidth, cheight, place ) )
+    {
+        REAL width = 0;
+        for ( char const * c = text; *c != '\0' && *c != '\n'; )
+        {
+            if ( colorMode == COLOR_USE && c[0] == '0' && c[1] == 'x' && my_strnlen( c, 8 ) >= 8 )
+            {
+                c += 8;
+                continue;
+            }
+            width += rUiFont::Advance( place.face, static_cast< unsigned char >( *c ) ) * place.pixelW
+                     + place.tracking;
+            ++c;
+        }
+        return width;
+    }
+#endif
+
+    // the cell grid: every character that is not part of a colour code
+    int length = strlen( text );
+    if ( colorMode == COLOR_USE )
+    {
+        for ( char const * c = text; *c != 0; ++c )
+        {
+            if ( *c == '0' && c[1] == 'x' )
+                length -= 8;
+        }
+    }
+    return length * cwidth;
+}
+
 rTextField::rTextField(REAL Left,REAL Top,
                        REAL Cwidth,REAL Cheight,
                        rFont *f)
         :parIndent(0),
         left(Left),top(Top),cwidth(Cwidth),cheight(Cheight),
-        F(f),x(0),y(0),realx(0),cursor(0),cursorPos(0){
+        F(f),x(0),y(0),realx(0),cursor(0),cursorPos(0),
+        ui_(0),uiPixelW_(0),uiPixelH_(0),uiTracking_(0),uiBaseline_(0),uiSnap_(false),
+        lineAdvance_(0),blankRun_(0),table_(false){
     if ( cwidth*sr_screenWidth < sr_bigFontThresholdWidth*2 || cheight*sr_screenHeight < sr_bigFontThresholdHeight*2 )
         F=&rFont::s_defaultFontSmall;
     if (cwidth*sr_screenWidth <= sr_smallFontThresholdWidth*2 + 1E-4)
@@ -248,6 +378,21 @@ rTextField::rTextField(REAL Left,REAL Top,
     color_ = defaultColor_;
 
     width = int((1-Left)/cwidth);
+
+#ifndef DEDICATED
+    {
+        rUiPlacement place;
+        if ( sr_PlaceUiFont( cwidth, cheight, place ) )
+        {
+            ui_ = place.face;
+            uiPixelW_ = place.pixelW;
+            uiPixelH_ = place.pixelH;
+            uiTracking_ = place.tracking;
+            uiBaseline_ = place.baseline;
+            uiSnap_ = place.snap;
+        }
+    }
+#endif
 
     buffer.SetLen(0);
     /*
@@ -315,6 +460,7 @@ void rTextField::FlushLine(int len,bool newline){
             sr_lowerPartFont.Unload();
             rFont::s_defaultFont.Unload();
             rFont::s_defaultFontSmall.Unload();
+            rUiFont::Unload();
         }
     }
 
@@ -325,7 +471,90 @@ void rTextField::FlushLine(int len,bool newline){
     REAL b = color_.b_;
     REAL a = color_.a_;
 
-    if (sr_glOut)
+    if (sr_glOut && ui_)
+    {
+        // The interface font: every character sits where its predecessors'
+        // advances put it, on whole pixels when the face is drawn unscaled.
+        rUiFont::Face const * face = static_cast< rUiFont::Face const * >( ui_ );
+        REAL const lineTop = top - y*cheight;
+        REAL baseline = lineTop - uiBaseline_;
+        if ( uiSnap_ )
+            baseline = sr_SnapToPixel( baseline, sr_viewportPixelHeight );
+
+        REAL const begin = left + ( realx < x ? starts_[realx] : lineAdvance_ );
+        REAL const end   = left + ( realx + len < x ? starts_[realx + len] : lineAdvance_ );
+
+        if ( color_.IsDark() && sr_renderBrightBackground )
+        {
+            RenderEnd(true);
+            glDisable(GL_TEXTURE_2D);
+            if ( sr_alphaBlend )
+            {
+                glColor4f( blendColor_.r_, blendColor_.g_, blendColor_.b_, a * blendColor_.a_ );
+                BeginQuads();
+                glVertex2f( begin, lineTop - cheight );
+                glVertex2f( end,   lineTop - cheight );
+                glVertex2f( end,   lineTop );
+                glVertex2f( begin, lineTop );
+            }
+            else
+            {
+                if ( r < .5 ) r = .5;
+                if ( g < .5 ) g = .5;
+                if ( b < .5 ) b = .5;
+            }
+            RenderEnd(true);
+        }
+
+        if ( len > 0 )
+        {
+            RenderEnd(true);
+            rUiFont::Select( face );
+            sr_lastSelected = 0;
+
+            if( sr_textShadow && sr_styleShadow && (
+                ( color_.IsDark() && (sr_textShadow&1) ) ||
+                (!color_.IsDark() && ( (sr_textShadow&2) || sr_cleanArena ) )
+            ))
+            {
+                // one pixel down and to the right
+                if( color_.IsDark() )
+                    glColor4f( 1, 1, 1, blendColor_.a_*a );
+                else
+                    glColor4f( 0, 0, 0, blendColor_.a_*a );
+
+                BeginQuads();
+                for ( i = 0; i < len; ++i )
+                {
+                    REAL l = left + starts_[realx + i];
+                    if ( uiSnap_ )
+                        l = sr_SnapToPixel( l, sr_viewportPixelWidth );
+                    rUiFont::Quad( face, buffer[realx + i], l + uiPixelW_, baseline - uiPixelH_,
+                                   uiPixelW_, uiPixelH_ );
+                }
+                RenderEnd(true);
+            }
+
+            glColor4f(r * blendColor_.r_,g * blendColor_.g_,b * blendColor_.b_,a * blendColor_.a_);
+            BeginQuads();
+        }
+
+        for (i=0;i<=len;i++){
+            REAL l = left + ( realx < x ? starts_[realx] : lineAdvance_ );
+
+            if (0 <= cursorPos--){
+                cursor_x=l;
+                cursor_y=lineTop;
+            }
+            if (i<len){
+                if ( uiSnap_ )
+                    l = sr_SnapToPixel( l, sr_viewportPixelWidth );
+                rUiFont::Quad( face, buffer[realx], l, baseline, uiPixelW_, uiPixelH_ );
+                realx++;
+            }
+        }
+    }
+    else if (sr_glOut)
     {
         // render bright background
         //this is kind of ugly
@@ -362,7 +591,7 @@ void rTextField::FlushLine(int len,bool newline){
             glEnable(GL_TEXTURE_2D);
         }
         
-        if( sr_textShadow && (
+        if( sr_textShadow && sr_styleShadow && (
             ( color_.IsDark() && (sr_textShadow&1) ) ||
             (!color_.IsDark() && ( (sr_textShadow&2) || sr_cleanArena ) )
         ))
@@ -441,6 +670,9 @@ void rTextField::FlushLine(int len,bool newline){
     if (newline){
         y++;
         realx=x=0;
+        lineAdvance_=0;
+        blankRun_=0;
+        table_=false;
     }
     else
     {
@@ -462,6 +694,29 @@ inline void rTextField::WriteChar(unsigned char c)
         buffer.SetLen(0);
         break;
     default:
+        if ( ui_ )
+        {
+            // Padded columns: once a line is known to be a table, text that
+            // follows a run of blanks starts on the cell grid, where the
+            // fixed-width font would have put it. Everything else is placed
+            // by the advances of what precedes it.
+            bool const blank = ( c == ' ' );
+            if ( !blank && table_ && blankRun_ >= 2 )
+            {
+                REAL const grid = x * cwidth;
+                if ( grid > lineAdvance_ )
+                    lineAdvance_ = grid;
+            }
+
+            if ( static_cast< int >( starts_.size() ) <= x )
+                starts_.resize( x + 32 );
+            starts_[x] = lineAdvance_;
+            lineAdvance_ += CharAdvance( c );
+
+            blankRun_ = blank ? blankRun_ + 1 : 0;
+            if ( blankRun_ >= 3 )
+                table_ = true;
+        }
         buffer[x++]=c;
         break;
     }
@@ -510,12 +765,27 @@ rTextField & rTextField::StringOutput(const char * c, ColorMode colorMode )
     // run through string
     while (*c!='\0')
     {
+        // A line with a run of three blanks has padded columns; lay it out as
+        // a table from its start (see WriteChar).
+        if ( ui_ && x == 0 && !table_ )
+        {
+            for ( char const * s = c; *s != '\0' && *s != '\n'; ++s )
+            {
+                if ( s[0] == ' ' && s[1] == ' ' && s[2] == ' ' )
+                {
+                    table_ = true;
+                    break;
+                }
+            }
+        }
+
         // break line if next space character is too far away
         if ( isblank(*c) )
         {
             // count number of nonblank characters following
             char const * nextSpace = c+1;
             int wordLen = 0;
+            REAL wordAdvance = 0;
             while ( *nextSpace != '\0' && *nextSpace != '\n' && !isblank(*nextSpace) )
             {
                 if (*nextSpace=='0' && my_strnlen(nextSpace, 8)>=8 && nextSpace[1]=='x' && colorMode != COLOR_IGNORE )
@@ -526,13 +796,18 @@ rTextField & rTextField::StringOutput(const char * c, ColorMode colorMode )
                 else
                 {
                     // count letter
+                    if ( ui_ )
+                        wordAdvance += CharAdvance( *nextSpace );
                     nextSpace++;
                     wordLen++;
                 }
             }
 
             // see if the word plus the space fit into the current line
-            if ( wordLen + x + 1 >= width )
+            bool const overflow = ui_
+                ? ( x > 0 && lineAdvance_ + CharAdvance(' ') + wordAdvance > width * cwidth )
+                : ( wordLen + x + 1 >= width );
+            if ( overflow )
             {
                 // no. Skip to the next line
                 WriteChar('\n');
@@ -547,7 +822,8 @@ rTextField & rTextField::StringOutput(const char * c, ColorMode colorMode )
         }
 
         // linebreak if line has gotten too long anyway
-        if ( x >= width )
+        if ( ui_ ? ( x > 0 && *c != '\n' && lineAdvance_ + CharAdvance(*c) > width * cwidth )
+                 : ( x >= width ) )
         {
             WriteChar('\n');
             cursorPos += 1;
@@ -615,17 +891,23 @@ void DisplayText(REAL x,REAL y,REAL w,REAL h,const char *text,int center,int cur
     // calculate top position so that does not move when we shrink the font
     REAL top = y + h*.5;
 
+    // the width the text really takes; with the fixed-width font that is the
+    // number of characters times the cell width
+    REAL textWidth = rTextField::TextWidth( text, w, h, colorMode );
+
     // shrink fields that don't fit the screen
     REAL availw = 1.9f;
     if (center < 0) availw = (.9f-x);
     if (center > 0) availw = (x + .9f);
-    if ( colorlen * w > availw )
+    if ( textWidth > availw && textWidth > 0 )
     {
-        h *= availw/(colorlen * w);
-        w = availw/REAL(colorlen);
+        REAL const shrink = availw/textWidth;
+        h *= shrink;
+        w *= shrink;
+        textWidth = rTextField::TextWidth( text, w, h, colorMode );
     }
 
-    rTextField c(x-(center+1)*colorlen*.5*w,y+h*.5,w,h);
+    rTextField c(x-(center+1)*.5*textWidth,y+h*.5,w,h);
     if (center==-1)
         c.SetWidth(int((.95-x)/c.GetCWidth()));
     else

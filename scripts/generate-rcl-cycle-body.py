@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the RCL lightcycle body mesh and its texture.
+"""Generate the clean arena's lightcycle body mesh and its texture.
 
 The body is a smooth lofted shell: superellipse rings along the cycle's
 length, following top, bottom and width profiles. It sits over the existing
@@ -150,12 +150,12 @@ def build_texture(vertices):
 
 def main():
     vertices, faces = build_mesh()
-    with open(ROOT / "models" / "cycle_body.mod", "w", newline="\n") as out:
+    with open(ROOT / "models" / "cycle_body_clean.mod", "w", newline="\n") as out:
         for index, (x, y, z) in enumerate(vertices, 1):
             out.write("v %d\t%.6f\t%.6f\t%.6f\n" % (index, x, y, z))
         for a, b, c in faces:
             out.write("f \t%d\t%d\t%d\n" % (a + 1, b + 1, c + 1))
-    build_texture(vertices).save(ROOT / "textures" / "cycle_body.png")
+    build_texture(vertices).save(ROOT / "textures" / "cycle_body_clean.png")
     print("cycle body: %d vertices, %d faces" % (len(vertices), len(faces)))
 
 

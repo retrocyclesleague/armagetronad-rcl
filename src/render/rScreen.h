@@ -101,6 +101,10 @@ extern SDL_Surface *sr_screen;
 extern int sr_screenWidth,sr_screenHeight;
 extern int sr_renderWidth,sr_renderHeight;
 
+// size in pixels of the viewport that is currently selected; text is placed
+// on whole pixels of it
+extern int sr_viewportPixelWidth,sr_viewportPixelHeight;
+
 //! Refresh physical drawable dimensions after SDL creates a GL context.
 void sr_UpdateRenderDimensions();
 

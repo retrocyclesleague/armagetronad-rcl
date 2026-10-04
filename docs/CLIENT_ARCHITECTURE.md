@@ -143,14 +143,63 @@ bridge then:
 
 No player-supplied display name is trusted for queue mutations.
 
-## UI direction
+## Interface
 
-The main menu presents:
+Every menu, prompt and dialog is drawn by one presentation layer,
+`src/ui/uRclTheme.*`. It follows the RCL component kit's inverse (dark)
+treatment; draw code elsewhere carries no colours or sizes of its own.
 
-- **Play Now** — Fort, Sumobar, or TST;
-- **Queue Now** — the same choices with authenticated `/add` after join;
-- **RCL Account** — sign in, switch account, or show identity/rank/Elo/matches;
-- the existing local play, Internet play, settings, and Player Setup paths.
+| Token | Value | Use |
+|-------|-------|-----|
+| canvas | `#141617` | outer background; holds back the scene behind a menu |
+| surface | `#202122` | the navigation rail, tables, the prompt bar |
+| surfaceSelected | `#5B5D60` | the selected row |
+| borderSubtle / borderStrong | `#3D3E3F` / `#646668` | separation / control outlines |
+| textPrimary | `#FAFAFA` | labels, values in the selected row |
+| textSecondary | `#B2B4B5` | values, help, hints |
+| accent | `#EEFF41` | the primary action, the selection edge, focus, switched-on controls |
+| onAccent | `#202122` | text on the accent |
+
+`surfaceRaised` (`#3B3D3F`) and a `danger` colour are defined and not used yet.
+
+- **Type.** Space Grotesk 400/500/600 (700 for the wordmark only). The engine
+  has no font rasteriser, so `scripts/generate-rcl-ui-font.py` rasterises the
+  font file the site serves into one atlas per weight and pixel size
+  (`textures/ui/`). `rUiFont` picks a size it can draw texel for pixel;
+  `rTextField` places glyphs by their advances, with tabular digits, and
+  measures and wraps text by width. This applies to all text in the client,
+  the HUD and console included. Lines padded with runs of spaces (console
+  tables) keep their columns on the old cell grid. `RCL_UI_FONT 0` falls back
+  to the fixed-width bitmap font.
+- **Lowercase.** Authored English strings are lowercased once, when the
+  language file is loaded (`tLocaleItem::Load`). Names, chat, typed text and
+  anything a server sends are never transformed.
+- **Layout.** Sizes are logical pixels: real pixels on a 1080-line display,
+  scaled with the window height, never below 0.6 (smaller windows scroll).
+  Four layouts: home (the main menu), page, wide (a table) and prompt (chat
+  and console input along the bottom).
+- **Components.** Action row; one primary action per menu (filled accent);
+  setting row with a separate control column: toggle, selector, slider, text
+  field, key binding; table rows with measured, right-aligned number columns;
+  dialog with wrapped, scrollable text; help text and key hints in the footer.
+  A menu item says which control it has (`uMenuItem::Control()`); `uMenu`
+  draws the row and routes the pointer (hover, click, selector arrows, slider
+  press and drag).
+- **Settings are not rewritten by opening a page.** Number rows no longer
+  clamp their value when a menu is built; a value outside the range, or one
+  no selector choice stands for, is shown as it is until the player changes
+  it.
+
+The main menu: play now (primary), queue now, servers, practice, account,
+settings, about, quit, with the client version and sign-in status at its foot.
+Settings: player & controls, display & graphics, audio, interface, advanced.
+The in-game menu: resume (primary), team, vote and player police online,
+change game locally, settings, about, and leave match or disconnect last.
+Escape goes back; on the main menu it first moves to quit.
+
+Not yet in this system: the scoreboard, the HUD's layout (only its font),
+connection and loading screens, the first-run setup, a dedicated camera page,
+and distinct empty/loading/error states in the server browser.
 
 Future queue polling, match-pop overlays, and automatic match handoff may use a
 reviewed installation-scoped HTTPS session. Browser enrollment and OS credential

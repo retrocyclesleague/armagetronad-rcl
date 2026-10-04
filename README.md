@@ -11,7 +11,9 @@ Current release line: `0.2.9+sty+ct+ap+rcl`.
 
 ![Main menu over the Fortress replay](docs/images/main-menu.png)
 
-![A local game in the clean arena](docs/images/clean-arena.png)
+![A settings page](docs/images/settings.png)
+
+![The server browser](docs/images/server-browser.png)
 
 ## what the client adds
 
@@ -21,8 +23,9 @@ Current release line: `0.2.9+sty+ct+ap+rcl`.
   server has verified your account.
 - **RCL sign-in**: sign in once with your RCL game username and password. Your
   tier, rank and Elo show on the main menu. Guest play still works.
-- **One menu style**: every menu uses the same panel layout, in the league's
-  colours.
+- **One interface**: every menu, prompt and dialog is drawn by the same small
+  set of components, in the league's dark palette and its typeface, Space
+  Grotesk, with real toggles, sliders, selectors and text fields.
 - **A match behind the menus**: a league Fortress match replays in the
   background, names removed, opening from overhead and then swooping through
   the fight.

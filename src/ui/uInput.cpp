@@ -349,19 +349,19 @@ static char const * keyname(int sym){
     if (sym<=SDLK_LAST)
         return SDL_GetKeyName(static_cast<SDLKey>(sym));
     else switch (sym){
-        case SDLK_MOUSE_X_PLUS: return "Mouse right";
-        case SDLK_MOUSE_X_MINUS: return "Mouse left";
-        case SDLK_MOUSE_Y_PLUS: return "Mouse up";
-        case SDLK_MOUSE_Y_MINUS: return "Mouse down";
-        case SDLK_MOUSE_Z_PLUS: return "Mouse z up";
-        case SDLK_MOUSE_Z_MINUS: return "Mouse z down";
-        case SDLK_MOUSE_BUTTON_1: return "Mousebutton 1";
-        case SDLK_MOUSE_BUTTON_2: return "Mousebutton 2";
-        case SDLK_MOUSE_BUTTON_3: return "Mousebutton 3";
-        case SDLK_MOUSE_BUTTON_4: return "Mousebutton 4";
-        case SDLK_MOUSE_BUTTON_5: return "Mousebutton 5";
-        case SDLK_MOUSE_BUTTON_6: return "Mousebutton 6";
-        case SDLK_MOUSE_BUTTON_7: return "Mousebutton 7";
+        case SDLK_MOUSE_X_PLUS: return "mouse right";
+        case SDLK_MOUSE_X_MINUS: return "mouse left";
+        case SDLK_MOUSE_Y_PLUS: return "mouse up";
+        case SDLK_MOUSE_Y_MINUS: return "mouse down";
+        case SDLK_MOUSE_Z_PLUS: return "mouse z up";
+        case SDLK_MOUSE_Z_MINUS: return "mouse z down";
+        case SDLK_MOUSE_BUTTON_1: return "mouse button 1";
+        case SDLK_MOUSE_BUTTON_2: return "mouse button 2";
+        case SDLK_MOUSE_BUTTON_3: return "mouse button 3";
+        case SDLK_MOUSE_BUTTON_4: return "mouse button 4";
+        case SDLK_MOUSE_BUTTON_5: return "mouse button 5";
+        case SDLK_MOUSE_BUTTON_6: return "mouse button 6";
+        case SDLK_MOUSE_BUTTON_7: return "mouse button 7";
         }
 #endif
     return "";
@@ -371,9 +371,10 @@ class uMenuItemInput: uMenuItem{
     uAction      *act;
     int         ePlayer;
     bool        active;
+    double      activeSince;    // when the capture of a new binding began
 public:
     uMenuItemInput(uMenu *M,uAction *a,int p)
-            :uMenuItem(M,a->helpText),act(a),ePlayer(p),active(0){
+            :uMenuItem(M,a->helpText),act(a),ePlayer(p),active(0),activeSince(0){
     }
 
     virtual ~uMenuItemInput(){}
@@ -412,7 +413,10 @@ public:
 
     virtual void Enter(){
         active=1;
+        activeSince=tSysTimeFloat();
     }
+
+    virtual int Control(){return uRclTheme::Control_Binding;}
 
 #define MTHRESH 5
 #define MREL    2
@@ -424,6 +428,11 @@ public:
         switch (e.type){
         case SDL_MOUSEMOTION:
             if(active){
+                // The hand that clicked the row is still settling: mouse
+                // movement only becomes a binding a moment later.
+                if (tSysTimeFloat()-activeSince < .4)
+                    return true;
+
                 REAL xrel=e.motion.xrel;
                 REAL yrel=-e.motion.yrel;
 
@@ -818,6 +827,18 @@ bool uActionGlobalFunc::GlobalAct(uAction *act, REAL x){
             return true;
 
     return false;
+}
+
+bool su_GlobalKey(int sym){
+    if (sym < 0 || sym >= SDLK_NEWLAST || !keymap[sym] || !keymap[sym]->act)
+        return false;
+
+    // press and release in one go: nothing is left held
+    uAction *act = keymap[sym]->act;
+    if (!uActionGlobalFunc::GlobalAct(act, 1))
+        return false;
+    uActionGlobalFunc::GlobalAct(act, -1);
+    return true;
 }
 
 static uActionGlobal mess_up("MESS_UP",1);

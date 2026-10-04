@@ -3287,6 +3287,115 @@ void sg_DisplayVersionInfo() {
 
 void sg_StartupPlayerMenu();
 
+// Puts a menu's rows into the given order, top row first. Rows that are not
+// named keep their order below the named ones; null entries are skipped.
+static void sg_OrderMenu( uMenu & menu, std::vector< uMenuItem * > const & topToBottom )
+{
+    std::vector< uMenuItem * > rest;
+    for ( int i = menu.NumItems()-1; i >= 0; --i )
+    {
+        uMenuItem * item = menu.Item(i);
+        if ( std::find( topToBottom.begin(), topToBottom.end(), item ) == topToBottom.end() )
+            rest.push_back( item );
+    }
+
+    while ( menu.NumItems() > 0 )
+        menu.RemoveItem( menu.Item( menu.NumItems()-1 ) );
+
+    // a menu stores its rows bottom first
+    for ( int i = static_cast< int >( rest.size() )-1; i >= 0; --i )
+        menu.AddItem( rest[i] );
+    for ( int i = static_cast< int >( topToBottom.size() )-1; i >= 0; --i )
+        if ( topToBottom[i] )
+            menu.AddItem( topToBottom[i] );
+}
+
+#ifndef DEDICATED
+// The quiet line at the foot of the main menu: client version and who is
+// signed in. Names and tiers are shown as their owners wrote them.
+static tString sg_RclStatusLine()
+{
+    tString status;
+
+    tString version( sn_programVersion );
+    int const rcl = version.StrPos( "rcl." );
+    if ( rcl > 0 )
+        version = version.SubStr( rcl );
+    int const build = version.StrPos( "_" );
+    if ( build > 0 )
+        version = version.SubStr( 0, build );
+    status << version << "  \xb7  ";
+
+    tString const identity = ePlayer::RclIdentity();
+    if ( ePlayer::RclAuthenticated() && ePlayer::RclProfileLoaded() )
+    {
+        tString name = ePlayer::RclDisplayName();
+        if ( name.Len() <= 1 )
+            name = identity.SubStr( 0, identity.StrPos( "@" ) );
+        status << name << "  \xb7  ";
+
+        tString const tier = ePlayer::RclTier();
+        if ( tier.Len() > 1 )
+            status << tier;
+        else
+            status << "#" << ePlayer::RclRank();
+        status << "  \xb7  " << tOutput( "$rcl_status_elo", ePlayer::RclElo() );
+    }
+    else if ( ePlayer::RclAuthenticated() )
+        status << tOutput( "$rcl_status_signed_in", identity );
+    else
+        status << tOutput( "$rcl_status_signed_out" );
+
+    return status;
+}
+
+// the main menu keeps its status line current while it is open
+class gMainMenu: public uMenu
+{
+public:
+    gMainMenu( const tOutput & title, bool status )
+    : uMenu( title, false ), status_( status )
+    {
+    }
+
+protected:
+    virtual void OnRender()
+    {
+        uMenu::OnRender();
+        if ( status_ )
+            SetFootnote( sg_RclStatusLine() );
+    }
+
+private:
+    bool status_;
+};
+
+// the account row explains itself with whatever is known about the account
+class gRclAccountItem: public uMenuItemFunction
+{
+public:
+    explicit gRclAccountItem( uMenu * menu )
+    : uMenuItemFunction( menu, "$rcl_profile_text", "$rcl_profile_help", &ePlayer::RclLogin )
+    {
+    }
+
+    virtual tString Help()
+    {
+        if ( !ePlayer::RclAuthenticated() || !ePlayer::RclProfileLoaded() )
+            return uMenuItemFunction::Help();
+
+        tOutput help;
+        help.SetTemplateParameter( 1, ePlayer::RclIdentity() );
+        help.SetTemplateParameter( 2, ePlayer::RclRank() );
+        help.SetTemplateParameter( 3, ePlayer::RclMatches() );
+        help << "$rcl_profile_summary_help";
+        return tString( help );
+    }
+};
+#else
+typedef uMenu gMainMenu;
+#endif
+
 void MainMenu(bool ingame){
     //	update_settings();
 
@@ -3344,8 +3453,12 @@ void MainMenu(bool ingame){
     else
         title << "$ingame_menu_text";
 
-    uMenu MainMenu(title,false);
-    MainMenu.SetStyle(ingame ? uMenuStyle_RclPanel : uMenuStyle_RclFull);
+#ifndef DEDICATED
+    gMainMenu MainMenu(title,!ingame);
+#else
+    gMainMenu MainMenu(title,false);
+#endif
+    MainMenu.SetStyle(ingame ? uMenuStyle_RclPanel : uMenuStyle_RclHome);
 
     if (ingame)
         sg_IngameMenu = &MainMenu;
@@ -3401,17 +3514,25 @@ void MainMenu(bool ingame){
     uMenu Settings("$system_settings_menu_text");
     Settings.SetStyle(uMenuStyle_RclPanel);
 
+    // rarely needed pages sit one level down
+    uMenu advanced("$rcl_advanced_menu_text");
+    advanced.SetStyle(uMenuStyle_RclPanel);
+
 #ifndef DEDICATED
-    uMenuItemFunction cfm(&Settings,
+    uMenuItemFunction cfm(&advanced,
                            "$config_setup_menu_text",
                             "$config_setup_menu_help",
                              &sg_ConfigMenu);
 
-    uMenuItemFunction spm(&Settings,
+    uMenuItemFunction spm(&advanced,
                            "$special_setup_menu_text",
                             "$special_setup_menu_help",
                              &sg_SpecialMenu);
 #endif
+
+    uMenuItemSubmenu advanced_sm
+    (&Settings,&advanced,
+     "$rcl_advanced_menu_help");
 
     uMenuItemSubmenu subm_settings
     (&MainMenu,&Settings,
@@ -3429,9 +3550,9 @@ void MainMenu(bool ingame){
 
     uMenuItemFunction *se_PlayerMenu=NULL;
 
-    //   if (!ingame)
+    // player setup is a settings page, in and out of a game
     se_PlayerMenu= new uMenuItemFunction
-                   (&MainMenu,"$player_mainmenu_text",
+                   (&Settings,"$player_mainmenu_text",
                     "$player_mainmenu_help",
                     &sg_PlayerMenu);
 
@@ -3523,43 +3644,8 @@ void MainMenu(bool ingame){
     uMenuItemFunction *rclProfile = NULL;
     if ( !ingame )
     {
-        tString identity = ePlayer::RclIdentity();
-        tOutput profileLabel;
-        tOutput profileHelp( "$rcl_profile_help" );
-        if ( ePlayer::RclAuthenticated() && ePlayer::RclProfileLoaded() )
-        {
-            tString displayName = ePlayer::RclDisplayName();
-            if ( displayName.Len() <= 1 )
-                displayName = identity.SubStr( 0, identity.StrPos( "@" ) );
-            tToUpper( displayName );
-            tString tier = ePlayer::RclTier();
-            if ( tier.Len() <= 1 )
-                tier << "#" << ePlayer::RclRank();
-            else
-                tToUpper( tier );
-
-            profileLabel.SetTemplateParameter( 1, displayName );
-            profileLabel.SetTemplateParameter( 2, tier );
-            profileLabel.SetTemplateParameter( 3, ePlayer::RclElo() );
-            profileLabel << "$rcl_profile_summary";
-
-            profileHelp.Clear();
-            profileHelp.SetTemplateParameter( 1, identity );
-            profileHelp.SetTemplateParameter( 2, ePlayer::RclRank() );
-            profileHelp.SetTemplateParameter( 3, ePlayer::RclMatches() );
-            profileHelp << "$rcl_profile_summary_help";
-        }
-        else if ( ePlayer::RclAuthenticated() )
-            profileLabel.SetTemplateParameter( 1, identity ) << "$rcl_profile_signed_in";
-        else if ( identity.Len() > 1 && identity != "@rcl" )
-            profileLabel.SetTemplateParameter( 1, identity ) << "$rcl_profile_identity";
-        else
-            profileLabel << "$rcl_profile_text";
-
-        rclProfile = tNEW( uMenuItemFunction )( &MainMenu,
-                                                profileLabel,
-                                                profileHelp,
-                                                &ePlayer::RclLogin );
+        // who is signed in is told by the status line at the menu's foot
+        rclProfile = tNEW( gRclAccountItem )( &MainMenu );
         queueNow = tNEW( uMenuItemFunction )( &MainMenu,
                                               "$rcl_queue_now_text",
                                               "$rcl_queue_now_help",
@@ -3575,6 +3661,52 @@ void MainMenu(bool ingame){
     {
         rViewport::Update(MAX_PLAYERS);
         // ePlayerNetID::Update();
+    }
+
+    // The rows, top to bottom. Out of a game the way into one comes first and
+    // is the primary action; in a game that is going back to it, and leaving
+    // sits at the far end.
+    {
+        std::vector< uMenuItem * > rows;
+        if (ingame)
+        {
+            rows.push_back( &exx );
+            rows.push_back( team );
+            rows.push_back( voting );
+            rows.push_back( player_police );
+            rows.push_back( gamemenuitem );
+            rows.push_back( &subm_settings );
+            rows.push_back( auth );
+            rows.push_back( &abb );
+            rows.push_back( return_to_main );
+            exx.SetPrimary( true );
+        }
+        else
+        {
+#ifndef DEDICATED
+            rows.push_back( playNow );
+            rows.push_back( queueNow );
+#endif
+            rows.push_back( connect );
+            rows.push_back( gamemenuitem );
+#ifndef DEDICATED
+            rows.push_back( rclProfile );
+            if ( playNow )
+                playNow->SetPrimary( true );
+#endif
+            rows.push_back( &subm_settings );
+            rows.push_back( &abb );
+            rows.push_back( &exx );
+        }
+        sg_OrderMenu( MainMenu, rows );
+
+        std::vector< uMenuItem * > settingsRows;
+        settingsRows.push_back( se_PlayerMenu );
+        settingsRows.push_back( &subm );
+        settingsRows.push_back( sound );
+        settingsRows.push_back( &misc_sm );
+        settingsRows.push_back( &advanced_sm );
+        sg_OrderMenu( Settings, settingsRows );
     }
 
     MainMenu.Enter();
@@ -5355,6 +5487,7 @@ void gGame::Analysis(REAL time){
                         {
                             tOutput message;
                             message << "$gamestate_winner_winner";
+                            message.AddSpace();
                             message << eTeam::teams[winner-1]->Name();
                             sn_CenterMessage(message);
                             message << '\n';

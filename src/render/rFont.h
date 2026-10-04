@@ -35,6 +35,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "tString.h"
 #include "tColor.h"
 
+#include <vector>
+
 class rFont:public rFileTexture{
     int offset;
     REAL cwidth;
@@ -81,6 +83,21 @@ class rTextField{
     int cursorPos; // position of the cursor (number of chars to come)
 
     REAL cursor_x,cursor_y; // position on the screen
+
+    // The interface font (rUiFont) is proportional: characters are placed by
+    // their real advances instead of on the cell grid. ui_ is NULL when the
+    // field draws with the legacy fixed-width font.
+    const void *ui_;             // the rUiFont::Face in use
+    REAL uiPixelW_,uiPixelH_;    // size of one font pixel in field units
+    REAL uiTracking_;            // extra space after every character
+    REAL uiBaseline_;            // from the top of a line down to its baseline
+    bool uiSnap_;                // glyphs sit on whole screen pixels
+    REAL lineAdvance_;           // width of everything written to the current line
+    std::vector<REAL> starts_;   // where each character of the current line begins
+    int  blankRun_;              // blanks written in a row
+    bool table_;                 // the line has padded columns; keep them on the cell grid
+
+    REAL CharAdvance(unsigned char c) const;
 
     void FlushLine(int len,bool newline=true);
     void FlushLine(bool newline=true);
@@ -182,8 +199,52 @@ public:
     static tColor const & GetBlendColor( void );	//!< Gets color all other colors are multiplied with
     static void GetBlendColor( tColor & blendColor );	//!< Gets color all other colors are multiplied with
 
+    //! Weight (rUiFont::Weight) and letter spacing, in em, of the fields
+    //! created from now on. See rTextStyle for a scoped version.
+    static void SetStyle( int weight, REAL tracking = 0 );
+    static int  GetStyleWeight();
+    static REAL GetStyleTracking();
+
+    //! Whether the fields created from now on may give their text the one
+    //! pixel shadow that keeps it readable over a game. Text on the
+    //! interface's own surfaces does without.
+    static void SetShadow( bool shadow );
+    static bool GetShadow();
+
+    //! Makes the fields created from now on use the legacy fixed-width font,
+    //! for text that relies on every character being one cell wide.
+    static void SetFixedWidth( bool fixedWidth );
+    static bool GetFixedWidth();
+
+    //! The width, in field units, text takes on one line of a field with the
+    //! given cell size. Use this, not the character count, to place text.
+    static REAL TextWidth( const char * text, REAL cwidth, REAL cheight, ColorMode colorMode = COLOR_USE );
+
+    //! true if this field draws with the proportional interface font
+    bool Proportional() const { return ui_ != 0; }
+
 private:
     inline void WriteChar(unsigned char c); //!< writes a single character as it is, no automatic newline breaking
+};
+
+//! sets the text style for the fields created in a scope
+class rTextStyle{
+    int  weight_;
+    REAL tracking_;
+    bool shadow_;
+public:
+    explicit rTextStyle( int weight, REAL tracking = 0, bool shadow = true )
+    : weight_( rTextField::GetStyleWeight() ), tracking_( rTextField::GetStyleTracking() )
+    , shadow_( rTextField::GetShadow() )
+    {
+        rTextField::SetStyle( weight, tracking );
+        rTextField::SetShadow( shadow );
+    }
+    ~rTextStyle()
+    {
+        rTextField::SetStyle( weight_, tracking_ );
+        rTextField::SetShadow( shadow_ );
+    }
 };
 
 template<class T> rTextField & operator<<(rTextField &c,const T &x){

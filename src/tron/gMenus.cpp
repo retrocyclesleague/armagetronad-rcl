@@ -887,6 +887,9 @@ public:
 
     virtual REAL SpaceRight(){return 1;}
 
+    // one line of text names the choice; left and right change it
+    virtual int Control(){return uRclTheme::Control_None;}
+
     virtual void RenderBackground(){
         uMenuItem::RenderBackground();
 
@@ -916,7 +919,7 @@ public:
         disp << "$viewport_conf_text";
         disp.AddSpace();
         disp << rViewportConfiguration::s_viewportConfigurationNames[rViewportConfiguration::next_conf_num];
-        DisplayText(x-.02,y,disp,selected,alpha);
+        DisplayText(menu->RclStyle() ? x : x-.02,y,disp,selected,alpha);
     }
 
 };
@@ -951,6 +954,8 @@ public:
 
     virtual REAL SpaceRight(){return 1;}
 
+    virtual int Control(){return uRclTheme::Control_None;}
+
     virtual void LeftRight(int x){
         rViewport::SetDirectionOfCorrection(vp,x);
         target=(target + MAX_PLAYERS + x) % MAX_PLAYERS;
@@ -979,7 +984,7 @@ public:
         disp.SetTemplateParameter(3, ePlayer::PlayerConfig(s_newViewportBelongsToPlayer[vp])->Name());
         disp << "$viewport_belongs_text";
 
-        DisplayText(x-.02,y,disp,selected,alpha);
+        DisplayText(menu->RclStyle() ? x : x-.02,y,disp,selected,alpha);
     }
 
 };
@@ -1003,20 +1008,25 @@ protected:
         REAL b = rgb[2]/15.0;
         se_MakeColorValid(r, g, b, 1.0f);
         RenderEnd();
-        glColor3f(r, g, b);
         if (menu->RclStyle())
         {
-            glRectf(.69f,-.62f,.82f,-.49f);
-            glColor3f(0,.82f,.88f);
-            BeginLineLoop();
-            Vertex(.68f,-.63f);
-            Vertex(.83f,-.63f);
-            Vertex(.83f,-.48f);
-            Vertex(.68f,-.48f);
-            RenderEnd();
+            // the colour being mixed, beside the page title
+            REAL const right = uRclTheme::RowRight();
+            REAL const left = right - uRclTheme::W(64);
+            REAL const top = uRclTheme::Y(128);
+            REAL const bottom = uRclTheme::Y(192);
+            uRclTheme::Color const & frame = uRclTheme::borderStrong;
+            glColor3f(frame.r, frame.g, frame.b);
+            glRectf(left, bottom, right, top);
+            REAL const w = uRclTheme::W(2), h = uRclTheme::H(2);
+            glColor3f(r, g, b);
+            glRectf(left + w, bottom + h, right - w, top - h);
         }
         else
+        {
+            glColor3f(r, g, b);
             glRectf(.8,-.8,.98,-.98);
+        }
 #endif
     }
 

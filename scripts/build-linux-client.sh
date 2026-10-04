@@ -16,6 +16,7 @@ mkdir -p "$BUILD"
 if ! test -f "$BUILD/Makefile"; then
   (
     cd "$BUILD"
+    progtitle="Retrocycles RCL" \
     ../configure \
       --prefix="${BUILD}/install" \
       --disable-restoreold \

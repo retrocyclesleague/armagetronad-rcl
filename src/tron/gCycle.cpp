@@ -2079,12 +2079,16 @@ struct gCycleVisuals
     // loads a specific texture from a specific folder
     static rSurface * LoadTextureSafe2( Slot slot, int mp )
     {
+        // the clean arena has its own cycle body, with its own texture
+        bool const clean = sr_cleanArena && slot == SLOT_BODY && !mp;
+
         static std::unique_ptr<rSurface> cache[SLOT_MAX][2];
-        std::unique_ptr<rSurface> & surface = cache[slot][mp];
+        static std::unique_ptr<rSurface> cleanBody;
+        std::unique_ptr<rSurface> & surface = clean ? cleanBody : cache[slot][mp];
         if ( surface.get() == NULL )
         {
             static char const * names[SLOT_MAX]={"bike.png","cycle_body.png", "cycle_wheel.png"};
-            char const * name = names[slot];
+            char const * name = clean ? "cycle_body_clean.png" : names[slot];
 
             char const * folder = mp ? "moviepack" : "textures";
             tString file = tString(folder) + "/" + name;
@@ -2157,6 +2161,8 @@ struct gCycleVisuals
         {
             tString base = tString(folder) + "/cycle_";
 
+            if (!bodyModel && sr_cleanArena && !mpFolder)
+                bodyModel = LoadModelSafe( base + "body_clean.mod" );
             if (!bodyModel) bodyModel = LoadModelSafe( base + "body.mod" );
             if (!frontModel) frontModel = LoadModelSafe( base + "front.mod" );
             if (!rearModel) rearModel = LoadModelSafe( base + "rear.mod" );

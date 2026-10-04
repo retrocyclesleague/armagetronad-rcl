@@ -1521,10 +1521,10 @@ config_load_all_help      Loads all the config from the beginning of game start.
 main_menu_text            \g v\1
 rcl_main_menu_text        RCL Client
 
-game_menu_text            Local Game
+game_menu_text            Practice
 game_menu_main_help        Game configuration and launch.
 
-player_mainmenu_text        Player
+player_mainmenu_text        Player & Controls
 player_mainmenu_help        Select player names and control methods.
 
 system_settings_menu_text    Settings
@@ -1533,23 +1533,23 @@ system_settings_menu_help    Configure sound, graphics and overall appearance of
 main_menu_about_text        About
 main_menu_about_help        Displays information about the version of \g, the location of its config files, sites to visit and the project admins.
 
-main_menu_exit_text        Exit Game
+main_menu_exit_text        Quit
 main_menu_exit_help        Goodbye!
 
 
 #ingame menu
-ingame_menu_text        In-Game Menu
+ingame_menu_text        Game Menu
 
 game_menu_ingame_text        Change Game
 game_menu_ingame_help        Game configuration
 
-ingame_menu_exit_text        Return to Game
+ingame_menu_exit_text        Resume
 ingame_menu_exit_help        Return to the game grid!
 
 game_menu_shutdown_text        End the Server
 game_menu_shutdown_help        End the server process and returns to the main menu.
 
-game_menu_exit_text        Leave Grid
+game_menu_exit_text        Leave Match
 game_menu_exit_help        End the current game and return to the game menu.
 
 game_menu_disconnect_text    Disconnect
@@ -1896,8 +1896,8 @@ friend_help                    If a server has this name on its players list, it
 #********************************************
 #********************************************
 
-misc_menu_text            Miscellaneous
-misc_menu_help            Diverse items that had no place elsewhere, i.e. global keys.
+misc_menu_text            Interface
+misc_menu_help            Language, menu behaviour, global keys and the first setup.
 
 misc_global_key_text        Global Keyboard Configuration
 misc_global_key_help        Some keyboard settings independent of the current player.
@@ -2193,7 +2193,7 @@ team_name_black            Team black
 #********************************************
 #********************************************
 
-sound_menu_text            Sound Settings
+sound_menu_text            Audio
 sound_menu_help            Sound quality settings.
 
 sound_menu_sources_text        Sound Sources:
@@ -2242,8 +2242,8 @@ sound_menu_buffer_vhigh_help    Latency of about 0.4s.
 #********************************************
 
 #display menu
-display_settings_menu        Display Settings
-display_settings_menu_help    Toggles features of your graphic system.
+display_settings_menu        Display & Graphics
+display_settings_menu_help    Screen mode, detail, performance and what the game shows while you play.
 
 screen_mode_menu        Screen Mode
 screen_mode_menu_help        Screen resolution and stuff.
@@ -2487,17 +2487,18 @@ tweaks_infinity_help        Some planes (grid, sky...) have an infinite extensio
 #********************************************
 
 #menu texts: generic
-menuitem_exit_text        Exit Menu
-menuitem_exit_help        Exits this menu and returns to the previous level
+menuitem_exit_text        Back
+menuitem_exit_help        Returns to the previous page.
 
 menuitem_accept            Accept
 menuitem_accept_help        Accepts the settings in this menu and continues.
 
 input_item_help            To change, press ENTER or SPACE, then press the key/mouse-button you want to assign to this control. Moving the mouse also works.
-input_press_any_key        Press any key!
+input_press_any_key        Press a key - Esc cancels
 
 menuitem_toggle_on        On
 menuitem_toggle_off        Off
+menuitem_custom            Custom
 
 
 
@@ -2555,12 +2556,14 @@ rcl_queue_now_sumobar_help     Join an available Sumobar lobby and send /add onc
 rcl_queue_now_tst_help         Join an available TST lobby and send /add once you have signed in to it.
 rcl_queue_now_authenticated    Sign-in answered as \1. Requesting the pickup queue.\n
 rcl_queue_now_failed           Queue Now: the server sign-in did not complete, so /add was not sent. Sign in under RCL Account, then type /add or use Queue Now again.\n
-rcl_profile_text               RCL Account
-rcl_profile_signed_in          RCL Account · \1
-rcl_profile_identity           RCL Account · \1
-rcl_profile_summary            \1 // \2 // \3 ELO
-rcl_profile_summary_help       RCL PLAYER IDENTITY\n\1 // TST leaderboard #\2 // \3 ranked matches // Enter to switch account
-rcl_profile_help               Sign in to RCL or switch accounts. Linked legacy Global IDs remain available under Player Setup.
+rcl_profile_text               Account
+rcl_profile_summary_help       \1, TST leaderboard #\2, \3 ranked matches. Enter to switch account.
+rcl_status_signed_in           Signed in as \1
+rcl_status_signed_out          Not signed in
+rcl_status_elo                 \1 Elo
+rcl_advanced_menu_text         Advanced
+rcl_advanced_menu_help         Extra features and configuration files.
+rcl_profile_help               Sign in to RCL or switch accounts. Linked legacy Global IDs remain available under Player & Controls.
 rcl_login_request              Sign in to RCL once. The client stores only the salted game credential and authenticates silently when you join RCL servers.
 rcl_login_unavailable_title    RCL sign-in unavailable
 rcl_login_unavailable          The RCL authentication service did not answer. You can continue as a guest and retry from RCL Account.
@@ -3145,12 +3148,12 @@ vote_kick_local                     Can't vote against local player/AI \1.\n
 network_master_unknown        Unknown Server
 network_master_polling        Polling...
 network_master_unreachable    Unreachable
-network_master_noserver        Sorry, no server found :-(
+network_master_noserver        No servers found. Press R to refresh.
 network_master_servername    Server Name
 network_master_score        Score
 network_master_users        Users
 network_master_ping        Ping
-network_master_filter      Search:
+network_master_filter      Search
 network_master_browserhelp    Press "Enter" to connect to this server, "p" to refresh a single server, "r" to refresh the whole list, "+/-" to set the score bias for this server, "cursor left/right" to change the sorting key, or "b" to add the server to your bookmarks. "m" toggles mates filtering.
 network_master_connecting    Connecting to \1...\n
 network_master_send        Sending my server info...\n
@@ -4219,3 +4222,4 @@ detail_antialias_on_help       Samples per pixel. Higher is smoother and costs m
 detail_clean_arena_text        Clean Arena:
 detail_clean_arena_help        A pale open floor without grid or rim walls, lit from one point, with solid trails that cast soft shadows. Off restores the dark grid arena.
 rcl_clean_arena_help           Clean arena look: pale open floor, solid trails and soft shadows.
+rcl_ui_font_help               Draw text with the Space Grotesk interface font. Off falls back to the classic fixed-width font.

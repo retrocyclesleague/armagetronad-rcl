@@ -79,6 +79,7 @@ static REAL aspect[ArmageTron_Custom+2]= {1, 1	, 1  , 1  , 1  , 1  , 1	 , 1	,   
 
 int sr_screenWidth,sr_screenHeight;
 int sr_renderWidth,sr_renderHeight;
+int sr_viewportPixelWidth=0,sr_viewportPixelHeight=0;
 
 static tSettingItem<int>  at_ch("CUSTOM_SCREEN_HEIGHT"	, height[ArmageTron_Custom]);
 static tSettingItem<int>  at_cw("CUSTOM_SCREEN_WIDTH" 	, width	[ArmageTron_Custom]);
@@ -999,9 +1000,9 @@ bool    sr_glOut=true;
 bool    sr_smoothShading=true;
 
 
-int sr_floorMirror=rMIRROR_WALLS;
+int sr_floorMirror=0;
 
-bool sr_cleanArena=true;
+bool sr_cleanArena=false;
 static tConfItem<bool> sr_cleanArenaConf("RCL_CLEAN_ARENA", sr_cleanArena);
 const REAL sr_cleanFloorColor[3]  = { .72f, .78f, .81f };
 const REAL sr_cleanSkyColor[3]    = { .82f, .87f, .90f };
@@ -1046,9 +1047,7 @@ void sr_LoadDefaultConfig(){
     // RCL's high-detail floor is the full graphite material. The legacy
     // two-strip mode only samples floor_a/floor_b and bypasses that asset.
     sr_floorDetail=rFLOOR_TEXTURE;
-    // cycles and walls reflect faintly in the floor; software renderers
-    // switch it off again below
-    sr_floorMirror=rMIRROR_WALLS;
+    sr_floorMirror=rMIRROR_OFF;
     sr_infinityPlane=false;
     sr_lowerSky=false;
     sr_upperSky=false;
@@ -1112,6 +1111,8 @@ void sr_ResetRenderState(bool menu){
         glDisable(GL_DEPTH_TEST);
         glHint (GL_PERSPECTIVE_CORRECTION_HINT, GL_FASTEST);
         glViewport (0, 0, GLsizei(sr_renderWidth), GLsizei(sr_renderHeight));
+        sr_viewportPixelWidth = sr_renderWidth;
+        sr_viewportPixelHeight = sr_renderHeight;
     }
     else{
         glEnable(GL_DEPTH_TEST);

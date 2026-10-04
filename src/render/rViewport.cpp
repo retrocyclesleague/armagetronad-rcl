@@ -43,10 +43,14 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #ifndef DEDICATED
 void rViewport::Select(){
     if (sr_glOut)
+    {
         glViewport (GLsizei(sr_renderWidth*left),
                     GLsizei(sr_renderHeight*bottom),
                     GLsizei(sr_renderWidth*width),
                     GLsizei(sr_renderHeight*height));
+        sr_viewportPixelWidth = GLsizei(sr_renderWidth*width);
+        sr_viewportPixelHeight = GLsizei(sr_renderHeight*height);
+    }
 }
 #endif
 
@@ -224,7 +228,9 @@ void rViewportConfiguration::DemonstrateViewport(tString *titles, bool rclStyle)
     if (!sr_glOut)
         return;
 
-    rViewport rclDemonstration(.55,.18,.28,.28);
+    // The RCL pages keep their rows in a column on the left; the diagram
+    // goes into the open half of the window.
+    rViewport rclDemonstration(.62,.36,.3,.3);
     rViewport &demonstration = rclStyle
                                ? rclDemonstration
                                : rViewport::s_viewportDemonstation;
@@ -239,13 +245,13 @@ void rViewportConfiguration::DemonstrateViewport(tString *titles, bool rclStyle)
         glDisable(GL_DEPTH_TEST);
 
         if (rclStyle)
-            glColor3f(.015f,.022f,.028f);
+            glColor3f(.125f,.129f,.133f);   // the interface's surface
         else
             glColor3f(.1,.1,.4);
         glRectf(-.9,-.9,.9,.9);
 
         if (rclStyle)
-            glColor3f(0,.82f,.88f);
+            glColor3f(.392f,.400f,.408f);   // and its control outline
         else
             glColor3f(.6,.6,.6);
         BeginLineLoop();
@@ -255,7 +261,7 @@ void rViewportConfiguration::DemonstrateViewport(tString *titles, bool rclStyle)
         glVertex2f(1,-1);
 
         if (rclStyle)
-            glColor3f(1,1,0);
+            glColor3f(.980f,.980f,.980f);
         else
             glColor3f(1,1,1);
         DisplayText(0,0,.15,.5,titles[i]);

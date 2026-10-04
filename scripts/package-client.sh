@@ -137,7 +137,8 @@ for required_file in \
   models/cycle_body.mod \
   resource/included/map.dtd \
   sound/cyclrun.wav \
-  textures/title.png; do
+  textures/title.png \
+  textures/ui/space-grotesk.fnt; do
   if test ! -f "${PACKAGE_ROOT}/${required_file}"; then
     echo "error: required runtime file not packaged: ${required_file}" >&2
     exit 1
