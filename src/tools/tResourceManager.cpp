@@ -13,11 +13,12 @@
 #else
 #include "tHttp.h"
 #include <sstream>
-#include <string>
-#include <map>
-#include "tSysTime.h"
 #endif
 
+#include <map>
+#include <string>
+
+#include "tSysTime.h"
 #include "tConfiguration.h"
 #include "tDirectories.h"
 #include "tResourceManager.h"
