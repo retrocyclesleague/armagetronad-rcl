@@ -51,23 +51,29 @@ namespace uRclTheme
         REAL const referenceHeight = 1080;  // lines at which a logical pixel is a real one
         REAL const minimumScale    = .6f;   // below this, text would get too small: scroll instead
 
-        REAL const rowPadPx      = 16;      // from a row's edge to its text
-        REAL const labelColumnPx = 300;     // room for a setting's label
-        REAL const columnGapPx   = 24;      // between label and control
-        REAL const sliderPx      = 200;     // slider track
-        REAL const textBoxPx     = 420;     // text and key binding boxes, at most
-        REAL const togglePx      = 38;      // toggle track
-        REAL const promptBarPx   = 60;      // chat and console input bar
-        REAL const footerPx      = 150;     // below the rows: help and key hints
+        // Compact on purpose: a menu is a short list to get through, not a
+        // page to look at. Rows are a little over a line of text high, the
+        // column is as wide as its longest label needs, and the only standing
+        // text besides the rows is the selected row's help.
+        REAL const rowPadPx      = 12;      // from a row's edge to its text
+        REAL const labelColumnPx = 220;     // room for a setting's label
+        REAL const columnGapPx   = 20;      // between label and control
+        REAL const sliderPx      = 170;     // slider track
+        REAL const textBoxPx     = 320;     // text and key binding boxes, at most
+        REAL const togglePx      = 34;      // toggle track
+        REAL const promptBarPx   = 52;      // chat and console input bar
+        REAL const footerPx      = 100;     // below the rows: the selected row's help
+        REAL const tableFooterPx = 172;     // below a table: the selected row's details
 
-        REAL const sizeWordmark  = 34;      // the same mark on every screen
-        REAL const wordmarkY     = 72;
-        REAL const sizeTitle     = 30;
-        REAL const sizeAction    = 22;      // navigation rows
-        REAL const sizeSetting   = 18;      // setting labels and values
-        REAL const sizeTable     = 17;      // table rows
-        REAL const sizeHelp      = 15;
-        REAL const sizeHint      = 14;
+        REAL const sizeWordmark  = 28;      // the mark, on the first screen only
+        REAL const wordmarkY     = 54;
+        REAL const titleY        = 54;      // a page's title sits where the mark would
+        REAL const sizeTitle     = 22;
+        REAL const sizeAction    = 18;      // navigation rows
+        REAL const sizeSetting   = 16;      // setting labels and values
+        REAL const sizeTable     = 15;      // table rows
+        REAL const sizeHelp      = 14;
+        REAL const sizeHint      = 13;
 
         REAL const controlRadius = 3;       // the kit's one small radius
 
@@ -98,15 +104,15 @@ namespace uRclTheme
         REAL PixelH() { return 1080; }
 #endif
 
-        REAL RowPitchPx()  { return layout_ == Layout_Wide ? 40.0f : 48.0f; }
-        REAL RowHeightPx() { return layout_ == Layout_Wide ? 38.0f : 44.0f; }
+        REAL RowPitchPx()  { return layout_ == Layout_Wide ? 32.0f : 36.0f; }
+        REAL RowHeightPx() { return layout_ == Layout_Wide ? 30.0f : 32.0f; }
         REAL ListTopPx()
         {
             switch ( layout_ )
             {
-            case Layout_Home: return 142;
-            case Layout_Wide: return 236;
-            default:          return 204;
+            case Layout_Home: return 104;
+            case Layout_Wide: return 124;
+            default:          return 96;
             }
         }
     }
@@ -130,20 +136,20 @@ namespace uRclTheme
 
     REAL MarginPx()
     {
-        return std::max( 32.0f, std::min( 96.0f, LogicalWidth() * .05f ) );
+        return std::max( 24.0f, std::min( 56.0f, LogicalWidth() * .035f ) );
     }
 
     REAL ColumnPx()
     {
         // navigation keeps one column width from the main menu down; pages
         // with controls need room for them
-        REAL wanted = 440;
+        REAL wanted = 300;
         switch ( layout_ )
         {
         case Layout_Home:   break;
         case Layout_Wide:   wanted = 1600; break;
         case Layout_Prompt: wanted = 4000; break;
-        default:            if ( values_ ) wanted = 760; break;
+        default:            if ( values_ ) wanted = 600; break;
         }
         return std::max( 240.0f, std::min( wanted, LogicalWidth() - 2 * MarginPx() ) );
     }
@@ -153,7 +159,7 @@ namespace uRclTheme
     REAL MenuTop()    { return Y( ListTopPx() ); }
     REAL MenuBottom()
     {
-        return Y( LogicalHeight() - ( layout_ == Layout_Wide ? footerPx + 60 : footerPx ) );
+        return Y( LogicalHeight() - ( layout_ == Layout_Wide ? tableFooterPx : footerPx ) );
     }
     REAL RowLeft()    { return X( MarginPx() ); }
     REAL RowRight()   { return X( MarginPx() + ColumnPx() ); }
@@ -572,7 +578,7 @@ namespace uRclTheme
 
         // The navigation column: a rail down the left side. It is solid, so
         // nothing behind it can get into the text.
-        REAL const right = X( MarginPx() + ColumnPx() + 32 );
+        REAL const right = X( MarginPx() + ColumnPx() + MarginPx() * .5f );
         Rect( -1, 1, right, -1, surface, 1 );
         Rect( right, 1, right + 2 / PixelW(), -1, borderSubtle, 1 );
     }
@@ -580,15 +586,15 @@ namespace uRclTheme
     namespace
     {
         // The wordmark: lowercase, bold, tight, over its short lime underline.
-        // It is the same on every screen.
+        // The first screen has it; every other screen is named by its title.
         void DrawWordmark( REAL alpha )
         {
             REAL const left = X( MarginPx() );
             REAL const width = TextWidth( "rcl", sizeWordmark, weightBold, -.02f );
             Text( left, Y( wordmarkY ), sizeWordmark, weightBold, textPrimary, alpha,
                   "rcl", -1, 0, -.02f );
-            REAL const barTop = wordmarkY + sizeWordmark * .5f + 12;
-            Rect( left, Y( barTop ), left + width, Y( barTop + 5 ), accent, alpha );
+            REAL const barTop = wordmarkY + sizeWordmark * .5f + 8;
+            Rect( left, Y( barTop ), left + width, Y( barTop + 4 ), accent, alpha );
         }
     }
 
@@ -599,34 +605,50 @@ namespace uRclTheme
 
         REAL const left = X( MarginPx() );
 
-        DrawWordmark( alpha );
-
-        if ( layout_ != Layout_Home )
+        if ( layout_ == Layout_Home )
+        {
+            DrawWordmark( alpha );
+        }
+        else
         {
             // a name is a heading; a sentence (a sign-in request) is copy
             tString const heading = FirstLine( title );
             if ( heading.Len() <= 44 && heading.Len() == title.Len() )
             {
-                Text( left, Y( 160 ), sizeTitle, weightMedium, textPrimary, alpha,
+                Text( left, Y( titleY ), sizeTitle, weightMedium, textPrimary, alpha,
                       heading, -1, W( ColumnPx() ), -.03f );
             }
             else
             {
-                Paragraph( left, Y( 126 ), W( ColumnPx() ), 17, weightRegular,
+                Paragraph( left, Y( titleY - 22 ), W( ColumnPx() ), sizeHelp, weightRegular,
                            textSecondary, alpha, title, 3 );
             }
         }
 
-        REAL const hintY = Y( LogicalHeight() - 44 );
-        Text( left, hintY, sizeHint, weightRegular, textSecondary, .8f * alpha,
-              layout_ == Layout_Wide
-                  ? "arrows move  \xb7  enter join  \xb7  left/right sort  \xb7  r refresh  \xb7  b bookmark  \xb7  esc back"
-                  : "arrows move  \xb7  enter select  \xb7  esc back",
-              -1, W( LogicalWidth() - 2 * MarginPx() - 260 ) );
+        // Which keys do what is only said where it is not the same as
+        // everywhere: a table has keys of its own. Everywhere else the arrows
+        // move, Enter selects and Escape (or the right mouse button) goes
+        // back; a page says the last of these, quietly, and that is all.
+        REAL const hintY = Y( LogicalHeight() - 22 );
+        if ( layout_ == Layout_Wide )
+            Text( left, hintY, sizeHint, weightRegular, textSecondary, .8f * alpha,
+                  "enter join  \xb7  left/right sort  \xb7  r refresh  \xb7  b bookmark  \xb7  esc back",
+                  -1, W( LogicalWidth() - 2 * MarginPx() - 260 ) );
+        else if ( layout_ != Layout_Home )
+            Text( left, hintY, sizeHint, weightRegular, textSecondary, .55f * alpha, "esc back" );
 
         if ( footnote.Len() > 1 )
-            Text( X( LogicalWidth() - MarginPx() ), hintY, sizeHint, weightRegular,
-                  textSecondary, .8f * alpha, footnote, 1 );
+        {
+            // The first screen's status line (who is signed in, which build)
+            // is in the rail with everything else that is written: nothing is
+            // laid over the scene.
+            if ( layout_ == Layout_Home )
+                Paragraph( left, Y( LogicalHeight() - 46 ), W( ColumnPx() ), sizeHint,
+                           weightRegular, textSecondary, .8f * alpha, footnote, 2 );
+            else
+                Text( X( LogicalWidth() - MarginPx() ), hintY, sizeHint, weightRegular,
+                      textSecondary, .8f * alpha, footnote, 1 );
+        }
     }
 
     // -------------------------------------------------------------- rows
@@ -671,11 +693,11 @@ namespace uRclTheme
         {
         case Control_Toggle:
         {
-            REAL const halfH = H( 10 );
+            REAL const halfH = H( 9 );
             Box( x, y + halfH, x + W( togglePx ), y - halfH, canvas,
                  on ? accent : borderStrong, alpha );
-            REAL const thumb = on ? x + W( togglePx - 17 ) : x + W( 3 );
-            Rect( thumb, y + H( 7 ), thumb + W( 14 ), y - H( 7 ),
+            REAL const thumb = on ? x + W( togglePx - 15 ) : x + W( 3 );
+            Rect( thumb, y + H( 6 ), thumb + W( 12 ), y - H( 6 ),
                   on ? accent : textSecondary, alpha, controlRadius - 1 );
             break;
         }
@@ -689,14 +711,14 @@ namespace uRclTheme
             Rect( x, y + H( 2 ), end, y - H( 2 ), borderStrong, alpha );
             Rect( x, y + H( 2 ), at, y - H( 2 ),
                   rowSelected_ ? accent : textSecondary, alpha );
-            Rect( at - W( 3 ), y + H( 9 ), at + W( 3 ), y - H( 9 ), textPrimary, alpha,
+            Rect( at - W( 3 ), y + H( 8 ), at + W( 3 ), y - H( 8 ), textPrimary, alpha,
                   controlRadius - 1 );
             break;
         }
         case Control_Text:
         case Control_Binding:
         {
-            REAL const halfH = H( 16 );
+            REAL const halfH = H( 13 );
             Box( x, y + halfH, ControlRight(), y - halfH, canvas,
                  rowSelected_ ? accent : borderStrong, alpha );
             break;
@@ -718,8 +740,8 @@ namespace uRclTheme
             REAL const left = X( MarginPx() );
             if ( kind > 0 )
             {
-                Text( left, y, 16, weightRegular, textSecondary, alpha, text );
-                promptValueX_ = left + TextWidth( text, 16, weightRegular ) + W( 14 );
+                Text( left, y, 15, weightRegular, textSecondary, alpha, text );
+                promptValueX_ = left + TextWidth( text, 15, weightRegular ) + W( 12 );
                 return;
             }
 
@@ -833,8 +855,10 @@ namespace uRclTheme
         if ( layout_ == Layout_Prompt || layout_ == Layout_Wide || help.Len() <= 1 )
             return;
 
-        Paragraph( X( MarginPx() ), Y( LogicalHeight() - footerPx + 18 ), W( ColumnPx() ),
-                   sizeHelp, weightRegular, textSecondary, alpha, help, 3 );
+        // the first screen keeps its last lines for the status line
+        Paragraph( X( MarginPx() ), Y( LogicalHeight() - footerPx + 8 ), W( ColumnPx() ),
+                   sizeHelp, weightRegular, textSecondary, alpha, help,
+                   layout_ == Layout_Home ? 2 : 3 );
     }
 
     void DrawScrollMarks( bool above, bool below, REAL alpha )
@@ -872,15 +896,14 @@ namespace uRclTheme
         DrawBackground( alpha );
 
         REAL const left = X( MarginPx() );
-        DrawWordmark( alpha );
 
         // the title may be long (an error sentence): let it wrap
-        REAL const titleLine = 26 / emPerCell;
-        int const titleLines = Paragraph( left, Y( 138 ), W( ColumnPx() ), 26, weightMedium,
-                                          textPrimary, alpha, title, 3 );
-        REAL const bodyTop = 138 + std::min( 3, std::max( 1, titleLines ) ) * titleLine + 20;
+        REAL const titleLine = sizeTitle / emPerCell;
+        int const titleLines = Paragraph( left, Y( titleY - 14 ), W( ColumnPx() ), sizeTitle,
+                                          weightMedium, textPrimary, alpha, title, 3 );
+        REAL const bodyTop = titleY - 14 + std::min( 3, std::max( 1, titleLines ) ) * titleLine + 12;
         int const room = std::max( 1, static_cast< int >(
-            ( LogicalHeight() - 90 - bodyTop ) / ( sizeSetting / emPerCell ) ) );
+            ( LogicalHeight() - 56 - bodyTop ) / ( sizeSetting / emPerCell ) ) );
 
         // measure first: scrolling stops when the last line is in view
         int const total = Paragraph( left, Y( bodyTop ), W( ColumnPx() ), sizeSetting,
@@ -890,10 +913,10 @@ namespace uRclTheme
         Paragraph( left, Y( bodyTop ), W( ColumnPx() ), sizeSetting, weightRegular,
                    textSecondary, alpha, body, room, firstLine );
 
-        Text( left, Y( LogicalHeight() - 44 ), sizeHint, weightRegular, textSecondary,
-              .8f * alpha, lastStart > 0
-                  ? "any key continue  \xb7  arrows scroll  \xb7  esc back"
-                  : "any key continue  \xb7  esc back" );
+        Text( left, Y( LogicalHeight() - 22 ), sizeHint, weightRegular, textSecondary,
+              .55f * alpha, lastStart > 0
+                  ? "any key continue  \xb7  arrows scroll"
+                  : "any key continue" );
         return lastStart;
     }
 

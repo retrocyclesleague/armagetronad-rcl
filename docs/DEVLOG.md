@@ -1,5 +1,35 @@
 # Dev log
 
+## 2026-10-05 - menus: compact, and stripped back
+
+Jamie: "the menus still need to be better compacted and stripped back".
+
+What they were: a rail taking 30% of the window with rows 48 apart; "rcl" and a page title on every screen; "arrows move · enter select · esc back" along the bottom of all of them; a "back" row at the end of every list; eight rows on the main menu; and behind Settings a tree of hubs (player & controls, then player 1 settings, then input configuration; display & graphics, then four more pages), with an About page that was a list of every directory the engine searches.
+
+Compact (`uRclTheme.cpp`, one block of constants):
+
+- Rows 36 apart and 32 high (were 48 and 44), 32 and 30 in a table. Navigation column 300 wide (was 440), pages with controls 600 (was 760), margin 56 (was 96). Type one step down everywhere: rows 18, settings 16, table 15, title 22, help 14.
+- The wordmark is on the first screen only, smaller. A page is named by its title, where the wordmark was; its rows start 96 from the top instead of 204.
+- The footer is the selected row's help and nothing else: no key hints (a table keeps the keys that are its own; a page says "esc back", faintly). The first screen's status line (build, who is signed in) moved from over the scene into the rail.
+- A practice game's 21 settings fit on one screen, and the server list showed 22 servers under its search and host rows (both seen, at 1080 logical lines). By the old measures there was room for 15 rows on a page and for 15 in the table.
+
+Stripped back:
+
+- No "back" rows (`uMenu::HidesRow`). The row a menu makes for itself to leave by is not shown while the menu has any other row; Escape and the right mouse button leave a menu. Rows a page names itself (cancel login, quit, resume) stay, and so does the row of a menu that has nothing else.
+- Main menu: play now, queue now, servers, practice, settings, quit. Servers opens the server list (it opened a page of seven rows first). Practice starts the game (it opened a page of three). Account moved into Settings, About under Advanced.
+- Settings: account, player, controls, display, audio, advanced. Player, controls and display are new pages of one screen each, for the first player: name, colour, field of view, camera; cycle keys, camera keys, general keys, instant chat; fullscreen, resolution, window size, vsync, anti-aliasing, pale arena, reflections, frame counter, apply.
+- Nothing was removed. Advanced has the pages those came from, whole: practice game, network (the seven rows that stood before the server list), all player options (players 2 to 4, split screen, team, spectator, identity), all display options, interface, extras, config files, about.
+- In a game: resume, team, vote and player police online, change game locally, settings, authentication where the server offers it, leave. About is no longer there.
+- About is the build, where the settings file is, what draws the picture, and who made it. The list of directories is gone from the interface.
+- The sign-in form reads from the top: username, password, store, cancel.
+- Help was cut to a line for the rows of the first screens.
+
+Also fixed on the way: with menu wrap switched off, a menu opened on its bottom row, and Up on the top row jumped to the bottom one (`GetPrevSelectable` returning -1 was clamped to row 0). A menu now opens on its top row whatever the setting, and the ends of a list that does not wrap are ends.
+
+Checked on Windows in the off-screen test window at 1600x900, by picture: the main menu; settings and every page under it, including the three lists of keys, instant chat, audio, and all eight pages under Advanced with the network page's mates and bookmarks; the first-run screens with a fresh profile (language, first setup, the sign-in form opening on the username); signing in by hand through Settings, Account against the stand-in authority (accepted, profile in the status line); a practice game started from the main menu, its pause menu, the settings under it, the chat prompt; the pause menu online, on the local test server (resume, team menu, player police, settings, authentication, disconnect); the server list, opened once on purpose, nothing joined; a row entered by a mouse click and left by the right button; with `WRAP_MENU 0`, the top and the bottom of a list. The main menu and the display page again at 2112x1320.
+
+Not checked: by Jamie; with a real mouse (clicks were posted messages); every legacy page below the ones named (screen mode, detail, HUD, the per-player pages) beyond their hubs opening; languages other than English (new labels fall back to English); voting and team menus with people in them; windows small enough to hit the 0.6 scale floor; macOS and Linux beyond CI compiling them.
+
 ## 2026-10-05 - the wall out of the arrow, sign-in behind the menu, the camera that was asked for
 
 Jamie on the last build: "not bad. i think you can work on the transition part where the line just comes out of the cycle. i also dont want the auth check to block the open of the game, i thought we fixed that".

@@ -31,6 +31,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "uMenu.h"
 
 extern void  sg_PlayerMenu(), sg_SpecialMenu(), sg_ConfigMenu();
+//! the short settings pages: what a player sets, and nothing else (the long
+//! ones stay, one level down under Advanced)
+extern void  sg_RclPlayerPage(), sg_RclControlsPage(), sg_RclDisplayPage();
 extern uMenu sg_screenMenu;
 void         sg_ConsoleInput(); // let the player enter one line of console input
 

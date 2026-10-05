@@ -2801,7 +2801,7 @@ public:
 
 void net_game(){
 #ifndef DEDICATED
-    uMenu net_menu("$network_menu_text");
+    uMenu net_menu("$rcl_network_text");
 
     uMenuItemFunction cust
     (&net_menu,"$network_custjoin_text",
@@ -3347,21 +3347,15 @@ static void PlayerLogIn()
 }
 
 void sg_DisplayVersionInfo() {
+    // What support asks for, and who made this: the exact build, where the
+    // player's settings are, what draws the picture. (The list of every
+    // directory the engine searches used to be here too.)
     tOutput versionInfo;
-    // Keep the complete technical build identifier in About, where it is
-    // useful for support, without forcing it into the main menu title.
     versionInfo.SetTemplateParameter( 1, sn_programVersion );
     versionInfo << "$version_info_version" << "\n";
-    st_PrintPathInfo(versionInfo);
-    versionInfo << "$version_info_misc_stuff";
-
-    versionInfo << "$version_info_gl_intro";
-    versionInfo << "$version_info_gl_vendor";
-    versionInfo << gl_vendor;
-    versionInfo << "$version_info_gl_renderer";
-    versionInfo << gl_renderer;
-    versionInfo << "$version_info_gl_version";
-    versionInfo << gl_version;
+    versionInfo << "$path_info_user_cfg" << " " << tDirectories::Var().GetReadPath("user.cfg") << "\n";
+    versionInfo << "$rcl_about_graphics" << " " << gl_renderer << "\n\n";
+    versionInfo << "$rcl_about_credits";
 
     sg_ClientFullscreenMessage("$version_info_title", versionInfo, 1000);
 }
@@ -3484,6 +3478,23 @@ public:
 typedef uMenu gMainMenu;
 #endif
 
+// the long display pages, as one row under Advanced
+static void sg_AllDisplayOptions()
+{
+    sg_screenMenu.Enter();
+}
+
+// The list of servers, straight from the main menu. (The page that used to
+// stand before it, with LAN games, connecting by address, bookmarks and the
+// rest, is net_game, and Advanced has it as Network.)
+static void sg_RclServers()
+{
+#ifndef DEDICATED
+    gServerBrowser::BrowseMaster();
+    rSysDep::StopNetSyncThread();
+#endif
+}
+
 void MainMenu(bool ingame){
     //	update_settings();
 
@@ -3495,45 +3506,15 @@ void MainMenu(bool ingame){
 
     gLogo::SetDisplayed(true);
 
-    tOutput gametitle;
-    if (!ingame)
-        gametitle << "$game_menu_text";
-    else
-        gametitle << "$game_menu_ingame_text";
+    bool const online = ( sn_GetNetState() == nCLIENT );
+    bool const local  = ( sn_GetNetState() == nSTANDALONE );
 
-    uMenu game_menu(gametitle);
-    game_menu.SetStyle(uMenuStyle_RclPanel);
-
-    uMenuItemFunction *reset=NULL;
-
-    if(ingame && sn_GetNetState()!=nCLIENT){
-        reset=new uMenuItemFunction
-              (&game_menu,"$game_menu_reset_text",
-               "$game_menu_reset_help",
-               &StartNewMatch);
-    }
-
-    uMenuItemFunction *settings1=NULL;
-
-    if (!ingame)
-        settings1=tNEW(uMenuItemFunction)
-                  (&game_menu,
-                   "$game_settings_menu_text",
-                   "$game_settings_menu_help",
-                   &GameSettingsSP);
-    else
-        settings1=tNEW(uMenuItemFunction)
-                  (&game_menu,
-                   "$game_settings_menu_text",
-                   "$game_settings_menu_help",
-                   &GameSettingsCurrent);
-
-    uMenuItemFunction *connect=NULL,*start=NULL,*sound=NULL;
-
-    if (!ingame){
-        start= new uMenuItemFunction(&game_menu,"$game_menu_start_text",
-                                     "$game_menu_start_help",&sg_SinglePlayerGame);
-    }
+    // The tree is short on purpose. The main menu is the ways into a game,
+    // settings and the way out. Settings is six rows, each one page of what a
+    // player sets (gMenus.cpp, sg_Rcl*Page). Everything else the client ever
+    // had a menu for is still there, one level down under Advanced, on the
+    // pages it always had. Rows made with new belong to their menu, which
+    // deletes them; the others are declared after it and go first.
 
     tOutput title;
     if (!ingame)
@@ -3551,114 +3532,13 @@ void MainMenu(bool ingame){
     if (ingame)
         sg_IngameMenu = &MainMenu;
 
-    char const * extitle,* exhelp;
-    if (!ingame){
-        extitle="$main_menu_exit_text";
-        exhelp="$main_menu_exit_help";
-    }
-    else{
-        extitle="$ingame_menu_exit_text";
-        exhelp="$ingame_menu_exit_help";
-    }
-
-    uMenuItemExit exx(&MainMenu,extitle,
-                      exhelp);
-
-    uMenuItemFunction *return_to_main=NULL;
-    if (ingame){
-        if (sn_GetNetState()==nSTANDALONE)
-            return_to_main=new uMenuItemFunction
-                           (&MainMenu,"$game_menu_exit_text",
-                            "$game_menu_exit_help",
-                            &ret_to_MainMenu);
-        else if (sn_GetNetState()==nCLIENT)
-            return_to_main=new uMenuItemFunction
-                           (&MainMenu,"$game_menu_disconnect_text",
-                            "$game_menu_disconnect_help",
-                            &ret_to_MainMenu);
-        else
-            return_to_main=new uMenuItemFunction
-                           (&MainMenu,
-                            "$game_menu_shutdown_text",
-                            "game_menu_shutdown_help",
-                            &ret_to_MainMenu);
-    }
-
-    uMenuItemFunction * auth = 0;
-    static nVersionFeature authentication( 15 );
-    if ( sn_GetNetState() == nCLIENT && ingame && authentication.Supported(0) )
-    {
-        auth =tNEW(uMenuItemFunction)(&MainMenu,
-                                      "$player_authenticate_text",
-                                      "$player_authenticate_help",
-                                      &PlayerLogIn );
-    }
-
-    uMenuItemFunction abb(&MainMenu,
-                          "$main_menu_about_text",
-                          "$main_menu_about_help",
-                          &sg_DisplayVersionInfo);
-
     uMenu Settings("$system_settings_menu_text");
-    Settings.SetStyle(uMenuStyle_RclPanel);
-
-    // rarely needed pages sit one level down
     uMenu advanced("$rcl_advanced_menu_text");
-    advanced.SetStyle(uMenuStyle_RclPanel);
-
-#ifndef DEDICATED
-    uMenuItemFunction cfm(&advanced,
-                           "$config_setup_menu_text",
-                            "$config_setup_menu_help",
-                             &sg_ConfigMenu);
-
-    uMenuItemFunction spm(&advanced,
-                           "$special_setup_menu_text",
-                            "$special_setup_menu_help",
-                             &sg_SpecialMenu);
-#endif
-
-    uMenuItemSubmenu advanced_sm
-    (&Settings,&advanced,
-     "$rcl_advanced_menu_help");
-
-    uMenuItemSubmenu subm_settings
-    (&MainMenu,&Settings,
-     "$system_settings_menu_help");
-
-
-    uMenuItem* team = NULL;
-    if ( ingame )
-    {
-        team = tNEW( uMenuItemFunction) ( &MainMenu,
-                                          "$team_menu_title",
-                                          "$team_menu_help",
-                                          &gTeam::TeamMenu );
-    }
-
-    uMenuItemFunction *se_PlayerMenu=NULL;
-
-    // player setup is a settings page, in and out of a game
-    se_PlayerMenu= new uMenuItemFunction
-                   (&Settings,"$player_mainmenu_text",
-                    "$player_mainmenu_help",
-                    &sg_PlayerMenu);
-
-    uMenuItemFunction *player_police=NULL;
-    uMenuItemFunction *voting=NULL;
-    if ( ingame && sn_GetNetState() != nSTANDALONE )
-    {
-        player_police = tNEW( uMenuItemFunction )( &MainMenu, "$player_police_text", "$player_police_help", ePlayerNetID::PoliceMenu );
-
-        if ( eVoter::VotingPossible() )
-            voting = tNEW( uMenuItemFunction )( &MainMenu, "$voting_menu_text", "$voting_menu_help", eVoter::VotingMenu );
-    }
-
     uMenu misc("$misc_menu_text");
-    misc.SetStyle(uMenuStyle_RclPanel);
+    uMenu game_menu("$game_menu_ingame_text");
+    sg_screenMenu.SetStyle(uMenuStyle_RclPanel);
 
-    //  misc.SetCenter(.25);
-
+    // ---- interface: under Advanced ----
     uMenuItemFunction first_setup
     (&misc,"$misc_initial_menu_title",
      "$misc_initial_menu_help",
@@ -3669,11 +3549,6 @@ void MainMenu(bool ingame){
      "$language_menu_help",
      &sg_LanguageMenu);
 
-    uMenuItemFunction global_key
-    (&misc,"$misc_global_key_text",
-     "$misc_global_key_help",
-     &su_InputConfigGlobal);
-
     uMenuItemToggle wrap
     (&misc,"$misc_menuwrap_text",
      "$misc_menuwrap_help",
@@ -3683,152 +3558,175 @@ void MainMenu(bool ingame){
     (&misc,"$misc_textout_text",
      "$misc_textout_help",sr_textOut);
 
-
-
     uMenuItemToggle mp
     (&misc,"$misc_moviepack_text",
      "$misc_moviepack_help",sg_moviepackUse);
 
-
-    uMenuItemSubmenu misc_sm
-    (&Settings,&misc,
-     "$misc_menu_help");
-
-    sound = new uMenuItemFunction
-            (&Settings,"$sound_menu_text",
-             "$sound_menu_help",&se_SoundMenu);
-
-    uMenuItemSubmenu subm
-    (&Settings,&sg_screenMenu,
-     "$display_settings_menu_help");
-    sg_screenMenu.SetStyle(uMenuStyle_RclPanel);
-
-    uMenuItemSubmenu *gamemenuitem = NULL;
-    if (sn_GetNetState() != nCLIENT)
-    {
-        char const * gamehelp;
-        if (!ingame)
-            gamehelp="$game_menu_main_help";
-        else
-            gamehelp="$game_menu_ingame_help";
-
-        gamemenuitem = tNEW(uMenuItemSubmenu) (&MainMenu,
-                                               &game_menu,
-                                               gamehelp
-                                              );
-    }
-
-    // Servers sits on the main menu, directly above local play.
-    if (!ingame)
-        connect=new uMenuItemFunction
-                (&MainMenu,
-                 "$network_menu_text",
-                 "$network_menu_help",
-                 &net_game);
-
-#ifndef DEDICATED
-    uMenuItemFunction *playNow = NULL;
-    uMenuItemFunction *queueNow = NULL;
-    uMenuItemFunction *rclProfile = NULL;
+    // ---- advanced ----
+    std::vector< uMenuItem * > advancedRows;
     if ( !ingame )
-    {
-        // who is signed in is told by the status line at the menu's foot
-        rclProfile = tNEW( gRclAccountItem )( &MainMenu );
-        queueNow = tNEW( uMenuItemFunction )( &MainMenu,
-                                              "$rcl_queue_now_text",
-                                              "$rcl_queue_now_help",
-                                              &sg_RclQueueNowMenu );
-        playNow = tNEW( uMenuItemFunction )( &MainMenu,
-                                             "$rcl_play_now_text",
-                                             "$rcl_play_now_help",
-                                             &sg_RclPlayNowMenu );
-    }
+        advancedRows.push_back( tNEW( uMenuItemFunction )( &advanced,
+                                "$rcl_practice_settings_text",
+                                "$rcl_practice_settings_help",
+                                &GameSettingsSP ) );
+    if ( !ingame )
+        advancedRows.push_back( tNEW( uMenuItemFunction )( &advanced,
+                                "$rcl_network_text",
+                                "$rcl_network_help",
+                                &net_game ) );
+    advancedRows.push_back( tNEW( uMenuItemFunction )( &advanced,
+                            "$rcl_all_players_text",
+                            "$rcl_all_players_help",
+                            &sg_PlayerMenu ) );
+    advancedRows.push_back( tNEW( uMenuItemFunction )( &advanced,
+                            "$rcl_all_display_text",
+                            "$display_settings_menu_help",
+                            &sg_AllDisplayOptions ) );
+    advancedRows.push_back( tNEW( uMenuItemSubmenu )( &advanced, &misc,
+                            "$misc_menu_help" ) );
+#ifndef DEDICATED
+    advancedRows.push_back( tNEW( uMenuItemFunction )( &advanced,
+                            "$special_setup_menu_text",
+                            "$special_setup_menu_help",
+                            &sg_SpecialMenu ) );
+    advancedRows.push_back( tNEW( uMenuItemFunction )( &advanced,
+                            "$config_setup_menu_text",
+                            "$config_setup_menu_help",
+                            &sg_ConfigMenu ) );
 #endif
+    advancedRows.push_back( tNEW( uMenuItemFunction )( &advanced,
+                            "$main_menu_about_text",
+                            "$main_menu_about_help",
+                            &sg_DisplayVersionInfo ) );
+    sg_OrderMenu( advanced, advancedRows );
 
-    if (!ingame)
+    // ---- settings ----
+    std::vector< uMenuItem * > settingsRows;
+#ifndef DEDICATED
+    // who is signed in is told by the status line at the main menu's foot
+    if ( !ingame )
+        settingsRows.push_back( tNEW( gRclAccountItem )( &Settings ) );
+    settingsRows.push_back( tNEW( uMenuItemFunction )( &Settings,
+                            "$rcl_player_menu_text",
+                            "$rcl_player_menu_help",
+                            &sg_RclPlayerPage ) );
+    settingsRows.push_back( tNEW( uMenuItemFunction )( &Settings,
+                            "$rcl_controls_menu_text",
+                            "$rcl_controls_menu_help",
+                            &sg_RclControlsPage ) );
+    settingsRows.push_back( tNEW( uMenuItemFunction )( &Settings,
+                            "$rcl_display_menu_text",
+                            "$rcl_display_menu_help",
+                            &sg_RclDisplayPage ) );
+#endif
+    settingsRows.push_back( tNEW( uMenuItemFunction )( &Settings,
+                            "$sound_menu_text",
+                            "$sound_menu_help",
+                            &se_SoundMenu ) );
+    settingsRows.push_back( tNEW( uMenuItemSubmenu )( &Settings, &advanced,
+                            "$rcl_advanced_menu_help" ) );
+    sg_OrderMenu( Settings, settingsRows );
+
+    // ---- a local game's own page, from its pause menu ----
+    if ( ingame && !online )
     {
+        std::vector< uMenuItem * > gameRows;
+        gameRows.push_back( tNEW( uMenuItemFunction )( &game_menu,
+                            "$game_settings_menu_text",
+                            "$game_settings_menu_help",
+                            &GameSettingsCurrent ) );
+        gameRows.push_back( tNEW( uMenuItemFunction )( &game_menu,
+                            "$game_menu_reset_text",
+                            "$game_menu_reset_help",
+                            &StartNewMatch ) );
+        sg_OrderMenu( game_menu, gameRows );
+    }
+
+    // ---- the main menu: top to bottom ----
+    // Out of a game the way into one comes first and is the primary action;
+    // in a game that is going back to it, and leaving sits at the far end.
+    char const * extitle,* exhelp;
+    if (!ingame){
+        extitle="$main_menu_exit_text";
+        exhelp="$main_menu_exit_help";
+    }
+    else{
+        extitle="$ingame_menu_exit_text";
+        exhelp="$ingame_menu_exit_help";
+    }
+    uMenuItemExit exx(&MainMenu,extitle,
+                      exhelp);
+
+    uMenuItemSubmenu subm_settings
+    (&MainMenu,&Settings,
+     "$system_settings_menu_help");
+
+    std::vector< uMenuItem * > rows;
+    if (ingame)
+    {
+        rows.push_back( &exx );
+        exx.SetPrimary( true );
+
+        rows.push_back( tNEW( uMenuItemFunction )( &MainMenu,
+                        "$team_menu_title",
+                        "$team_menu_help",
+                        &gTeam::TeamMenu ) );
+
+        if ( !local )
+        {
+            if ( eVoter::VotingPossible() )
+                rows.push_back( tNEW( uMenuItemFunction )( &MainMenu, "$voting_menu_text", "$voting_menu_help", eVoter::VotingMenu ) );
+            rows.push_back( tNEW( uMenuItemFunction )( &MainMenu, "$player_police_text", "$player_police_help", ePlayerNetID::PoliceMenu ) );
+        }
+
+        if ( !online )
+            rows.push_back( tNEW( uMenuItemSubmenu )( &MainMenu, &game_menu, "$game_menu_ingame_help" ) );
+
+        rows.push_back( &subm_settings );
+
+        // asking a server to sign this player in by hand, where it can
+        static nVersionFeature authentication( 15 );
+        if ( online && authentication.Supported(0) )
+            rows.push_back( tNEW( uMenuItemFunction )( &MainMenu,
+                            "$player_authenticate_text",
+                            "$player_authenticate_help",
+                            &PlayerLogIn ) );
+
+        char const * leave = local ? "$game_menu_exit_text" : online ? "$game_menu_disconnect_text" : "$game_menu_shutdown_text";
+        char const * leaveHelp = local ? "$game_menu_exit_help" : online ? "$game_menu_disconnect_help" : "$game_menu_shutdown_help";
+        rows.push_back( tNEW( uMenuItemFunction )( &MainMenu, leave, leaveHelp, &ret_to_MainMenu ) );
+    }
+    else
+    {
+#ifndef DEDICATED
+        uMenuItemFunction * const playNow = tNEW( uMenuItemFunction )( &MainMenu,
+                                            "$rcl_play_now_text",
+                                            "$rcl_play_now_help",
+                                            &sg_RclPlayNowMenu );
+        playNow->SetPrimary( true );
+        rows.push_back( playNow );
+        rows.push_back( tNEW( uMenuItemFunction )( &MainMenu,
+                        "$rcl_queue_now_text",
+                        "$rcl_queue_now_help",
+                        &sg_RclQueueNowMenu ) );
+#endif
+        rows.push_back( tNEW( uMenuItemFunction )( &MainMenu,
+                        "$network_menu_text",
+                        "$network_menu_help",
+                        &sg_RclServers ) );
+        // practice is one key away: its settings are under Advanced
+        rows.push_back( tNEW( uMenuItemFunction )( &MainMenu,
+                        "$game_menu_text",
+                        "$rcl_practice_help",
+                        &sg_SinglePlayerGame ) );
+        rows.push_back( &subm_settings );
+        rows.push_back( &exx );
+
         rViewport::Update(MAX_PLAYERS);
-        // ePlayerNetID::Update();
     }
-
-    // The rows, top to bottom. Out of a game the way into one comes first and
-    // is the primary action; in a game that is going back to it, and leaving
-    // sits at the far end.
-    {
-        std::vector< uMenuItem * > rows;
-        if (ingame)
-        {
-            rows.push_back( &exx );
-            rows.push_back( team );
-            rows.push_back( voting );
-            rows.push_back( player_police );
-            rows.push_back( gamemenuitem );
-            rows.push_back( &subm_settings );
-            rows.push_back( auth );
-            rows.push_back( &abb );
-            rows.push_back( return_to_main );
-            exx.SetPrimary( true );
-        }
-        else
-        {
-#ifndef DEDICATED
-            rows.push_back( playNow );
-            rows.push_back( queueNow );
-#endif
-            rows.push_back( connect );
-            rows.push_back( gamemenuitem );
-#ifndef DEDICATED
-            rows.push_back( rclProfile );
-            if ( playNow )
-                playNow->SetPrimary( true );
-#endif
-            rows.push_back( &subm_settings );
-            rows.push_back( &abb );
-            rows.push_back( &exx );
-        }
-        sg_OrderMenu( MainMenu, rows );
-
-        std::vector< uMenuItem * > settingsRows;
-        settingsRows.push_back( se_PlayerMenu );
-        settingsRows.push_back( &subm );
-        settingsRows.push_back( sound );
-        settingsRows.push_back( &misc_sm );
-        settingsRows.push_back( &advanced_sm );
-        sg_OrderMenu( Settings, settingsRows );
-    }
+    sg_OrderMenu( MainMenu, rows );
 
     MainMenu.Enter();
-
-    if (settings1)
-        delete settings1;
-    if (team)
-        delete team;
-    if (gamemenuitem)
-        delete gamemenuitem;
-#ifndef DEDICATED
-    if (playNow)
-        delete playNow;
-    if (queueNow)
-        delete queueNow;
-    if (rclProfile)
-        delete rclProfile;
-#endif
-    if (sound)
-        delete sound;
-    if (connect)
-        delete connect;
-    if (start)
-        delete start;
-    if (return_to_main)
-        delete return_to_main;
-    if (se_PlayerMenu)
-        delete se_PlayerMenu;
-    if (reset)
-        delete reset;
-    if ( player_police )
-        delete player_police;
-    if ( voting )
-        delete voting;
 
     if (ingame)
         sg_IngameMenu=NULL;
@@ -3837,11 +3735,6 @@ void MainMenu(bool ingame){
     {
         gLogo::SetDisplayed(false);
         sr_con.SetHeight(7);
-    }
-
-    if ( auth )
-    {
-        delete auth;
     }
 }
 

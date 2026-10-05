@@ -1524,14 +1524,14 @@ rcl_main_menu_text        RCL Client
 game_menu_text            Practice
 game_menu_main_help        Game configuration and launch.
 
-player_mainmenu_text        Player & Controls
+player_mainmenu_text           All Player Options
 player_mainmenu_help        Select player names and control methods.
 
 system_settings_menu_text    Settings
-system_settings_menu_help    Configure sound, graphics and overall appearance of \g
+system_settings_menu_help      Account, player, controls, display, audio.
 
 main_menu_about_text        About
-main_menu_about_help        Displays information about the version of \g, the location of its config files, sites to visit and the project admins.
+main_menu_about_help           This build, where its settings are, and who made it.
 
 main_menu_exit_text        Quit
 main_menu_exit_help        Goodbye!
@@ -1563,7 +1563,7 @@ game_menu_disconnect_help    Disconnects from the server and returns to the main
 #
 #********************************************
 #********************************************
-version_info_title              About this installation of \g
+version_info_title             About \g
 version_info_version            Version of \g: \1
 version_info_misc_stuff         \n0xff8888Official website:0xRESETT https://armagetronad.net/\n0xff8888Official forums:0xRESETT https://forums3.armagetronad.net/\n0xff8888Wiki (strategies, tournaments, ...):0xRESETT https://wiki.armagetronad.net/\n0xff8888Project admins:0xRESETT z-man, Tank Program (guru3), Lucifer
 
@@ -1592,7 +1592,7 @@ game_menu_start_text        Start Game
 game_menu_start_help        Enter the game grid! Only players configured on this computer will play.
 
 network_menu_text        Servers
-network_menu_help        This joins or creates a network multiplayer game.
+network_menu_help              The server list.
 
 game_settings_menu_text        Game Settings
 game_settings_menu_help        Choose game mode and number of opponents
@@ -2048,7 +2048,7 @@ player_authenticate_action  Authentication requests have been sent to the server
 #player setup
 
 player_name_text        Name:
-player_name_help        The ... in "Winner: ... ". Use cursor <left>/<right>, delete, backspace and all the other keys.
+player_name_help        What you are called in games.
 
 player_teamname_text    Teamname:
 player_teamname_help    Use cursor <left>/<right>, delete, backspace and all the other keys.
@@ -2194,7 +2194,7 @@ team_name_black            Team black
 #********************************************
 
 sound_menu_text            Audio
-sound_menu_help            Sound quality settings.
+sound_menu_help                Volume and sound quality.
 
 sound_menu_volume_text         Volume:
 sound_menu_volume_help         How loud the game is. 1 is the level its sounds were balanced for; 0 is silent.
@@ -2245,7 +2245,7 @@ sound_menu_buffer_vhigh_help    A sound starts within 0.093s of what it belongs 
 #********************************************
 
 #display menu
-display_settings_menu        Display & Graphics
+display_settings_menu          All Display Options
 display_settings_menu_help    Screen mode, detail, performance and what the game shows while you play.
 
 screen_mode_menu        Screen Mode
@@ -2539,7 +2539,7 @@ welcome_message_2_heading   We hope you enjoyed it so far.
 welcome_message_2           You will now enter the main menu. Play Now and Queue Now take you straight into RCL lobbies, Servers lists every public server, and Local Game starts a match against the AI.
 
 rcl_play_now_text              Play Now
-rcl_play_now_help              Find and join a non-full RCL lobby in your nearest region, preferring the busiest one there.
+rcl_play_now_help              Join the busiest open RCL lobby near you.
 rcl_play_now_fort_text         Fort
 rcl_play_now_fort_help         Join an available RCL Fortress pickup lobby.
 rcl_play_now_sumobar_text      Sumobar
@@ -2553,7 +2553,7 @@ rcl_play_now_finding_title     Play Now
 rcl_play_now_finding_text      Finding the best available \1 lobby... Press Escape to cancel.
 rcl_play_now_unavailable       No online, non-full \1 lobby answered. Please try again or use Online Multiplayer.
 rcl_queue_now_text             Queue Now
-rcl_queue_now_help             Authenticate, join the best RCL lobby and add yourself to its competitive draft queue.
+rcl_queue_now_help             Join a lobby and enter its draft queue. Needs an RCL sign-in.
 rcl_queue_now_fort_help        Join an available Fortress lobby and send /add once you have signed in to it.
 rcl_queue_now_sumobar_help     Join an available Sumobar lobby and send /add once you have signed in to it.
 rcl_queue_now_tst_help         Join an available TST lobby and send /add once you have signed in to it.
@@ -2568,9 +2568,33 @@ rcl_status_refused             Saved sign-in for \1 not accepted
 rcl_status_unanswered          \1, not checked: no answer from RCL
 rcl_status_elo                 \1 Elo
 rcl_advanced_menu_text         Advanced
-rcl_advanced_menu_help         Extra features and configuration files.
-rcl_profile_help               Sign in to RCL or switch accounts. Linked legacy Global IDs remain available under Player & Controls.
-rcl_login_request              Sign in to RCL once. The client stores only the salted game credential and authenticates silently when you join RCL servers.
+rcl_advanced_menu_help         Everything else: practice game, network, split screen, every display option, interface, config files, about.
+rcl_practice_help              A local game against AIs. Its settings are under Settings, Advanced.
+rcl_player_menu_text           Player
+rcl_player_menu_help           Name, colour, field of view and camera.
+rcl_controls_menu_text         Controls
+rcl_controls_menu_help         Every key, and what the instant chat keys say.
+rcl_display_menu_text          Display
+rcl_display_menu_help          Window, resolution, smoothing and the arena's look.
+rcl_camera_text                Camera:
+rcl_fov_text                   Field of View:
+rcl_cycle_keys_text            Cycle Keys
+rcl_camera_keys_text           Camera Keys
+rcl_general_keys_text          General Keys
+rcl_instant_chat_text          Instant Chat
+rcl_pale_arena_text            Pale Arena:
+rcl_reflections_text           Reflections:
+rcl_all_players_text           All Player Options
+rcl_all_players_help           Players 2 to 4 and split screen; team, spectator mode and identity for each player.
+rcl_all_display_text           All Display Options
+rcl_practice_settings_text     Practice Game
+rcl_practice_settings_help     Game mode, opponents and arena of local games.
+rcl_network_text               Network
+rcl_network_help               LAN games, connecting by address, bookmarks, mates, other server lists, network setup.
+rcl_about_graphics             Graphics:
+rcl_about_credits              Retrocycles League: https://retrocyclesleague.com/\nBuilt on Armagetron Advanced (https://armagetronad.net/) by z-man, Tank Program, Lucifer and many others. Free software under the GNU General Public License.
+rcl_profile_help               Sign in to RCL or switch accounts.
+rcl_login_request              Sign in to RCL once. Only the salted game credential is stored.
 rcl_login_unavailable_title    RCL sign-in unavailable
 rcl_login_unavailable          The RCL authentication service did not answer. You can continue as a guest and retry from RCL Account.
 rcl_login_failed_title         RCL sign-in failed

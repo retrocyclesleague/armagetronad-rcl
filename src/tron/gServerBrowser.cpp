@@ -632,8 +632,8 @@ static REAL const sg_cellPad    = 16;   // from a row's edge to its text
 static REAL const sg_scoreWidth = 150;  // the number columns; their text is right-aligned
 static REAL const sg_usersWidth = 130;
 static REAL const sg_pingWidth  = 110;
-static REAL const sg_tableText  = 17;
-static REAL const sg_labelText  = 14;
+static REAL const sg_tableText  = 15;
+static REAL const sg_labelText  = 13;
 static REAL const sg_detailLabelWidth = 96;
 
 struct gBrowserColumns
@@ -656,7 +656,7 @@ static gBrowserColumns sg_BrowserColumns()
 // copy in the strip between the list and the key hints
 static void sg_BrowserFooter( tString const & text, REAL alpha )
 {
-    REAL const top = uRclTheme::Y( uRclTheme::LogicalHeight() - 200 );
+    REAL const top = uRclTheme::Y( uRclTheme::LogicalHeight() - 160 );
     uRclTheme::Paragraph( uRclTheme::LabelX(), top,
                           uRclTheme::RowRight() - uRclTheme::W( sg_cellPad ) - uRclTheme::LabelX(),
                           15, 400, uRclTheme::textSecondary, alpha, text, 4 );
@@ -873,10 +873,10 @@ void gServerMenu::RenderDetails( gServerInfo *server, REAL alpha )
 
     for ( int i = 0; i < 3; ++i )
     {
-        REAL const y = uRclTheme::Y( uRclTheme::LogicalHeight() - 188 + 26 * i );
+        REAL const y = uRclTheme::Y( uRclTheme::LogicalHeight() - 150 + 22 * i );
         uRclTheme::Text( labelX, y, sg_labelText, 500, uRclTheme::textSecondary,
                          alpha, labels[i] );
-        uRclTheme::Text( valueX, y, 15, 400, uRclTheme::textPrimary, alpha,
+        uRclTheme::Text( valueX, y, 14, 400, uRclTheme::textPrimary, alpha,
                          *values[i], -1, room );
     }
 }

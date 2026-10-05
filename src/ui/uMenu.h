@@ -81,6 +81,8 @@ protected:
     uMenuStyle           style_;
     int                  selected;
     int                  openOn_;           //!< row to open on at the next Enter(), -1 for the top one
+    uMenuItem *          autoExit_;         //!< the row the menu made for itself to leave by, if it did
+    int                  hiddenRow_;        //!< index of that row while it is not shown, else -1
     tString              footnote_;         //!< quiet status text at the foot of the menu
 
     REAL YPos(int num);
@@ -129,6 +131,11 @@ public:
     REAL GetTop() const {return menuTop;}
     REAL GetBot() const {return menuBot;}
     void SetSelected(int s) {selected = s;}
+    //! A menu makes itself a "back" row. In the RCL panels that row is not
+    //! shown while the menu has any other row: Escape and the right mouse
+    //! button leave a menu, and a list of things to do is shorter without a
+    //! way out among them. A menu with nothing else in it keeps the row.
+    bool HidesRow(uMenuItem const * item) const {return hiddenRow_ >= 0 && item == autoExit_;}
     //! a menu opens on its top row; this has the next Enter() open on another
     void OpenOn(int s) {openOn_ = s;}
     void SetStyle(uMenuStyle style) {style_ = style;}
@@ -195,6 +202,12 @@ protected:
 
     int GetNextSelectable(int start);
     int GetPrevSelectable(int start);
+
+    //! Works out whether the menu's own way out is shown this frame (see
+    //! HidesRow) and puts the selection on a row that is there.
+    void UpdateRows();
+    int TopRow() const;      //!< the uppermost row that is shown
+    int BottomRow() const;   //!< the lowest row that is shown
 
 
     //! called every frame before the menu is rendered
@@ -321,6 +334,8 @@ public:
     virtual void Enter(){menu->Exit();}
     virtual tString GetLabel(){return tString(t);}
     // if the user presses enter/space on menu
+
+    virtual bool IsSelectable(){return !menu->HidesRow(this);}
 };
 
 // *****************************************************

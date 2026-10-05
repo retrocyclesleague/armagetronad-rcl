@@ -177,11 +177,21 @@ treatment; draw code elsewhere carries no colours or sizes of its own.
 - **Layout.** Sizes are logical pixels: real pixels on a 1080-line display,
   scaled with the window height, never below 0.6 (smaller windows scroll).
   Four layouts: home (the main menu), page, wide (a table) and prompt (chat
-  and console input along the bottom).
+  and console input along the bottom). The layout is compact: rows are 36
+  apart (32 in a table), the navigation column is 300 wide and a page with
+  controls 600, and all of it is set in one block of constants at the top of
+  `uRclTheme.cpp`. The wordmark is on the first screen only; a page is named
+  by its title. Besides the rows, a menu shows the selected row's help, and
+  a page a quiet "esc back"; only a table lists keys, because it has keys of
+  its own.
+- **No "back" rows.** A menu makes itself a row to leave by. In the panels
+  that row is not shown while the menu has any other row (`uMenu::HidesRow`):
+  Escape and the right mouse button leave a menu. A menu with nothing else in
+  it keeps the row, and rows a page names itself (cancel, quit, resume) stay.
 - **Components.** Action row; one primary action per menu (filled accent);
   setting row with a separate control column: toggle, selector, slider, text
   field, key binding; table rows with measured, right-aligned number columns;
-  dialog with wrapped, scrollable text; help text and key hints in the footer.
+  dialog with wrapped, scrollable text; the selected row's help in the footer.
   A menu item says which control it has (`uMenuItem::Control()`); `uMenu`
   draws the row and routes the pointer (hover, click, selector arrows, slider
   press and drag).
@@ -190,11 +200,29 @@ treatment; draw code elsewhere carries no colours or sizes of its own.
   no selector choice stands for, is shown as it is until the player changes
   it.
 
-The main menu: play now (primary), queue now, servers, practice, account,
-settings, about, quit, with the client version and sign-in status at its foot.
-Settings: player & controls, display & graphics, audio, interface, advanced.
-The in-game menu: resume (primary), team, vote and player police online,
-change game locally, settings, about, and leave match or disconnect last.
+The tree is short on purpose, and nothing the client ever had a menu for is
+gone: what is not on the short pages is one level down, under Advanced, on
+the pages it always had.
+
+- Main menu: play now (primary), queue now, servers, practice, settings,
+  quit, with the client version and sign-in status at the foot of the rail.
+  Servers opens the server list; practice starts a local game.
+- Settings: account, player, controls, display, audio, advanced. Player,
+  controls and display are one page each of what a player sets, for the first
+  player (`sg_RclPlayerPage`, `sg_RclControlsPage`, `sg_RclDisplayPage` in
+  `gMenus.cpp`): name, colour, field of view and camera; the three lists of
+  keys and the instant chat texts; window, resolution, vsync, anti-aliasing,
+  the arena's look, reflections, the frame counter.
+- Advanced: practice game (local game settings), network (LAN, connecting by
+  address, bookmarks, mates, other server lists, network setup), all player
+  options (players 2 to 4, split screen, team, spectator, identity), all
+  display options (screen mode, preferences and HUD, detail, performance),
+  interface (language, menu wrap, text output, moviepack, first setup),
+  extras, config files, about.
+- In-game menu: resume (primary), team, vote and player police online,
+  change game locally, settings, authentication where a server offers it,
+  and leave match or disconnect last.
+
 Escape goes back; on the main menu it first moves to quit.
 
 Not yet in this system: the scoreboard, the HUD's layout (only its font),

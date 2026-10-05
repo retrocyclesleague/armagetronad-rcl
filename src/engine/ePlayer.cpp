@@ -494,6 +494,9 @@ public:
 
 static tConfItemPassword se_p;
 
+// where the sign-in form has its password row (rows count from the bottom)
+static const int se_loginPasswordRow = 2;
+
 // username menu item
 class eMenuItemUserName: public uMenuItemString
 {
@@ -510,7 +513,7 @@ public:
         {
 
             // move on to password menu item
-            MyMenu()->SetSelected(0);
+            MyMenu()->SetSelected(se_loginPasswordRow);
             return true;
         }
         else
@@ -669,9 +672,10 @@ static void PasswordCallback( nKrawall::nPasswordRequest const & request,
     // password storage;
     tString password;
 
-    eMenuItemPassword pw(&login, password);
-    eMenuItemUserName us(&login, username);
-    us.SetColorMode( rTextField::COLOR_IGNORE );
+    // The form reads from the top: who, the password, whether to keep it,
+    // and last the way out. (Rows are stored bottom first: cancel is row 0,
+    // the password row se_loginPasswordRow and the name the one above it.)
+    uMenuItemExit cl(&login, "$login_cancel", "$login_cancel_help" );
 
     uMenuItemSelection<int> storepw(&login,
                                     "$login_storepw_text",
@@ -687,10 +691,12 @@ static void PasswordCallback( nKrawall::nPasswordRequest const & request,
                       "$login_storepw_disk_help",
                       1);
 
-    uMenuItemExit cl(&login, "$login_cancel", "$login_cancel_help" );
+    eMenuItemPassword pw(&login, password);
+    eMenuItemUserName us(&login, username);
+    us.SetColorMode( rTextField::COLOR_IGNORE );
 
-    // the form opens on the field to type in, not on its top row (cancel)
-    login.OpenOn(1);
+    // the form opens on the field to type in
+    login.OpenOn(se_loginPasswordRow + 1);
 
     // check if the username the server sent us matches one of the players'
     // global IDs. If it does we can directly select the password menu
@@ -713,7 +719,7 @@ static void PasswordCallback( nKrawall::nPasswordRequest const & request,
         }
         if(match)
         {
-            login.OpenOn(0);
+            login.OpenOn(se_loginPasswordRow);
         }
     }
 

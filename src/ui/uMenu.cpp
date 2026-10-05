@@ -64,7 +64,8 @@ uMenu::uMenu(const char *t="",bool exit_item)
         menuMouseMode_(false),styleEnterTime_(0),mouseSelection_(-1),dragItem_(-1),
 #endif
         title(t){
-    if (exit_item) new uMenuItemExit(this);
+    autoExit_ = exit_item ? new uMenuItemExit(this) : NULL;
+    hiddenRow_ = -1;
     center=0;
     menuTop=.7;
     menuBot=-.7;
@@ -80,7 +81,8 @@ uMenu::uMenu(const tOutput &t,bool exit_item)
         menuMouseMode_(false),styleEnterTime_(0),mouseSelection_(-1),dragItem_(-1),
 #endif
         title(t){
-    if (exit_item) new uMenuItemExit(this);
+    autoExit_ = exit_item ? new uMenuItemExit(this) : NULL;
+    hiddenRow_ = -1;
     center=0;
     menuTop=.7;
     menuBot=-.7;
@@ -90,8 +92,58 @@ uMenu::uMenu(const tOutput &t,bool exit_item)
 }
 
 uMenu::~uMenu(){
+    autoExit_ = NULL;
     for (int i=items.Len()-1;i>=0;i--)
         delete items[i];
+}
+
+void uMenu::UpdateRows()
+{
+    // the menu's own way out is in the way while there is anything else
+    hiddenRow_ = -1;
+    if (autoExit_ && (style_ == uMenuStyle_RclPanel || style_ == uMenuStyle_RclHome))
+    {
+        int at = -1;
+        bool others = false;
+        for (int i = items.Len()-1; i >= 0; --i)
+        {
+            if (items[i] == autoExit_)
+                at = i;
+            else if (items[i]->IsSelectable())
+                others = true;
+        }
+        if (others)
+            hiddenRow_ = at;
+    }
+
+    // the selection is on a row that is there: the nearest one above, else below
+    if (selected >= items.Len())
+        selected = items.Len()-1;
+    if (selected < 0)
+        selected = 0;
+    if (items.Len() > 0 && !items[selected]->IsSelectable())
+    {
+        int found = -1;
+        for (int i = selected+1; i < items.Len() && found < 0; ++i)
+            if (items[i]->IsSelectable())
+                found = i;
+        for (int i = selected-1; i >= 0 && found < 0; --i)
+            if (items[i]->IsSelectable())
+                found = i;
+        if (found >= 0)
+            selected = found;
+    }
+}
+
+int uMenu::TopRow() const
+{
+    int const top = items.Len()-1;
+    return (top == hiddenRow_ && top > 0) ? top-1 : top;
+}
+
+int uMenu::BottomRow() const
+{
+    return (hiddenRow_ == 0 && items.Len() > 1) ? 1 : 0;
 }
 
 void uMenu::ReverseItems(){
@@ -120,7 +172,15 @@ int menuentries=0;
 
 REAL uMenu::YPos(int num){
     REAL const pitch = RclStyle() ? uRclTheme::RowPitch() : text_height;
-    return yOffset-pitch*(menuentries-num);
+    // a row that is not shown takes no room: the rows above it move down
+    int entries = menuentries;
+    if (hiddenRow_ >= 0)
+    {
+        --entries;
+        if (num > hiddenRow_)
+            --num;
+    }
+    return yOffset-pitch*(entries-num);
 }
 
 #ifndef DEDICATED
@@ -432,8 +492,11 @@ void uMenu::OnEnter(){
     static const REAL timeout=0;
 #endif
 
-    // inverted logic (0 = last item! prev(0) = top most item)
-    selected = GetPrevSelectable(0);
+    // a menu opens on its top row (rows are stored bottom first)
+    UpdateRows();
+    selected = items.Len()-1;
+    while (selected > 0 && !items[selected]->IsSelectable())
+        --selected;
     // unless the menu was told which row to open on, this once
     if ( openOn_ >= 0 && openOn_ < items.Len() )
         selected = openOn_;
@@ -483,6 +546,7 @@ void uMenu::OnEnter(){
             selected = 0;
         if ( selected >= items.Len())
             selected = items.Len()-1;
+        UpdateRows();
 
 #ifndef DEDICATED
         // the layout follows the window and the rows the menu has right now
@@ -545,6 +609,7 @@ void uMenu::OnEnter(){
             selected = 0;
         if ( selected >= items.Len())
             selected = items.Len()-1;
+        UpdateRows();
 #endif
         // quit shortcut
         if ( quickexit )
@@ -600,11 +665,11 @@ void uMenu::OnEnter(){
                     yOffset+=(menuTop-smallborder-ysel);
             }
 
-            if (YPos(0)>menuBot+smallborder)
-                yOffset+=menuBot+smallborder-YPos(0);
+            if (YPos(BottomRow())>menuBot+smallborder)
+                yOffset+=menuBot+smallborder-YPos(BottomRow());
 
-            if (YPos(menuentries-1)<menuTop-smallborder)
-                yOffset+=menuTop-smallborder-YPos(menuentries-1);
+            if (YPos(TopRow())<menuTop-smallborder)
+                yOffset+=menuTop-smallborder-YPos(TopRow());
         }
 
 #ifndef DEDICATED
@@ -640,6 +705,8 @@ void uMenu::OnEnter(){
                 REAL const fade = uRclTheme::RowPitch() * .5f;
                 for (int i=items.Len()-1;i>=0;i--)
                 {
+                    if (i == hiddenRow_)
+                        continue;
                     REAL const layoutY=YPos(i);
                     if (layoutY<=menuBot || layoutY>=menuTop)
                         continue;
@@ -667,8 +734,8 @@ void uMenu::OnEnter(){
 
                 if (!prompt)
                     uRclTheme::DrawScrollMarks(
-                        YPos(menuentries-1) > menuTop-smallborder+1E-4f,
-                        YPos(0) < menuBot+smallborder-1E-4f,
+                        YPos(TopRow()) > menuTop-smallborder+1E-4f,
+                        YPos(BottomRow()) < menuBot+smallborder-1E-4f,
                         entrance);
             }
             else
@@ -897,9 +964,12 @@ void uMenu::HandleEvent( SDL_Event event )
                 lastkey=tSysTimeFloat();
                 int const next = event.key.keysym.sym == SDLK_UP ?
                     GetNextSelectable(selected) : GetPrevSelectable(selected);
-                if (next != selected)
+                // at the end of a list that does not wrap there is no next row
+                if (next >= 0 && next != selected)
+                {
                     su_MenuSound( Sound_Move );
-                selected = next;
+                    selected = next;
+                }
                 items[selected]->DisplayHelp(false, 0, 0.0f);
                 break;
             }

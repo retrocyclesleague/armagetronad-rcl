@@ -1012,9 +1012,9 @@ protected:
         {
             // the colour being mixed, beside the page title
             REAL const right = uRclTheme::RowRight();
-            REAL const left = right - uRclTheme::W(64);
-            REAL const top = uRclTheme::Y(128);
-            REAL const bottom = uRclTheme::Y(192);
+            REAL const left = right - uRclTheme::W(40);
+            REAL const top = uRclTheme::Y(34);
+            REAL const bottom = uRclTheme::Y(74);
             uRclTheme::Color const & frame = uRclTheme::borderStrong;
             glColor3f(frame.r, frame.g, frame.b);
             glRectf(left, bottom, right, top);
@@ -1347,6 +1347,180 @@ void viewport_menu_x(void){
     }
 }
 
+
+// ---- the short settings pages ----
+//
+// Each is one screen of the things a player sets, for the first player, with
+// no pages behind it except the lists of keys. Everything else these menus
+// ever offered is still there, on the pages above, which Advanced opens.
+
+#ifndef DEDICATED
+// who you are and how you look at the arena
+void sg_RclPlayerPage()
+{
+    ePlayer * p = ePlayer::PlayerConfig(0);
+    if (!p)
+        return;
+
+    uMenu menu("$rcl_player_menu_text");
+
+    // rows are stored bottom first
+    uMenuItemSelection<eCamMode> cam
+    (&menu,
+     "$rcl_camera_text",
+     "$player_camera_initial_help",
+     p->startCamera);
+    cam.NewChoice("$player_camera_initial_scust_text","$player_camera_initial_scust_help",CAMERA_SERVER_CUSTOM);
+    cam.NewChoice("$player_camera_initial_cust_text","$player_camera_initial_cust_help",CAMERA_CUSTOM);
+    cam.NewChoice("$player_camera_initial_int_text","$player_camera_initial_int_help",CAMERA_IN);
+    cam.NewChoice("$player_camera_initial_smrt_text","$player_camera_initial_smrt_help",CAMERA_SMART);
+    cam.NewChoice("$player_camera_initial_ext_text","$player_camera_initial_ext_help",CAMERA_FOLLOW);
+    cam.NewChoice("$player_camera_initial_free_text","$player_camera_initial_free_help",CAMERA_FREE);
+
+    uMenuItemInt fov
+    (&menu,
+     "$rcl_fov_text",
+     "$player_camera_fov_help",
+     p->startFOV,30,160,5);
+
+    ArmageTron_color_menuitem B(&menu,"$player_blue_text",
+                                "$player_blue_help",
+                                p->rgb,2);
+
+    ArmageTron_color_menuitem G(&menu,"$player_green_text",
+                                "$player_green_help",
+                                p->rgb,1);
+
+    ArmageTron_color_menuitem R(&menu,"$player_red_text",
+                                "$player_red_help",
+                                p->rgb,0);
+
+    uMenuItemColorLine n(&menu, p->name, 16);
+
+    menu.Enter();
+
+    // tell a server about a new name or colour, if it takes that mid-game
+    static nVersionFeature inGameRenames( 5 );
+    if ( inGameRenames.Supported() )
+    {
+        ePlayerNetID::Update();
+        ePlayer::SendAuthNames();
+    }
+}
+
+// every key, and what the instant chat keys say
+void sg_RclControlsPage()
+{
+    ePlayer * p = ePlayer::PlayerConfig(0);
+    if (!p)
+        return;
+
+    uMenu menu("$rcl_controls_menu_text");
+
+    uMenu chat_menu("$rcl_instant_chat_text");
+    uMenuItemString *ic[MAX_INSTANT_CHAT];
+    for(int i=MAX_INSTANT_CHAT-1;i>=0;i--){
+        tOutput name;
+        name.SetTemplateParameter(1, i+1);
+        name << "$player_chat_chat";
+        ic[i]=new uMenuItemString
+              (&chat_menu,name,
+               "$player_chat_chat_help",
+               p->instantChatString[i], se_SpamMaxLen);
+    }
+
+    // rows are stored bottom first
+    uMenuItemSubmenu chm(&menu,&chat_menu,
+                         "$player_chat_chat_help");
+
+    uMenuItemFunction gk(&menu,"$rcl_general_keys_text",
+                         "$misc_global_key_help",
+                         &su_InputConfigGlobal);
+
+    uMenuItemFunctionInt icc(&menu,"$rcl_camera_keys_text",
+                             "$player_camera_input_help",
+                             &su_InputConfigCamera,0);
+
+    uMenuItemFunctionInt inc(&menu,"$rcl_cycle_keys_text",
+                             "$player_input_help",
+                             &su_InputConfig,0);
+
+    menu.Enter();
+
+    for(int i=MAX_INSTANT_CHAT-1; i>=0; i--)
+        delete ic[i];
+}
+
+// the window, and the look and cost of the arena
+void sg_RclDisplayPage()
+{
+    uMenu menu("$rcl_display_menu_text");
+
+    // rows are stored bottom first
+    uMenuItemFunction appl
+    (&menu,
+     "$screen_apply_changes_text",
+     "$screen_apply_changes_help",
+     &sr_ReinitDisplay);
+
+    uMenuItemToggle fps
+    (&menu,"$misc_fps_text",
+     "$misc_fps_help",sr_FPSOut);
+
+    uMenuItemSelection<int> mirror
+    (&menu,
+     "$rcl_reflections_text",
+     "$detail_floor_mirror_help",
+     sr_floorMirror);
+    mirror.NewChoice("$detail_floor_mirror_off_text","$detail_floor_mirror_off_help",rMIRROR_OFF);
+    mirror.NewChoice("$detail_floor_mirror_obj_text","$detail_floor_mirror_obj_help",rMIRROR_OBJECTS);
+    mirror.NewChoice("$detail_floor_mirror_ow_text","$detail_floor_mirror_ow_help",rMIRROR_WALLS);
+    mirror.NewChoice("$detail_floor_mirror_ev_text","$detail_floor_mirror_ev_help",rMIRROR_ALL);
+
+    uMenuItemToggle arena
+    (&menu,"$rcl_pale_arena_text",
+     "$detail_clean_arena_help",
+     sr_cleanArena);
+
+    uMenuItemSelection<int> aa
+    (&menu,
+     "$detail_antialias_text",
+     "$detail_antialias_help",
+     sr_antialias);
+    aa.NewChoice("$detail_antialias_off_text","$detail_antialias_off_help",0);
+    aa.NewChoice("$detail_antialias_2_text","$detail_antialias_on_help",2);
+    aa.NewChoice("$detail_antialias_4_text","$detail_antialias_on_help",4);
+    aa.NewChoice("$detail_antialias_8_text","$detail_antialias_on_help",8);
+
+#ifdef SDL_OPENGL
+#if SDL_VERSION_ATLEAST(1, 2, 10)
+    uMenuItemSelection<rVSync> vsync
+    (&menu,
+     "$screen_vsync_text",
+     "$screen_vsync_help",
+     currentScreensetting.vSync);
+    vsync.NewChoice("$screen_vsync_on_text","$screen_vsync_on_help",ArmageTron_VSync_On);
+    vsync.NewChoice("$screen_vsync_default_text","$screen_vsync_default_help",ArmageTron_VSync_Default);
+    vsync.NewChoice("$screen_vsync_off_text","$screen_vsync_off_help",ArmageTron_VSync_Off);
+#endif
+#endif
+
+    gResMenEntry winsize( menu, currentScreensetting.windowSize, "$window_size_text", "$window_size_help", true );
+    gResMenEntry res( menu, currentScreensetting.res, "$screen_resolution_text", "$screen_resolution_help", false );
+
+    uMenuItemToggle fs
+    (&menu,
+     "$screen_fullscreen_text",
+     "$screen_fullscreen_help",
+     currentScreensetting.fullscreen);
+
+    menu.Enter();
+}
+#else
+void sg_RclPlayerPage(){}
+void sg_RclControlsPage(){}
+void sg_RclDisplayPage(){}
+#endif
 
 static uActionGlobal con_input( "CONSOLE_INPUT" );
 
