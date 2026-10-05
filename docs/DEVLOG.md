@@ -1,5 +1,18 @@
 # Dev log
 
+## 2026-10-05 - sound, second pass: smooth
+
+Jamie's verdict on the first set: the grinding is "too particle ish", "everything should be smooth and vibration like", and the turn sounds need another look. The grinding was a string of separate scrapes, a fresh one every 75 ms; the turns were a click, a falling zip and a thump.
+
+- Grinding is one loop (`grind.wav`): `gCycle::SoundMix` brings it up quickly while sparks fly and lets it go slowly, pitched with speed. The three scrape files are gone.
+- Turns are a short round thrum that sags in pitch and shivers as it dies, with a soft note two octaves up; no click, no zip. Left turns sit on the two lower notes of the key, right turns on the two upper.
+- The rest of the set was taken through the same rule: the rush of acceleration is a beating chord instead of noise; explosions roll instead of cracking and have no debris grains; the whine, the death, the interface and round cues lost their hiss and ticks; the engine body is rounder.
+- The generator now refuses a file (explosions aside) with more than 2% of its energy above 4 kHz, or with a jump between two samples that a click would need.
+
+Checked by measurement again, not by ear. Every file passes; outside the explosions none has more than 0.05% of its energy above 4 kHz. A 56 s capture of a practice session: peak -4.1 dBFS, about -24 dBFS RMS in play, no sample at full scale, 7 above the limiter's knee; in the spectrogram the dotted fields and noise washes of the first set are gone, grinding is a continuous band that swells and settles, turns are short low events.
+
+Not checked: by ear; online; whether the turns now carry on small speakers (their energy is between 200 Hz and 1 kHz).
+
 ## 2026-10-05 - sound: a mixer that can carry a mix, 22 sounds instead of 4
 
 Jamie asked for sounds that are more diverse, rich, dense and satisfying. The game had four (engine loop, turn, scrape, explosion), each one layer, and nothing in menus or around a round. `sound/README-RCL.md` lists the new set and what each sound is made of.

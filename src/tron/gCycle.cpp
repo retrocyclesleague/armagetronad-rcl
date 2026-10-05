@@ -238,20 +238,21 @@ static uActionTooltip sg_brakeTooltip( gCycle::s_brake, 1, &ePlayer::VetoActiveT
 
 static eWavData cycle_run("moviesounds/engine.wav","sound/cyclrun.wav");
 static eWavData turn_wav("moviesounds/cycturn.wav","sound/turn.wav");
-static eWavData scrap("sound/scrape.wav");
 
-// There is more to the engine than its body: a whine that comes in with
-// speed, and a rush when a wall pulls the cycle along.
+// There is more to the engine than its body. All of it is loops that swell
+// and settle; nothing in a cycle's sound starts or stops abruptly but a turn.
+//   the whine comes in with speed,
+//   the pull while a wall draws the cycle along,
+//   the grind while it runs along one close enough for sparks.
 static eWavData cycle_whine("sound/cyclhigh.wav");
 static eWavData cycle_boost("sound/cyclboost.wav");
+static eWavData cycle_grind("sound/grind.wav");
 
-// A turn or a scrape is one of a few takes at a slightly different pitch
-// every time, so a burst of them does not sound like one sample stuttering.
+// A turn is one of a few takes at a slightly different pitch every time, so
+// a burst of them does not sound like one sample stuttering.
 static eWavData turn_take2("sound/turn2.wav");
 static eWavData turn_take3("sound/turn3.wav");
 static eWavData turn_take4("sound/turn4.wav");
-static eWavData scrap_take2("sound/scrape2.wav");
-static eWavData scrap_take3("sound/scrape3.wav");
 
 // for the one whose cycle it was, a death is more than the explosion
 static eWavData death_wav("sound/death.wav");
@@ -278,20 +279,6 @@ static void sg_SoundTurn( eSoundPlayer * turning, REAL & pitch, int direction )
 #endif
 }
 
-// Sparks fly on every frame a cycle grinds along a wall. Their sound is a
-// string of short scrapes, a fresh take every so often, not one per frame.
-static void sg_SoundScrape( eSoundPlayer * spark, REAL & pitch, REAL & last, REAL now )
-{
-#ifndef DEDICATED
-    if ( !spark || fabs( now - last ) < .075f )
-        return;
-    last = now;
-
-    static eWavData * const takes[3] = { &scrap, &scrap_take2, &scrap_take3 };
-    pitch = se_SoundVariation( .12f );
-    spark->Reset( *takes[se_SoundChoice( 3 )] );
-#endif
-}
 
 // a class of textures where the transparent part of the
 // image is replaced by the player color
@@ -2300,10 +2287,10 @@ void gCycle::MyInitAfterCreation(){
     engineWhine = tNEW(eSoundPlayer)(cycle_whine,true);
     boost   = tNEW(eSoundPlayer)(cycle_boost,true);
     turning = tNEW(eSoundPlayer)(turn_wav);
-    spark   = tNEW(eSoundPlayer)(scrap);
-    turnPitch_ = sparkPitch_ = 1;
-    lastScrape_ = -100;
-    boostHeard_ = 0;
+    spark   = tNEW(eSoundPlayer)(cycle_grind,true);
+    turnPitch_ = 1;
+    lastSparks_ = -100;
+    boostHeard_ = grindHeard_ = 0;
 
     //correctDistSmooth=correctTimeSmooth=correctSpeedSmooth=0;
     correctDistanceSmooth = 0;
@@ -2454,6 +2441,8 @@ void gCycle::MyInitAfterCreation(){
         engineWhine->Reset(10000);
     if ( boost )
         boost->Reset(10000);
+    if ( spark )
+        spark->Reset(10000);
 
     if ( turning )
         turning->End();
@@ -3254,7 +3243,8 @@ bool gCycle::TimestepCore(REAL currentTime, bool calculateAcceleration ){
                 else
                     new gSpark(grid, sparkpos-dirDrive*.1,sparkdir,currentTime,color_.r,color_.g,color_.b,1,1,1);
 
-                sg_SoundScrape( spark, sparkPitch_, lastScrape_, currentTime );
+                // heard as the grind, which SoundMix swells while this goes on
+                lastSparks_ = currentTime;
             }
         }
 
@@ -5801,7 +5791,7 @@ void gCycle::SoundMix(Uint8 *dest,unsigned int len,
                 engineWhine->Mix(dest,len,viewer,rvol*whine,lvol*whine,rate);
             }
 
-            // the rush follows how hard a wall pulls the cycle along; it is
+            // the pull follows how hard a wall draws the cycle along; it is
             // eased in and out so it swells instead of switching
             REAL pull = GetAcceleration() * ( 1 / 12.0f );
             if ( !( pull > 0 ) ) pull = 0;
@@ -5811,15 +5801,23 @@ void gCycle::SoundMix(Uint8 *dest,unsigned int len,
                 boost->Mix(dest,len,viewer,rvol*boostHeard_,lvol*boostHeard_,.85f+.15f*rate);
         }
 
+        // The grind is there while sparks fly. It comes up quickly and lets
+        // go slowly, so a moment off the wall does not chop it: one hum, not
+        // a sound per spark.
+        {
+            REAL const sinceSparks = lastTime - lastSparks_;
+            REAL const grinding = ( sinceSparks >= 0 && sinceSparks < .12f ) ? 1 : 0;
+            grindHeard_ += ( grinding - grindHeard_ ) * ( grinding > grindHeard_ ? .4f : .14f );
+            if ( spark && grindHeard_ > .02f )
+                spark->Mix(dest,len,viewer,rvol*grindHeard_*.9f,lvol*grindHeard_*.9f,.8f+.2f*rate);
+        }
+
         if (turning)
             // sound/turn.wav is an authored fallback, not the historical
             // explosion sample. Play both it and moviepack turn sounds at
             // (nearly) their native rate so the transient and mechanical
             // body survive.
             turning->Mix(dest,len,viewer,rvol,lvol,turnPitch_);
-
-        if (spark)
-            spark->Mix(dest,len,viewer,rvol*.7f,lvol*.7f,sparkPitch_);
     }
 }
 #endif

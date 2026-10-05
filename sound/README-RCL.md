@@ -17,31 +17,42 @@ and how much energy lies above 10 kHz. That last check is there because the
 game's default output rate is 22.05 kHz and its mixer has no filter of its
 own: whatever a file has up there would fold back as noise.
 
+The set speaks one language: smooth, and felt as much as heard. Things hum,
+swell, shudder and settle. Nothing clicks, crackles or hisses; where noise is
+used at all (the explosions) it is low, wide and closing up. The generator
+enforces it: outside the explosions, a file with more than 2% of its energy
+above 4 kHz, or with a jump between two samples that a click would need, is
+refused. (The first version of this set had grit, zips and a grinding made
+of separate scrapes. Jamie's verdict was "too particle-ish, everything should
+be smooth and vibration like".)
+
 Everything with a pitch is in one key (D), so the set sounds like one thing.
 
-Engine, three loops the game layers per cycle and pitches with its speed:
+Engine, four loops the game swells and settles per cycle and pitches with its
+speed. Nothing in a cycle's sound starts or stops abruptly but a turn:
 
-- `cyclrun.wav`: the body. Two saws a hair apart, so every overtone beats at
-  its own slow rate; the weight is in the overtones, not the fundamental,
-  because cycles idle at two thirds of its pitch and small speakers have no
-  sub. Exactly periodic over its two seconds.
-- `cyclhigh.wav`: the whine, a motor tone with sidebands and a narrow hiss.
-  Faint at cruising speed, it grows with it.
-- `cyclboost.wav`: the rush, two bands of surging noise over a low tone. The
-  game fades it in with the cycle's acceleration, which is what grinding a
-  wall gives.
+- `cyclrun.wav`: the body. Two tones a hair apart, so every overtone beats at
+  its own slow rate. Round rather than buzzy, but the weight is still in the
+  overtones and not the fundamental, because cycles idle at two thirds of its
+  pitch and small speakers have no sub. Exactly periodic over its two seconds.
+- `cyclhigh.wav`: the whine, a motor tone with sidebands. Faint at cruising
+  speed, it grows with it.
+- `cyclboost.wav`: the pull, a chord of close tones beating slowly. The game
+  fades it in with the cycle's acceleration, which is what a wall gives.
+- `grind.wav`: the grind, a low buzz that flutters at a steady rate under two
+  pairs of beating tones. The game brings it up quickly while sparks fly and
+  lets it go slowly, so it is one hum and not a sound per spark.
 
 One-shots, of which the game picks a take and varies the pitch by a few
 percent every time, so a burst of them is not one sample stuttering:
 
 - `turn.wav`, `turn3.wav` (left) and `turn2.wav`, `turn4.wav` (right): a
-  click, a zip that falls from one pitch to another, a thump, a short space.
-- `scrape.wav`, `scrape2.wav`, `scrape3.wav`: grit that chatters and a few
-  partials that ring out of tune with each other. While sparks fly the game
-  starts a fresh take about every 75 ms. They are written at the pitch they
-  are played at (the old one was played at four times its pitch).
-- `expl.wav`, `expl2.wav`, `expl3.wav`: a crack that is there at once, a body
-  that falls in pitch, metal that rings, debris that keeps arriving, a room.
+  short round thrum that sags in pitch and shivers as it dies, with a soft
+  note two octaves up so it carries. Left turns are on the two lower notes
+  (G, A), right turns on the two upper (C, D).
+- `expl.wav`, `expl2.wav`, `expl3.wav`: a boom that rolls rather than cracks:
+  a body that falls in pitch, a wide low rush that closes up, a tail that
+  shudders as it dies, a room.
 - `death.wav`: for the one whose cycle it was, on top of the explosion: a
   tone that falls and closes up over one heavy beat.
 

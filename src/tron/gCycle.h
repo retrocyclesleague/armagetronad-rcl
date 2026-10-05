@@ -169,13 +169,13 @@ class gCycle: public gCycleMovement
 
     eSoundPlayer *engine;
     eSoundPlayer *engineWhine;  //!< the engine's upper layer, which comes in with speed
-    eSoundPlayer *boost;        //!< the rush of a wall pulling the cycle along
+    eSoundPlayer *boost;        //!< the pull of a wall drawing the cycle along
     eSoundPlayer *turning;
-    eSoundPlayer *spark;
+    eSoundPlayer *spark;        //!< the grind along a wall
     REAL turnPitch_;            //!< the pitch the turn that is sounding was given
-    REAL sparkPitch_;           //!< the same for the scrape
-    REAL lastScrape_;           //!< when the last scrape started
-    REAL boostHeard_;           //!< how much of the rush is in the mix right now
+    REAL lastSparks_;           //!< when sparks last flew
+    REAL boostHeard_;           //!< how much of the pull is in the mix right now
+    REAL grindHeard_;           //!< and of the grind
 
     REAL spawnTime_;    //!< time the cycle spawned at
     REAL lastTimeAnim;  //!< last time animation was simulated at
