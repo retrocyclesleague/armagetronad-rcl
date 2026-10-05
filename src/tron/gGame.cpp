@@ -3424,6 +3424,13 @@ static tString sg_RclStatusLine()
     }
     else if ( ePlayer::RclAuthenticated() )
         status << tOutput( "$rcl_status_signed_in", identity );
+    else if ( ePlayer::RclLoginPending() )
+        // the saved sign-in is being checked while the menu is already there
+        status << tOutput( "$rcl_status_signing_in", identity );
+    else if ( ePlayer::RclLoginTrouble() == ePlayer::eRclLogin_Refused )
+        status << tOutput( "$rcl_status_refused", identity );
+    else if ( ePlayer::RclLoginTrouble() == ePlayer::eRclLogin_Unanswered )
+        status << tOutput( "$rcl_status_unanswered", identity );
     else
         status << tOutput( "$rcl_status_signed_out" );
 

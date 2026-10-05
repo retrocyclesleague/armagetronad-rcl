@@ -1083,38 +1083,38 @@ void sg_CleanSolid( const eCoord &p1, const eCoord &p2, REAL h1, REAL h2,
 }
 
 // The last stretch of a wall, behind its cycle: a few points along it, each
-// with the height the wall has there, how solid it is and how much it still
-// glows. Straight like the rest of the wall, and drawn as one piece so that
-// nothing overlaps where it is not solid.
+// with the height and the width the wall has there (the width as a share of
+// the full one), how much of the arrow's lighter paint it still has and how
+// much of the arrow's line is left on its top. Straight like the rest of the
+// wall.
 struct gCleanTipPoint
 {
     eCoord at;
-    REAL height, solid, fresh;
+    REAL height, width, fresh, line;
 };
+
+enum { sg_cleanTipPoints = 12 };
 
 void sg_CleanTip( gCleanTipPoint * point, int points, REAL r, REAL g, REAL b, REAL alpha, int mode )
 {
+    if ( points > sg_cleanTipPoints )
+        points = sg_cleanTipPoints;
+    if ( points < 2 )
+        return;
     eCoord const delta = point[points - 1].at - point[0].at;
     REAL const length = sqrt( delta.NormSquared() );
-    if ( points < 2 || !( length > 0 ) )
+    if ( !( length > 0 ) )
         return;
     eCoord const along = delta * ( sg_cleanWallHalfWidth / length );
     eCoord const side( -along.y, along.x );
-
-    // The wall itself runs past both ends by the half width, so corners
-    // close up. Its shadow and its sheen end where the pieces next to it
-    // begin theirs: laid over each other, they would show as a darker line.
-    if ( mode & gNetPlayerWall::gWallRenderMode_Solid )
-    {
-        point[0].at = point[0].at - along;
-        point[points - 1].at = point[points - 1].at + along;
-    }
 
     if ( mode & gNetPlayerWall::gWallRenderMode_Shadow )
     {
         eCoord toSun;
         REAL reach;
         se_CleanArenaSun( toSun, reach );
+        REAL const a = sg_cleanShadowAlpha * alpha;
+        REAL const * const c = sr_cleanShadowColor;
         for ( int i = 0; i + 1 < points; ++i )
         {
             gCleanTipPoint const & p = point[i];
@@ -1122,19 +1122,15 @@ void sg_CleanTip( gCleanTipPoint * point, int points, REAL r, REAL g, REAL b, RE
             eCoord const o1 = toSun * ( -reach * p.height ), o2 = toSun * ( -reach * q.height );
             eCoord const c1 = p.at + o1 * sg_cleanShadowCore, c2 = q.at + o2 * sg_cleanShadowCore;
             eCoord const e1 = p.at + o1, e2 = q.at + o2;
-            REAL const a1 = sg_cleanShadowAlpha * alpha * p.solid, a2 = sg_cleanShadowAlpha * alpha * q.solid;
-            REAL const * const c = sr_cleanShadowColor;
 
-            glColor4f( c[0], c[1], c[2], a1 );
+            // even over most of its reach, thinning out towards the far edge
+            glColor4f( c[0], c[1], c[2], a );
             glVertex3f( p.at.x, p.at.y, sg_cleanShadowRise );
-            glColor4f( c[0], c[1], c[2], a2 );
             glVertex3f( q.at.x, q.at.y, sg_cleanShadowRise );
             glVertex3f( c2.x, c2.y, sg_cleanShadowRise );
-            glColor4f( c[0], c[1], c[2], a1 );
             glVertex3f( c1.x, c1.y, sg_cleanShadowRise );
 
             glVertex3f( c1.x, c1.y, sg_cleanShadowRise );
-            glColor4f( c[0], c[1], c[2], a2 );
             glVertex3f( c2.x, c2.y, sg_cleanShadowRise );
             glColor4f( c[0], c[1], c[2], 0 );
             glVertex3f( e2.x, e2.y, sg_cleanShadowRise );
@@ -1143,16 +1139,28 @@ void sg_CleanTip( gCleanTipPoint * point, int points, REAL r, REAL g, REAL b, RE
         return;
     }
 
-    // the paint at each point: the wall's own, lighter while it is fresh
-    REAL paint[8][3];
-    for ( int i = 0; i < points; ++i )
+    bool const sheen = ( mode & gNetPlayerWall::gWallRenderMode_Sheen ) != 0;
+
+    // The wall itself runs past both ends by the half width it has there, so
+    // corners close up. Its shadow and its sheen end where the pieces next to
+    // it begin theirs: laid over each other, they would show as a darker line.
+    if ( !sheen )
     {
-        paint[i][0] = r + point[i].fresh;
-        paint[i][1] = g + point[i].fresh;
-        paint[i][2] = b + point[i].fresh;
-        sr_CleanPaint( paint[i][0], paint[i][1], paint[i][2] );
+        point[0].at = point[0].at - along * point[0].width;
+        point[points - 1].at = point[points - 1].at + along * point[points - 1].width;
     }
 
+    // the paint at each point: the wall's own, and towards the cycle more and
+    // more of the lighter tint the arrow has on top
+    REAL base[3] = { r, g, b };
+    sr_CleanPaint( base[0], base[1], base[2] );
+    REAL paint[sg_cleanTipPoints][3];
+    for ( int i = 0; i < points; ++i )
+        for ( int c = 0; c < 3; ++c )
+            paint[i][c] = base[c] + ( 1 - base[c] ) * point[i].fresh;
+
+    // slightly darker towards the floor, where less of the sky reaches; the
+    // top catches the sky as well as the sun
     static const REAL foot = .88f, sky = .10f;
     for ( int i = 0; i + 1 < points; ++i )
     {
@@ -1163,55 +1171,88 @@ void sg_CleanTip( gCleanTipPoint * point, int points, REAL r, REAL g, REAL b, RE
         {
             eCoord const o = side * REAL( sign );
             REAL const light = sg_CleanFaceLight( o );
+            eCoord const at[2] = { end[0]->at + o * end[0]->width, end[1]->at + o * end[1]->width };
 
-            if ( mode & gNetPlayerWall::gWallRenderMode_Sheen )
+            if ( sheen )
             {
                 // the face again, under the floor, fading with depth
                 for ( int k = 0; k < 2; ++k )
                 {
-                    glColor4f( tone[k][0] * light, tone[k][1] * light, tone[k][2] * light,
-                               sg_cleanSheen * alpha * end[k]->solid );
-                    glVertex3f( end[k]->at.x + o.x, end[k]->at.y + o.y, 0 );
+                    glColor4f( tone[k][0] * light, tone[k][1] * light, tone[k][2] * light, sg_cleanSheen * alpha );
+                    glVertex3f( at[k].x, at[k].y, 0 );
                 }
                 for ( int k = 1; k >= 0; --k )
                 {
                     glColor4f( tone[k][0] * light, tone[k][1] * light, tone[k][2] * light, 0 );
-                    glVertex3f( end[k]->at.x + o.x, end[k]->at.y + o.y, -end[k]->height * sg_cleanSheenDepth );
+                    glVertex3f( at[k].x, at[k].y, -end[k]->height * sg_cleanSheenDepth );
                 }
                 continue;
             }
 
-            // The face, foot to top at the one end and top to foot at the
-            // other, counter-clockwise seen from outside: the caller has
-            // the faces turned away from the viewer left out, so that what
-            // is not solid is one layer and not two in changing order.
-            for ( int step = 0; step < 2; ++step )
+            // the face: foot and top at the one end, top and foot at the other
+            for ( int k = 0; k < 2; ++k )
             {
-                int const k = ( sign > 0 ) ? step : 1 - step;
-                REAL const a = alpha * end[k]->solid;
                 for ( int corner = 0; corner < 2; ++corner )
                 {
-                    bool const top = ( corner != step );
+                    bool const top = ( corner != k );
                     REAL const shade = top ? light : light * foot;
-                    glColor4f( tone[k][0] * shade, tone[k][1] * shade, tone[k][2] * shade, a );
-                    glVertex3f( end[k]->at.x + o.x, end[k]->at.y + o.y, top ? end[k]->height : 0 );
+                    glColor4f( tone[k][0] * shade, tone[k][1] * shade, tone[k][2] * shade, alpha );
+                    glVertex3f( at[k].x, at[k].y, top ? end[k]->height : 0 );
                 }
             }
         }
 
-        if ( mode & gNetPlayerWall::gWallRenderMode_Sheen )
+        if ( sheen )
             continue;
 
-        // the top catches the sky as well as the sun
         for ( int k = 0; k < 2; ++k )
         {
             glColor4f( tone[k][0] + ( 1 - tone[k][0] ) * sky, tone[k][1] + ( 1 - tone[k][1] ) * sky,
-                       tone[k][2] + ( 1 - tone[k][2] ) * sky, alpha * end[k]->solid );
-            REAL const turn = k ? -1 : 1;
-            glVertex3f( end[k]->at.x + side.x * turn, end[k]->at.y + side.y * turn, end[k]->height );
-            glVertex3f( end[k]->at.x - side.x * turn, end[k]->at.y - side.y * turn, end[k]->height );
+                       tone[k][2] + ( 1 - tone[k][2] ) * sky, alpha );
+            eCoord const o = side * ( ( k ? -1 : 1 ) * end[k]->width );
+            glVertex3f( end[k]->at.x + o.x, end[k]->at.y + o.y, end[k]->height );
+            glVertex3f( end[k]->at.x - o.x, end[k]->at.y - o.y, end[k]->height );
         }
     }
+
+    if ( sheen )
+        return;
+
+    // the two ends: a turn made while this stretch is still coming up leaves
+    // one of them in the open
+    for ( int e = 0; e < 2; ++e )
+    {
+        gCleanTipPoint const & p = point[e ? points - 1 : 0];
+        REAL const * const tone = paint[e ? points - 1 : 0];
+        eCoord const o = side * p.width;
+        REAL const light = sg_CleanFaceLight( e ? along : along * REAL( -1 ) );
+        glColor4f( tone[0] * light * foot, tone[1] * light * foot, tone[2] * light * foot, alpha );
+        glVertex3f( p.at.x - o.x, p.at.y - o.y, 0 );
+        glColor4f( tone[0] * light, tone[1] * light, tone[2] * light, alpha );
+        glVertex3f( p.at.x - o.x, p.at.y - o.y, p.height );
+        glVertex3f( p.at.x + o.x, p.at.y + o.y, p.height );
+        glColor4f( tone[0] * light * foot, tone[1] * light * foot, tone[2] * light * foot, alpha );
+        glVertex3f( p.at.x + o.x, p.at.y + o.y, 0 );
+    }
+
+    // The pale line down the spine of the arrow the cycle is drawn as runs on
+    // along the top of the wall and is gone by the time the wall has its
+    // width: where the wall is thinner than a line on the screen, the line is
+    // what is seen of it. It leaves the arrow as pale as it is there and
+    // takes on the wall's paint on the way.
+    static const REAL spine = .85f;
+    RenderEnd();
+    sr_DepthOffset( true );
+    BeginLineStrip();
+    for ( int i = 0; i < points; ++i )
+    {
+        REAL const pale = spine * sqrtf( point[i].line );
+        glColor4f( paint[i][0] + ( 1 - paint[i][0] ) * pale, paint[i][1] + ( 1 - paint[i][1] ) * pale,
+                   paint[i][2] + ( 1 - paint[i][2] ) * pale, alpha * point[i].line );
+        glVertex3f( point[i].at.x, point[i].at.y, point[i].height );
+    }
+    RenderEnd();
+    sr_DepthOffset( false );
 }
 
 void sg_TrailGlowPlane( const eCoord &p1, const eCoord &p2,
@@ -1661,16 +1702,23 @@ void gNetPlayerWall::RenderBegin(const eCoord &p1,const eCoord &pp2,REAL ta,REAL
         // is: the corner of a turn is there, square, in the frame the turn is
         // made. (The core bends this stretch towards the cycle's tail. Drawn
         // solid, that is a corner that takes a moment to straighten after
-        // every turn.) What gives way towards the cycle is its height and how
-        // solid it is: it comes out of the notch in the tail of the arrow the
-        // cycle is drawn as, as high as the arrow is there and thin as glass,
-        // and is a wall like the rest by the end of the stretch. That is the
-        // part the server has yet to agree to over a network: its end still
-        // moves when the server puts the cycle elsewhere or a predicted enemy
-        // turns out to have turned, and it should not look more settled than
-        // it is.
+        // every turn.) What gives way towards the cycle is the wall's size.
+        // It leaves the notch in the tail of the arrow the cycle is drawn as
+        // as a point, level with the arrow there and in the arrow's paint,
+        // and over the next few lengths comes up to its height and out to its
+        // width: a blade drawn out of the arrow, not a wall that stops behind
+        // it. The measure is the way back along the trail, so the stretch
+        // before a corner goes on growing after the turn. That stretch is
+        // also the part the server has yet to agree to over a network: its
+        // end still moves when the server puts the cycle elsewhere or a
+        // predicted enemy turns out to have turned, and it should not look
+        // more settled than it is.
         static const REAL stretch = gBEG_LEN * SEGLEN;  // what ra and re count in
-        static const REAL notchBack = .9f, fullBack = 1.9f, notchHeight = .21f;
+        // where the arrow's notch is behind the cycle and how high (see
+        // sg_RenderCleanCycle), and the way from there to the full wall
+        static const REAL notchBack = .9f, notchHeight = .21f, riseLength = 3.6f;
+        static const REAL arrowTint = .30f;             // the arrow's top, against its paint
+        static const int riseSteps = 8;
 
         // how far behind the cycle, along the trail, the piece begins and ends
         REAL const backBegin = ( 1 - ra ) * stretch;
@@ -1681,49 +1729,38 @@ void gNetPlayerWall::RenderBegin(const eCoord &p1,const eCoord &pp2,REAL ta,REAL
 
         if ( hfrac > 0 && span > EPS && backBegin > backEnd )
         {
-            // the points it is drawn through: its ends, and in between, where
-            // the height or the solidity changes its course
-            static const REAL bends[] = { 3.4f, fullBack };
-            REAL back[4];
+            // the points it is drawn through: its ends, and in between enough
+            // of them for the rise to be a curve
+            REAL back[sg_cleanTipPoints];
             int points = 0;
             back[points++] = backBegin;
-            for ( int i = 0; i < 2; ++i )
-                if ( bends[i] < backBegin && bends[i] > backEnd )
-                    back[points++] = bends[i];
+            for ( int i = riseSteps; i >= 0; --i )
+            {
+                REAL const at = notchBack + riseLength * i / riseSteps;
+                if ( at < backBegin && at > backEnd )
+                    back[points++] = at;
+            }
             back[points++] = backEnd;
 
-            gCleanTipPoint point[4];
+            gCleanTipPoint point[sg_cleanTipPoints];
             for ( int i = 0; i < points; ++i )
             {
-                // 0 where the stretch begins, 1 at the cycle
-                REAL const closeness = 1 - back[i] / stretch;
-                REAL rise = ( back[i] - notchBack ) / ( fullBack - notchBack );
+                // 0 at the notch, 1 where the wall is all there; eased at
+                // both ends, so it leaves the arrow level and arrives level
+                REAL rise = ( back[i] - notchBack ) / riseLength;
                 if ( rise > 1 ) rise = 1;
                 if ( rise < 0 ) rise = 0;
+                REAL const eased = rise * rise * ( 3 - 2 * rise );
+
                 point[i].at = p1 + ( p2 - p1 ) * ( ( backBegin - back[i] ) / span );
-                point[i].height = h * hfrac * ( notchHeight + ( 1 - notchHeight ) * rise );
-                point[i].solid = closeness > 0 ? afunc( closeness ) : 1;
-                // fresh off the cycle, the wall still glows
-                point[i].fresh = closeness > 0 ? .6f * cfunc( closeness ) : 0;
+                point[i].height = h * hfrac * ( notchHeight + ( 1 - notchHeight ) * eased );
+                point[i].width = eased;
+                point[i].fresh = arrowTint * ( 1 - rise ) * ( 1 - rise );
+                point[i].line = ( 1 - eased ) * ( 1 - eased );
             }
 
-            if ( mode & gWallRenderMode_Solid )
-            {
-                // Only the faces turned towards the viewer: where the wall
-                // is not solid, its far side must not show through its near
-                // side here and be hidden behind it there.
-                RenderEnd();
-                glEnable( GL_CULL_FACE );
-                BeginQuads();
-                sg_CleanTip( point, points, r, g, b, a, mode );
-                RenderEnd();
-                glDisable( GL_CULL_FACE );
-            }
-            else
-            {
-                BeginQuads();
-                sg_CleanTip( point, points, r, g, b, a, mode );
-            }
+            BeginQuads();
+            sg_CleanTip( point, points, r, g, b, a, mode );
         }
         return;
     }

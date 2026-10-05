@@ -380,6 +380,13 @@ static void welcome(){
     }
     else
     {
+        // A returning RCL user's saved sign-in is checked from the stored,
+        // already-scrambled credential. That goes on behind the title card
+        // and the menu: nothing here waits for the authority. No password
+        // prompt is shown unless the player deliberately opens RCL Account.
+        if ( !tRecorder::IsPlayingBack() )
+            ePlayer::RclLoginAtStartup( false );
+
         bool showSplash = true;
 #ifdef DEBUG
         showSplash = false;
@@ -431,11 +438,6 @@ static void welcome(){
             uInputProcessGuard inputProcessGuard;
             while (su_GetSDLInput(tEvent)) ;
         }
-
-        // A returning RCL user is validated from the stored, already-scrambled
-        // credential before the main menu appears. No password prompt is shown
-        // unless the player deliberately opens RCL Account.
-        ePlayer::RclLoginAtStartup( false );
 
         sr_textOut = textOutBack;
         return;

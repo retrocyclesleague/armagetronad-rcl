@@ -265,6 +265,10 @@ public:
     //! resolving the host name still blocks. Returns -1 on any transport failure.
     static int FetchURLBounded( tString const & authority, char const * query, std::ostream & target,
                                 double budget, FetchIdle * idle = 0, int maxlen = 10000 );
+
+    //! the path FetchURL asks an authority for with this query; for callers
+    //! that make the request themselves (on a thread of their own, say)
+    static std::string FetchPath( char const * query );
 #ifdef KRAWALL_SERVER
     //! split a fully qualified user name in authority and username part
     static void SplitUserName( tString const & original, tString & username, tString & authority );

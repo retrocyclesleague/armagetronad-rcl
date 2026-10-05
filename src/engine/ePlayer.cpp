@@ -69,6 +69,14 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "../tron/gRotation.h"
 #include "eBannedWords.h"
 
+#ifndef DEDICATED
+// the saved RCL sign-in is checked on a thread of its own
+#include "rSDL.h"
+#include "tHttp.h"
+#include <atomic>
+#include <sstream>
+#endif
+
 int se_lastSaidMaxEntries = 8;
 
 // call on commands that only work on the server; quit if it returns true
@@ -681,7 +689,8 @@ static void PasswordCallback( nKrawall::nPasswordRequest const & request,
 
     uMenuItemExit cl(&login, "$login_cancel", "$login_cancel_help" );
 
-    login.SetSelected(1);
+    // the form opens on the field to type in, not on its top row (cancel)
+    login.OpenOn(1);
 
     // check if the username the server sent us matches one of the players'
     // global IDs. If it does we can directly select the password menu
@@ -704,7 +713,7 @@ static void PasswordCallback( nKrawall::nPasswordRequest const & request,
         }
         if(match)
         {
-            login.SetSelected(0);
+            login.OpenOn(0);
         }
     }
 
@@ -750,7 +759,17 @@ static void PasswordCallback( nKrawall::nPasswordRequest const & request,
 #ifndef DEDICATED
 namespace
 {
-static tString se_rclAuthority( "retrocyclesleague.com" );
+// The authority RCL accounts are checked with. RCL_AUTHORITY in the
+// environment names another host[:port] for this run: a staging authority, or
+// a stand-in to test against. It is not a setting, so that no configuration
+// file a server can send has a say in where sign-ins go.
+static char const * se_RclAuthorityName()
+{
+    char const * const named = getenv( "RCL_AUTHORITY" );
+    return ( named && *named ) ? named : "retrocyclesleague.com";
+}
+
+static tString se_rclAuthority( se_RclAuthorityName() );
 static bool se_rclAuthenticated = false;
 static tString se_rclAuthenticatedIdentity;
 static tString se_rclDisplayName;
@@ -815,14 +834,16 @@ static tString se_RclConfiguredUserName()
     return player->globalID.SubStr( 0, separator );
 }
 
-static bool se_RclFetchPasswordRequest( nKrawall::nPasswordRequest & request, double deadline )
-{
-    std::stringstream methodsResponse;
-    if ( se_RclFetch( "?query=methods", methodsResponse, deadline ) != 200 )
-    {
-        return false;
-    }
+// The exchange with the authority is four requests: which methods it knows,
+// the parameters of the one chosen, the check of the credential, and the
+// public profile. What is asked and what an answer means is the same whether
+// the requests are made while the player waits (after the sign-in prompt) or
+// behind their back (the saved sign-in at startup, further down), so both go
+// through the functions below.
 
+// the method to use, from the answer to "?query=methods"; empty if there is none
+static tString se_RclSelectMethod( std::istream & methodsResponse )
+{
     tString responseType;
     methodsResponse >> responseType;
     tToLower( responseType );
@@ -834,38 +855,57 @@ static bool se_RclFetchPasswordRequest( nKrawall::nPasswordRequest & request, do
 
     if ( responseType != "methods" )
     {
-        return false;
+        return tString();
     }
 
-    tString selected = nKrawall::nMethod::BestMethod(
-                           methods,
-                           nKrawall::nMethod::SupportedMethods() );
-    if ( selected.Len() <= 1 )
-    {
-        return false;
-    }
+    return nKrawall::nMethod::BestMethod( methods, nKrawall::nMethod::SupportedMethods() );
+}
 
+static std::string se_RclParamsQuery( tString const & selected )
+{
     std::ostringstream query;
     query << "?query=params&method=" << nKrawall::EncodeString( selected );
+    return query.str();
+}
 
-    std::stringstream paramsResponse;
-    if ( se_RclFetch( query.str().c_str(), paramsResponse, deadline ) != 200 )
-    {
-        return false;
-    }
-
+// fills in the request from the answer to the query above
+static void se_RclApplyParams( tString const & selected, std::istream & paramsResponse,
+                               nKrawall::nPasswordRequest & request )
+{
     nKrawall::nMethod method( selected, paramsResponse );
     request.method = method.method;
     request.prefix = method.prefix;
     request.suffix = method.suffix;
     request.message = static_cast< tString >( tOutput( "$rcl_login_request" ) );
     request.failureOnLastTry = false;
+}
+
+static bool se_RclFetchPasswordRequest( nKrawall::nPasswordRequest & request, double deadline )
+{
+    std::stringstream methodsResponse;
+    if ( se_RclFetch( "?query=methods", methodsResponse, deadline ) != 200 )
+    {
+        return false;
+    }
+
+    tString selected = se_RclSelectMethod( methodsResponse );
+    if ( selected.Len() <= 1 )
+    {
+        return false;
+    }
+
+    std::stringstream paramsResponse;
+    if ( se_RclFetch( se_RclParamsQuery( selected ).c_str(), paramsResponse, deadline ) != 200 )
+    {
+        return false;
+    }
+
+    se_RclApplyParams( selected, paramsResponse, request );
     return true;
 }
 
-static eRclCheckResult se_RclCheckPassword( nKrawall::nPasswordRequest const & request,
-                                            nKrawall::nPasswordAnswer const & answer,
-                                            double deadline )
+static std::string se_RclCheckQuery( nKrawall::nPasswordRequest const & request,
+                                     nKrawall::nPasswordAnswer const & answer )
 {
     nKrawall::nSalt salt;
     nKrawall::RandomSalt( salt );
@@ -881,11 +921,14 @@ static eRclCheckResult se_RclCheckPassword( nKrawall::nPasswordRequest const & r
     query << "&salt=" << nKrawall::EncodeScrambledPassword( salt );
     query << "&hash=" << nKrawall::EncodeScrambledPassword( hash );
 
-    std::stringstream response;
-    int status = se_RclFetch( query.str().c_str(), response, deadline );
     hash.Clear();
     salt.Clear();
+    return query.str();
+}
 
+// what the answer to the query above says about the credential
+static eRclCheckResult se_RclCheckAnswer( int status, std::istream & response )
+{
     // the ArmaAuth protocol lets an authority refuse with a status code
     // instead of a body; everything else that is not 200 is a transport or
     // service failure
@@ -912,6 +955,15 @@ static eRclCheckResult se_RclCheckPassword( nKrawall::nPasswordRequest const & r
 
     // a 200 that is not an ArmaAuth answer (captive portal, proxy error page)
     return eRclCheck_Unavailable;
+}
+
+static eRclCheckResult se_RclCheckPassword( nKrawall::nPasswordRequest const & request,
+                                            nKrawall::nPasswordAnswer const & answer,
+                                            double deadline )
+{
+    std::stringstream response;
+    int const status = se_RclFetch( se_RclCheckQuery( request, answer ).c_str(), response, deadline );
+    return se_RclCheckAnswer( status, response );
 }
 
 // Profile text comes from the network and ends up in a menu label: drop
@@ -946,17 +998,22 @@ static int se_RclProfileNumber( tString const & value )
     return static_cast< int >( parsed );
 }
 
-static void se_RclFetchProfile( tString const & username, double deadline )
+static std::string se_RclProfileQuery( tString const & username )
+{
+    std::ostringstream query;
+    query << "?query=profile&user=" << nKrawall::EncodeString( username );
+    return query.str();
+}
+
+// takes the public profile from the answer to the query above
+static void se_RclApplyProfile( int status, std::istream & response )
 {
     se_rclProfileLoaded = false;
     se_rclDisplayName.Clear();
     se_rclTier.Clear();
     se_rclRank = se_rclElo = se_rclMatches = -1;
 
-    std::ostringstream query;
-    query << "?query=profile&user=" << nKrawall::EncodeString( username );
-    std::stringstream response;
-    if ( se_RclFetch( query.str().c_str(), response, deadline ) != 200 )
+    if ( status != 200 )
     {
         return;
     }
@@ -1005,6 +1062,13 @@ static void se_RclFetchProfile( tString const & username, double deadline )
     }
 
     se_rclProfileLoaded = se_rclRank >= 0 && se_rclElo >= 0;
+}
+
+static void se_RclFetchProfile( tString const & username, double deadline )
+{
+    std::stringstream response;
+    int const status = se_RclFetch( se_RclProfileQuery( username ).c_str(), response, deadline );
+    se_RclApplyProfile( status, response );
 }
 
 static bool se_RclStoredPassword( nKrawall::nPasswordRequest const & request,
@@ -1146,6 +1210,211 @@ static bool se_RclAuthenticate( bool interactive, bool showResult )
     }
     return true;
 }
+
+// ---- the saved sign-in is checked behind the player's back ----
+//
+// Starting the client does not wait for the authority. The check of a saved
+// sign-in is the same four requests, but each is made on a thread of its own
+// that is handed a host and a path and gives back a status and a body.
+// Nothing else crosses over: the credential, the identity, the profile and
+// the configuration are read and written here, on the main thread, one step
+// per answer and at most one a frame (se_RclBootPoll). Until the last answer
+// is in, the player is who their configuration says they are, which is all a
+// game server asks for; it does its own check when they join.
+
+struct eRclBootFetch
+{
+    std::string host, path;     // what to ask for
+    int status;                 // what came back; -1 for nothing usable
+    std::string body;
+    std::atomic< bool > done;
+    SDL_Thread * thread;
+
+    eRclBootFetch(): status( -1 ), done( false ), thread( NULL ){}
+};
+
+static int se_RclBootThread( void * data )
+{
+    eRclBootFetch * const fetch = static_cast< eRclBootFetch * >( data );
+    std::ostringstream response;
+    fetch->status = st_PlainHttpGet( fetch->host, fetch->path, response, 10000, se_rclFetchBudget, NULL );
+    fetch->body = response.str();
+    fetch->done.store( true, std::memory_order_release );
+    return 0;
+}
+
+enum eRclBootStage
+{
+    eRclBoot_Idle,
+    eRclBoot_Methods,
+    eRclBoot_Params,
+    eRclBoot_Check,
+    eRclBoot_Profile,
+    eRclBoot_Abandoned  // an answer is still on its way, but nobody wants it any more
+};
+
+static eRclBootStage se_rclBootStage = eRclBoot_Idle;
+static eRclBootFetch * se_rclBootFetch = NULL;
+
+// What the check came to, if not to a sign-in: the console line that says so
+// is not on screen in the main menu, so the menu's status line says it too.
+static ePlayer::eRclLoginTrouble se_rclBootTrouble = ePlayer::eRclLogin_NoTrouble;
+
+static void se_RclBootFailed( bool refused )
+{
+    se_rclBootTrouble = refused ? ePlayer::eRclLogin_Refused : ePlayer::eRclLogin_Unanswered;
+    con << tOutput( refused ? "$rcl_login_boot_failed" : "$rcl_login_boot_unavailable" );
+}
+static nKrawall::nPasswordRequest se_rclBootRequest;
+static tString se_rclBootMethod;
+static tString se_rclBootIdentity;  // who the configuration said the player was when the check began
+static tString se_rclBootUser;
+
+// sends the next request on its way
+static void se_RclBootAsk( std::string const & query, eRclBootStage stage )
+{
+    eRclBootFetch * const fetch = new eRclBootFetch;
+    fetch->host = static_cast< char const * >( se_rclAuthority );
+    fetch->path = nKrawall::FetchPath( query.c_str() );
+    fetch->thread = SDL_CreateThread( &se_RclBootThread, fetch );
+    if ( !fetch->thread )
+    {
+        // no thread to be had: no check now; a game server will make its own
+        delete fetch;
+        se_rclBootStage = eRclBoot_Idle;
+        return;
+    }
+
+    se_rclBootFetch = fetch;
+    se_rclBootStage = stage;
+}
+
+// lets an answer that is still on its way arrive unheard
+static void se_RclBootAbandon()
+{
+    if ( se_rclBootStage != eRclBoot_Idle )
+    {
+        se_rclBootStage = eRclBoot_Abandoned;
+    }
+}
+
+static void se_RclBootPoll()
+{
+    if ( se_rclBootStage == eRclBoot_Idle || !se_rclBootFetch ||
+         !se_rclBootFetch->done.load( std::memory_order_acquire ) )
+    {
+        return;
+    }
+
+    // the answer, and the end of the thread that brought it
+    SDL_WaitThread( se_rclBootFetch->thread, NULL );
+    int const status = se_rclBootFetch->status;
+    std::stringstream response( se_rclBootFetch->body );
+    delete se_rclBootFetch;
+    se_rclBootFetch = NULL;
+
+    eRclBootStage const stage = se_rclBootStage;
+    se_rclBootStage = eRclBoot_Idle;
+    if ( stage == eRclBoot_Abandoned )
+    {
+        return;
+    }
+
+    // the player may have become someone else in the configuration meanwhile
+    ePlayer * const player = ePlayer::PlayerConfig( 0 );
+    if ( !player || player->globalID != se_rclBootIdentity )
+    {
+        return;
+    }
+
+    switch ( stage )
+    {
+    case eRclBoot_Methods:
+        se_rclBootMethod = status == 200 ? se_RclSelectMethod( response ) : tString();
+        if ( se_rclBootMethod.Len() <= 1 )
+        {
+            se_RclBootFailed( false );
+            return;
+        }
+        se_RclBootAsk( se_RclParamsQuery( se_rclBootMethod ), eRclBoot_Params );
+        return;
+
+    case eRclBoot_Params:
+        {
+            if ( status != 200 )
+            {
+                se_RclBootFailed( false );
+                return;
+            }
+            se_RclApplyParams( se_rclBootMethod, response, se_rclBootRequest );
+
+            // nothing saved for this account: nothing to check, nothing to say
+            nKrawall::nPasswordAnswer answer;
+            if ( !se_RclStoredPassword( se_rclBootRequest, se_RclConfiguredUserName(), answer ) )
+            {
+                return;
+            }
+            se_rclBootUser = answer.username;
+            std::string const query = se_RclCheckQuery( se_rclBootRequest, answer );
+            answer.scrambled.Clear();
+            se_RclBootAsk( query, eRclBoot_Check );
+        }
+        return;
+
+    case eRclBoot_Check:
+        {
+            eRclCheckResult const checked = se_RclCheckAnswer( status, response );
+            if ( checked != eRclCheck_Ok )
+            {
+                se_rclAuthenticated = false;
+                se_rclAuthenticatedIdentity.Clear();
+                se_RclBootFailed( checked == eRclCheck_Rejected );
+                return;
+            }
+
+            tString identity( se_rclBootUser );
+            identity << "@rcl";
+            bool const changed = player->globalID != identity || !player->autoLogin;
+            player->globalID = identity;
+            player->autoLogin = true;
+            se_rclAuthenticated = true;
+            se_rclAuthenticatedIdentity = identity;
+            se_rclBootIdentity = identity;
+
+            // the configuration is only written if this told it something new;
+            // by now the player may be in a game
+            if ( changed )
+            {
+                st_SaveConfig();
+            }
+            se_RclBootAsk( se_RclProfileQuery( se_rclBootUser ), eRclBoot_Profile );
+        }
+        return;
+
+    case eRclBoot_Profile:
+        se_RclApplyProfile( status, response );
+        return;
+
+    default:
+        return;
+    }
+}
+
+static rPerFrameTask se_rclBootPollTask( &se_RclBootPoll );
+
+// starts the check of the saved sign-in; returns at once
+static void se_RclBootStart()
+{
+    ePlayer * const player = ePlayer::PlayerConfig( 0 );
+    if ( !player || se_rclBootStage != eRclBoot_Idle )
+    {
+        return;
+    }
+
+    se_rclBootIdentity = player->globalID;
+    se_rclBootTrouble = ePlayer::eRclLogin_NoTrouble;
+    se_RclBootAsk( "?query=methods", eRclBoot_Methods );
+}
 }
 
 tString ePlayer::RclIdentity()
@@ -1193,8 +1462,23 @@ int ePlayer::RclMatches()
     return se_rclMatches;
 }
 
+ePlayer::eRclLoginTrouble ePlayer::RclLoginTrouble()
+{
+    return se_rclBootTrouble;
+}
+
+bool ePlayer::RclLoginPending()
+{
+    return se_rclBootStage == eRclBoot_Methods || se_rclBootStage == eRclBoot_Params ||
+           se_rclBootStage == eRclBoot_Check;
+}
+
 void ePlayer::RclLogin()
 {
+    // what the player signs in as now is not to be overwritten by the answer
+    // to a check of what was saved before
+    se_RclBootAbandon();
+    se_rclBootTrouble = eRclLogin_NoTrouble;
     se_RclAuthenticate( true, true );
 }
 
@@ -1208,11 +1492,19 @@ void ePlayer::RclLoginAtStartup( bool first )
         return;
     }
 
-    if ( first && se_PasswordStorageMode == 0 )
+    if ( first )
     {
-        se_PasswordStorageMode = 1;
+        // the one sign-in prompt a new player is shown; that one is waited for
+        if ( se_PasswordStorageMode == 0 )
+        {
+            se_PasswordStorageMode = 1;
+        }
+        se_RclAuthenticate( true, true );
+        return;
     }
-    se_RclAuthenticate( first, first );
+
+    // a returning player's saved sign-in: checked while they get on with it
+    se_RclBootStart();
 }
 #endif
 

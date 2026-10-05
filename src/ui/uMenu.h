@@ -80,6 +80,7 @@ protected:
 
     uMenuStyle           style_;
     int                  selected;
+    int                  openOn_;           //!< row to open on at the next Enter(), -1 for the top one
     tString              footnote_;         //!< quiet status text at the foot of the menu
 
     REAL YPos(int num);
@@ -128,6 +129,8 @@ public:
     REAL GetTop() const {return menuTop;}
     REAL GetBot() const {return menuBot;}
     void SetSelected(int s) {selected = s;}
+    //! a menu opens on its top row; this has the next Enter() open on another
+    void OpenOn(int s) {openOn_ = s;}
     void SetStyle(uMenuStyle style) {style_ = style;}
     void SetFootnote(tString const & footnote) {footnote_ = footnote;}
     uMenuStyle GetStyle() const {return style_;}

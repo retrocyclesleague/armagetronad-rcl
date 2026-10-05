@@ -70,6 +70,7 @@ uMenu::uMenu(const char *t="",bool exit_item)
     menuBot=-.7;
     yOffset=0;
     selected = 10000000;
+    openOn_ = -1;
 }
 #endif
 
@@ -85,6 +86,7 @@ uMenu::uMenu(const tOutput &t,bool exit_item)
     menuBot=-.7;
     yOffset=0;
     selected = 100000000;
+    openOn_ = -1;
 }
 
 uMenu::~uMenu(){
@@ -432,6 +434,10 @@ void uMenu::OnEnter(){
 
     // inverted logic (0 = last item! prev(0) = top most item)
     selected = GetPrevSelectable(0);
+    // unless the menu was told which row to open on, this once
+    if ( openOn_ >= 0 && openOn_ < items.Len() )
+        selected = openOn_;
+    openOn_ = -1;
 #ifndef DEDICATED
     mouseSelection_ = -1;
 #endif

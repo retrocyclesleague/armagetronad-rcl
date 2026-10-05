@@ -114,6 +114,11 @@ int nKrawall::FetchURLBounded( tString const & authority, char const * query, st
                             sn_AuthorityPath( query ), target, maxlen, budget, idle );
 }
 
+std::string nKrawall::FetchPath( char const * query )
+{
+    return sn_AuthorityPath( query );
+}
+
 //! fetch NULL-terminated list of locally supported methods
 nKrawall::nMethod const * const * nKrawall::nMethod::LocalMethods()
 {

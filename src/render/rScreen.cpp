@@ -42,6 +42,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // #include "../network/nNetwork.h"
 #include "rGL.h"
 #include "rSDL.h"
+#ifdef WIN32
+#include <SDL_syswm.h>
+#endif
 
 #ifdef POWERPAK_DEB
 #include <PowerPak/powerdraw>
@@ -453,8 +456,76 @@ static void sr_SetGLAttributes( int rDepth, int gDepth, int bDepth, int zDepth )
 #endif
 }
 
+#ifndef DEDICATED
+#ifdef WIN32
+// RCL_WINDOW_BACKGROUND=1, for automated runs beside someone who is using the
+// machine: the client's window never keeps the keyboard. SDL brings every
+// window it opens to the front, and Windows lets a freshly started program do
+// that; a run that parks its window off the screen would then have the
+// keyboard go to a window nobody can see. With this set, whatever had the
+// keyboard before the window was opened gets it back as soon as it is open
+// (the client is the foreground program at that moment and may pass the
+// keyboard on, which a program in the background may not), and Windows no
+// longer picks the window when another one is closed.
+static bool sr_WindowInBackground()
+{
+    static const char * const ask = getenv( "RCL_WINDOW_BACKGROUND" );
+    return ask && *ask && *ask != '0';
+}
+
+static HWND sr_keyboardOwner = NULL;
+
+// before a window is opened: who has the keyboard now, if it is not us
+static void sr_RememberKeyboardOwner()
+{
+    if ( !sr_WindowInBackground() )
+        return;
+    HWND const front = ::GetForegroundWindow();
+    DWORD process = 0;
+    if ( front && ::GetWindowThreadProcessId( front, &process ) && process != ::GetCurrentProcessId() )
+        sr_keyboardOwner = front;
+}
+
+// after it is open: back it goes
+static void sr_WindowToBackground()
+{
+    if ( !sr_WindowInBackground() )
+        return;
+
+    SDL_SysWMinfo info;
+    SDL_VERSION( &info.version );
+    if ( SDL_GetWMInfo( &info ) <= 0 || !info.window )
+        return;
+    HWND const own = info.window;
+
+    ::SetWindowLongPtr( own, GWL_EXSTYLE, ::GetWindowLongPtr( own, GWL_EXSTYLE ) | WS_EX_NOACTIVATE );
+    ::SetWindowPos( own, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE );
+    if ( ::GetForegroundWindow() == own )
+    {
+        HWND to = sr_keyboardOwner;
+        if ( !to || !::IsWindow( to ) )
+            to = ::GetShellWindow();
+        if ( to )
+            ::SetForegroundWindow( to );
+    }
+
+    // what was typed while the window had the keyboard was not meant for it
+    SDL_PumpEvents();
+    SDL_Event stray;
+    while ( SDL_PeepEvents( &stray, 1, SDL_GETEVENT, SDL_KEYDOWNMASK | SDL_KEYUPMASK ) > 0 )
+    {
+    }
+}
+#else
+static void sr_RememberKeyboardOwner(){}
+static void sr_WindowToBackground(){}
+#endif
+#endif
+
 static bool lowlevel_sr_InitDisplay(){
 #ifndef DEDICATED
+    sr_RememberKeyboardOwner();
+
     rScreenSize & res = currentScreensetting.fullscreen ? currentScreensetting.res : currentScreensetting.windowSize;
 
     // update pixel aspect ratio
@@ -724,6 +795,8 @@ static bool lowlevel_sr_InitDisplay(){
             }
         }
     }
+
+    sr_WindowToBackground();
 
     // SDL's dimensions are logical window/input pixels. With
     // SDL12COMPAT_HIGHDPI enabled and OpenGL scaling disabled, the fresh GL

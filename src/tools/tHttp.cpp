@@ -112,15 +112,32 @@ int st_PlainHttpGet( std::string host, std::string const & path, std::ostream & 
         host.erase( colon );
     }
 
-    hostent const * entry = gethostbyname( host.c_str() );
-    if ( !entry || entry->h_addrtype != AF_INET || !entry->h_addr_list[0] )
-        return -1;
-
     sockaddr_in address;
     memset( &address, 0, sizeof( address ) );
     address.sin_family = AF_INET;
     address.sin_port = htons( static_cast< unsigned short >( port ) );
+
+    // This is also called from threads of its own (the sign-in check at
+    // startup), so the lookup must not share a buffer with other callers.
+#ifdef _WIN32
+    // Winsock keeps gethostbyname's answer per thread
+    hostent const * entry = gethostbyname( host.c_str() );
+    if ( !entry || entry->h_addrtype != AF_INET || !entry->h_addr_list[0] )
+        return -1;
     memcpy( &address.sin_addr, entry->h_addr_list[0], sizeof( address.sin_addr ) );
+#else
+    {
+        addrinfo hints;
+        memset( &hints, 0, sizeof( hints ) );
+        hints.ai_family = AF_INET;
+        hints.ai_socktype = SOCK_STREAM;
+        addrinfo * found = NULL;
+        if ( getaddrinfo( host.c_str(), NULL, &hints, &found ) != 0 || !found )
+            return -1;
+        address.sin_addr = reinterpret_cast< sockaddr_in const * >( found->ai_addr )->sin_addr;
+        freeaddrinfo( found );
+    }
+#endif
 
     st_HttpSocket s = socket( AF_INET, SOCK_STREAM, 0 );
 #ifdef _WIN32

@@ -2563,6 +2563,9 @@ rcl_profile_text               Account
 rcl_profile_summary_help       \1, TST leaderboard #\2, \3 ranked matches. Enter to switch account.
 rcl_status_signed_in           Signed in as \1
 rcl_status_signed_out          Not signed in
+rcl_status_signing_in          Signing in as \1...
+rcl_status_refused             Saved sign-in for \1 not accepted
+rcl_status_unanswered          \1, not checked: no answer from RCL
 rcl_status_elo                 \1 Elo
 rcl_advanced_menu_text         Advanced
 rcl_advanced_menu_help         Extra features and configuration files.

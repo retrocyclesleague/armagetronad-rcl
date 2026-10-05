@@ -156,7 +156,10 @@ public:
     static void SendAuthNames();  //!< sends authentication names and authentication wishes for all local players
 #ifndef DEDICATED
     static void RclLogin();                    //!< interactively validates/stores the first-party RCL game identity
-    static void RclLoginAtStartup(bool first); //!< first-load prompt or silent saved-credential validation
+    static void RclLoginAtStartup(bool first); //!< first-load prompt, or the check of a saved sign-in, which runs in the background and returns at once
+    static bool RclLoginPending();             //!< true while that background check has not said yet whether the saved sign-in holds
+    enum eRclLoginTrouble { eRclLogin_NoTrouble, eRclLogin_Unanswered, eRclLogin_Refused };
+    static eRclLoginTrouble RclLoginTrouble(); //!< what that check came to if not to a sign-in: no answer from the authority, or the saved sign-in refused
     static bool RclAuthenticated();            //!< true after a successful boot/manual RCL credential check
     static tString RclIdentity();              //!< configured RCL or legacy Global ID for menu presentation
     static tString RclDisplayName();           //!< canonical public RCL display name
