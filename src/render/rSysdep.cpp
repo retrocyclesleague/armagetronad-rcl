@@ -563,6 +563,47 @@ void rSysDep::StopNetSyncThread()
     }
 }
 
+// A way to see how long frames take, which is how late input can show: with
+// RCL_FRAME_LOG set to a file name, every frame writes a line there with the
+// time it was shown at, how long it took since the one before and how much of
+// that was spent waiting in the swap, all in milliseconds; then the game's
+// time and whether a local player was in play (see FrameLogNote).
+static double sr_frameLogGameTime = 0;
+static bool sr_frameLogInPlay = false;
+
+void rSysDep::FrameLogNote( double gameTime, bool inPlay )
+{
+    sr_frameLogGameTime = gameTime;
+    sr_frameLogInPlay = inPlay;
+}
+
+static void sr_FrameLog( double beforeSwap )
+{
+    static FILE * log = NULL;
+    static bool checked = false;
+    static double last = 0;
+    static int lines = 0;
+    if ( !checked )
+    {
+        checked = true;
+        char const * const name = getenv( "RCL_FRAME_LOG" );
+        if ( name && *name )
+            log = fopen( name, "w" );
+    }
+    if ( !log )
+        return;
+
+    double const now = tRealSysTimeFloat();
+    if ( last > 0 )
+    {
+        fprintf( log, "%.3f %.3f %.3f %.2f %d\n", now * 1000, ( now - last ) * 1000, ( now - beforeSwap ) * 1000,
+                 sr_frameLogGameTime, int( sr_frameLogInPlay ) );
+        if ( ( ++lines & 255 ) == 0 )
+            fflush( log );
+    }
+    last = now;
+}
+
 void rSysDep::SwapGL(){
     if ( s_benchmark )
     {
@@ -645,6 +686,8 @@ void rSysDep::SwapGL(){
     SDL_mutexV(  sr_netLock );
     sr_LockSDL();
 
+    double const beforeSwap = tRealSysTimeFloat();
+
     switch( swapMode_ )
     {
     case rSwap_Fastest:
@@ -673,6 +716,8 @@ void rSysDep::SwapGL(){
 #endif
     }
 #endif
+
+    sr_FrameLog( beforeSwap );
 
     if (sr_screenshotIsPlanned){
         make_screenshot();

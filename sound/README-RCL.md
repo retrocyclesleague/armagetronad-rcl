@@ -19,17 +19,26 @@ own: whatever a file has up there would fold back as noise.
 
 The set speaks one language: smooth, and felt as much as heard. Things hum,
 swell, shudder and settle. Nothing clicks, crackles or hisses; where noise is
-used at all (the explosions) it is low, wide and closing up. The generator
-enforces it: outside the explosions, a file with more than 2% of its energy
+used at all (the explosion) it is low, wide and closing up. The generator
+enforces it: outside the explosion, a file with more than 2% of its energy
 above 4 kHz, or with a jump between two samples that a click would need, is
 refused. (The first version of this set had grit, zips and a grinding made
 of separate scrapes. Jamie's verdict was "too particle-ish, everything should
 be smooth and vibration like".)
 
-Everything with a pitch is in one key (D), so the set sounds like one thing.
+And it says the same thing the same way every time. There is one file per
+thing that happens, the game never picks between takes and never detunes
+anything at random, and nothing is heard for some of its occasions and not
+for others. (The second version picked one of two takes per turn and shifted
+each by up to 4%, swelled the grind in over a fifth of a second and rang for
+some centre messages and zones but not all. Jamie's verdict: "inconsistent in
+a way that isn't intuitive", "clean binds should sound clean and harmonic".)
 
-Engine, four loops the game swells and settles per cycle and pitches with its
-speed. Nothing in a cycle's sound starts or stops abruptly but a turn:
+Everything with a pitch is on D, A and E, so whatever sounds together is a
+fifth, a fourth or an octave apart.
+
+Engine: four loops per cycle, which follow what the cycle does. The first two
+are pitched with its speed, the other two keep their pitch:
 
 - `cyclrun.wav`: the body. Two tones a hair apart, so every overtone beats at
   its own slow rate. Round rather than buzzy, but the weight is still in the
@@ -37,41 +46,60 @@ speed. Nothing in a cycle's sound starts or stops abruptly but a turn:
   pitch and small speakers have no sub. Exactly periodic over its two seconds.
 - `cyclhigh.wav`: the whine, a motor tone with sidebands. Faint at cruising
   speed, it grows with it.
-- `cyclboost.wav`: the pull, a chord of close tones beating slowly. The game
-  fades it in with the cycle's acceleration, which is what a wall gives.
+- `cyclboost.wav`: the pull, a chord of close tones beating slowly. Its level
+  is how hard walls draw the cycle along, which is how close they are: none
+  beyond the reach of wall acceleration, all of it at no distance. Not the
+  cycle's acceleration, which is large off the start line and nothing at the
+  top speed of a long grind.
 - `grind.wav`: the grind, a low buzz that flutters at a steady rate under two
-  pairs of beating tones. The game brings it up quickly while sparks fly and
-  lets it go slowly, so it is one hum and not a sound per spark.
+  pairs of beating tones. It joins the pull for a wall closer than the cycle
+  is long. It does not depend on sparks being shown.
 
-One-shots, of which the game picks a take and varies the pitch by a few
-percent every time, so a burst of them is not one sample stuttering:
+Turns, which are notes:
 
-- `turn.wav`, `turn3.wav` (left) and `turn2.wav`, `turn4.wav` (right): a
-  short round thrum that sags in pitch and shivers as it dies, with a soft
-  note two octaves up so it carries. Left turns are on the two lower notes
-  (G, A), right turns on the two upper (C, D).
-- `expl.wav`, `expl2.wav`, `expl3.wav`: a boom that rolls rather than cracks:
-  a body that falls in pitch, a wide low rush that closes up, a tail that
-  shudders as it dies, a room.
+- `turn_left1.wav` is a left turn (A below middle C) and `turn_right1.wav` a
+  right turn (the D a fourth above). Always.
+- `turn_left2.wav` to `turn_left4.wav` and `turn_right2.wav` to
+  `turn_right4.wav` are the next overtones of those notes: the octave, the
+  fifth above it, the second octave. A turn the same way within 0.22 seconds
+  of the last plays the next one up instead of the first, and each rings on
+  while the next starts. So a double bind is two notes of one chord, a box
+  all four, and a run played tightly sounds tight. Any other turn starts over
+  on the first note of its side.
+- A note is all there within two thousandths of a second (the generator
+  refuses one that takes three to reach half its level): it is what tells a
+  player the turn was made. Its overtones are exact multiples and the notes
+  are exact ratios of each other, so nothing in a chord of them beats.
+
+The rest:
+
+- `expl.wav`: a boom that rolls rather than cracks: a body that falls in
+  pitch, a wide low rush that closes up, a tail that shudders as it dies, a
+  room.
 - `death.wav`: for the one whose cycle it was, on top of the explosion: a
   tone that falls and closes up over one heavy beat.
-
-Round and interface, which used to be silent:
-
-- `count.wav`: a number shown in the centre of the screen (3, 2, 1).
-- `go.wav`: the zero a countdown ends on.
-- `notice.wav`: any other centre message, at most every 1.5 seconds.
-- `zone.wav`: a zone comes into being.
+- `count.wav`: a number of the countdown in the centre of the screen.
+- `go.wav`: the zero it ends on. No other centre message makes a sound.
 - `ui_hover.wav`, `ui_adjust.wav`, `ui_activate.wav`, `ui_back.wav`: the
   selection moves, a value is stepped, a row is entered, a menu is left.
 
 A moviepack's own `moviesounds/` still take precedence where it has them;
-the extra engine layers and the takes are only used with this set.
+the extra engine layers and the turn notes are only used with this set.
+
+When a sound starts: the mixer fills a piece of the output at a time and a
+sound starts with the next piece. That piece is 12 ms on Windows (Buffer
+Length in the sound menu; it was 46 ms). Measured in the mixer, a turn note
+waits 13 ms on average for its piece, where it waited 26. Smaller pieces
+would not shorten that: under sdl12-compat the device takes about 23 ms at a
+time and the pieces are filled in pairs. Asking for a sound never waits for
+the mixer.
 
 To check a mix without a speaker, start the client with the environment
 variable `RCL_AUDIO_DUMP` set to a file name: what the mixer would play is
 written there (16-bit stereo at the device's rate, no header) and the device
-gets silence.
+gets silence. Next to it, in a file of the same name with `.txt` added, are
+the device's rate, the size of the mixer's pieces and how long turn notes
+waited for the mixer.
 
 ## Design references
 

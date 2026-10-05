@@ -53,6 +53,12 @@ public:
     static void SwapGL();
     static void ClearGL(); // not really system depentent.......
 
+    //! What the game is doing, for the lines RCL_FRAME_LOG writes: its time,
+    //! and whether a player at this machine is in play (alive in a round
+    //! that has started). Frames between rounds are paced by the game and
+    //! say nothing about what input has to wait for.
+    static void FrameLogNote( double gameTime, bool inPlay );
+
     // starting and stopping of background network processing
     class rNetIdler
     {

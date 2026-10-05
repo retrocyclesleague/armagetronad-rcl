@@ -76,7 +76,6 @@ protected:
     virtual void OnRemoveFromGame(); // called last when the object is removed from the game
 private:
     eSoundPlayer sound;
-    REAL soundPitch_;   //!< the pitch this explosion's sound was given
 
     gParticles *theExplosion;
 

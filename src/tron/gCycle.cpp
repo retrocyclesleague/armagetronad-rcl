@@ -237,45 +237,65 @@ static uActionPlayer s_brakeToggle("CYCLE_BRAKE_TOGGLE", -9);
 static uActionTooltip sg_brakeTooltip( gCycle::s_brake, 1, &ePlayer::VetoActiveTooltip );
 
 static eWavData cycle_run("moviesounds/engine.wav","sound/cyclrun.wav");
-static eWavData turn_wav("moviesounds/cycturn.wav","sound/turn.wav");
+static eWavData turn_wav("moviesounds/cycturn.wav","sound/turn_left1.wav");
 
-// There is more to the engine than its body. All of it is loops that swell
-// and settle; nothing in a cycle's sound starts or stops abruptly but a turn.
+// There is more to the engine than its body. All of it is loops that follow
+// what the cycle does; nothing in a cycle's sound starts abruptly but a turn.
 //   the whine comes in with speed,
-//   the pull while a wall draws the cycle along,
-//   the grind while it runs along one close enough for sparks.
+//   the pull as a wall draws the cycle along, more the closer it is,
+//   the grind on top of it when the wall is closer than a cycle's length.
 static eWavData cycle_whine("sound/cyclhigh.wav");
 static eWavData cycle_boost("sound/cyclboost.wav");
 static eWavData cycle_grind("sound/grind.wav");
 
-// A turn is one of a few takes at a slightly different pitch every time, so
-// a burst of them does not sound like one sample stuttering.
-static eWavData turn_take2("sound/turn2.wav");
-static eWavData turn_take3("sound/turn3.wav");
-static eWavData turn_take4("sound/turn4.wav");
+// RCL's own turns are notes, and the same turn is always the same note: one
+// for left (turn_wav, above) and one a fourth higher for right. A turn the
+// same way soon after the last plays the next overtone of its note instead:
+// the octave, the fifth above that, the second octave. So a double bind is
+// two notes of one chord, a box all four, and how tightly they were played is
+// how tightly they sound.
+static eWavData turn_left2("sound/turn_left2.wav");
+static eWavData turn_left3("sound/turn_left3.wav");
+static eWavData turn_left4("sound/turn_left4.wav");
+static eWavData turn_right1("sound/turn_right1.wav");
+static eWavData turn_right2("sound/turn_right2.wav");
+static eWavData turn_right3("sound/turn_right3.wav");
+static eWavData turn_right4("sound/turn_right4.wav");
+
+// how soon after a turn the next one the same way must come to go on from it
+static const REAL sg_turnRunWindow = .22f;
 
 // for the one whose cycle it was, a death is more than the explosion
 static eWavData death_wav("sound/death.wav");
 
-static void sg_SoundTurn( eSoundPlayer * turning, REAL & pitch, int direction )
+void gCycle::SoundTurn( int direction )
 {
 #ifndef DEDICATED
-    if ( !turning )
-        return;
-
     // a moviepack brings one turn sound of its own; that is played as it is
     turn_wav.Load();
     if ( !turn_wav.alt )
     {
-        pitch = 1;
-        turning->Reset();
+        if ( turning )
+            turning->Reset();
         return;
     }
 
-    // left and right turns draw on different takes
-    static eWavData * const takes[2][2] = { { &turn_wav, &turn_take3 }, { &turn_take2, &turn_take4 } };
-    pitch = se_SoundVariation( .04f );
-    turning->Reset( *takes[direction > 0 ? 1 : 0][se_SoundChoice( 2 )] );
+    int const side = direction > 0 ? 1 : 0;
+    REAL const now = se_GameTime();
+    REAL const since = now - turnRunTime_;
+    if ( side == turnRunSide_ && since >= 0 && since < sg_turnRunWindow )
+    {
+        if ( turnRun_ < turnNotes - 1 )
+            ++turnRun_;
+    }
+    else
+        turnRun_ = 0;
+    turnRunSide_ = side;
+    turnRunTime_ = now;
+
+    // asking never waits for the mixer: this is on the way of every turn
+    if ( turnNote_[side][turnRun_] )
+        turnNote_[side][turnRun_]->Play();
 #endif
 }
 
@@ -2288,9 +2308,20 @@ void gCycle::MyInitAfterCreation(){
     boost   = tNEW(eSoundPlayer)(cycle_boost,true);
     turning = tNEW(eSoundPlayer)(turn_wav);
     spark   = tNEW(eSoundPlayer)(cycle_grind,true);
-    turnPitch_ = 1;
-    lastSparks_ = -100;
-    boostHeard_ = grindHeard_ = 0;
+    {
+        static eWavData * const notes[2][turnNotes] = {
+            { &turn_wav, &turn_left2, &turn_left3, &turn_left4 },
+            { &turn_right1, &turn_right2, &turn_right3, &turn_right4 } };
+        for ( int side = 0; side < 2; ++side )
+            for ( int step = 0; step < turnNotes; ++step )
+            {
+                turnNote_[side][step] = tNEW(eSoundPlayer)(*notes[side][step]);
+                turnNote_[side][step]->End();
+            }
+    }
+    turnRun_ = turnRunSide_ = 0;
+    turnRunTime_ = -100;
+    pullHeard_ = grindHeard_ = 0;
 
     //correctDistSmooth=correctTimeSmooth=correctSpeedSmooth=0;
     correctDistanceSmooth = 0;
@@ -2487,6 +2518,7 @@ gCycle::gCycle(eGrid *grid, const eCoord &pos,const eCoord &d,ePlayerNetID *p)
         boost(NULL),
         turning(NULL),
         spark(NULL),
+        turnNote_(),
         skew(0),skewDot(0),
         rotationFrontWheel(1,0),rotationRearWheel(1,0),heightFrontWheel(0),heightRearWheel(0),
         tactical_pos(TP_Start),
@@ -2558,6 +2590,9 @@ gCycle::~gCycle(){
     tDESTROY(boost);
     tDESTROY(turning);
     tDESTROY(spark);
+    for ( int side = 0; side < 2; ++side )
+        for ( int step = 0; step < turnNotes; ++step )
+            tDESTROY(turnNote_[side][step]);
 
     turnedPositions.clear();
     turnedDirections.clear();
@@ -3242,9 +3277,6 @@ bool gCycle::TimestepCore(REAL currentTime, bool calculateAcceleration ){
                 }
                 else
                     new gSpark(grid, sparkpos-dirDrive*.1,sparkdir,currentTime,color_.r,color_.g,color_.b,1,1,1);
-
-                // heard as the grind, which SoundMix swells while this goes on
-                lastSparks_ = currentTime;
             }
         }
 
@@ -3984,12 +4016,13 @@ bool gCycle::DoTurn(int d)
     if (d < -1) d = -1;
 
     if (Alive()){
-        sg_SoundTurn( turning, turnPitch_, d );
-
         clientside_action();
 
         if ( gCycleMovement::DoTurn( d ) )
         {
+            // heard when it is made, and only if it is
+            SoundTurn( d );
+
             sg_ArchiveCoord( pos, 1 );
 
             skewDot+=4*d;
@@ -5773,13 +5806,19 @@ void gCycle::SoundMix(Uint8 *dest,unsigned int len,
           }
         */
 
+        // A cycle is heard whole or not at all: with more cycles about than
+        // the mixer has voices for, the far ones go, not this layer or that.
+        if ( !se_SoundAudible( rvol, lvol ) )
+            return;
+        eSoundAlways whole;
+
         // how fast the engine turns: the pitch its sounds play at
         REAL const rate = verletSpeed_/(sg_speedCycleSound * SpeedMultiplier());
 
         if (engine)
             engine->Mix(dest,len,viewer,rvol,lvol,rate);
 
-        // RCL's own engine has two more layers. A moviepack's is one sample.
+        // RCL's own engine has more layers. A moviepack's is one sample.
         if ( cycle_run.alt )
         {
             // the whine is faintly there at cruising speed and grows with it
@@ -5791,33 +5830,36 @@ void gCycle::SoundMix(Uint8 *dest,unsigned int len,
                 engineWhine->Mix(dest,len,viewer,rvol*whine,lvol*whine,rate);
             }
 
-            // the pull follows how hard a wall draws the cycle along; it is
-            // eased in and out so it swells instead of switching
-            REAL pull = GetAcceleration() * ( 1 / 12.0f );
-            if ( !( pull > 0 ) ) pull = 0;
-            if ( pull > 1 ) pull = 1;
-            boostHeard_ += ( pull - boostHeard_ ) * .2f;
-            if ( boost && boostHeard_ > .02f )
-                boost->Mix(dest,len,viewer,rvol*boostHeard_,lvol*boostHeard_,.85f+.15f*rate);
-        }
+            // The pull says how close the walls are that draw the cycle
+            // along, and nothing else: the same distance, the same sound.
+            // The grind joins it for a wall closer than a cycle's length.
+            // Both follow at once; they are eased only as far as it takes
+            // for a step in volume not to click. And both keep their pitch,
+            // whatever the speed: they are on the notes of the turns, which
+            // are heard over them.
+            REAL const pull = GetWallPull();
+            REAL grind = ( pull - .5f ) * 2.5f;
+            if ( grind < 0 ) grind = 0;
+            if ( grind > 1 ) grind = 1;
 
-        // The grind is there while sparks fly. It comes up quickly and lets
-        // go slowly, so a moment off the wall does not chop it: one hum, not
-        // a sound per spark.
-        {
-            REAL const sinceSparks = lastTime - lastSparks_;
-            REAL const grinding = ( sinceSparks >= 0 && sinceSparks < .12f ) ? 1 : 0;
-            grindHeard_ += ( grinding - grindHeard_ ) * ( grinding > grindHeard_ ? .4f : .14f );
+            REAL const ease = 1 - exp( -se_SoundSeconds( len ) * ( 1 / .03f ) );
+            pullHeard_ += ( pull - pullHeard_ ) * ease;
+            grindHeard_ += ( grind - grindHeard_ ) * ease;
+
+            if ( boost && pullHeard_ > .02f )
+                boost->Mix(dest,len,viewer,rvol*pullHeard_,lvol*pullHeard_,1);
             if ( spark && grindHeard_ > .02f )
-                spark->Mix(dest,len,viewer,rvol*grindHeard_*.9f,lvol*grindHeard_*.9f,.8f+.2f*rate);
+                spark->Mix(dest,len,viewer,rvol*grindHeard_*.9f,lvol*grindHeard_*.9f,1);
         }
 
+        // Turns, at the pitch they were made at: a moviepack's one sound, or
+        // RCL's notes. Only what was asked to play does.
         if (turning)
-            // sound/turn.wav is an authored fallback, not the historical
-            // explosion sample. Play both it and moviepack turn sounds at
-            // (nearly) their native rate so the transient and mechanical
-            // body survive.
-            turning->Mix(dest,len,viewer,rvol,lvol,turnPitch_);
+            turning->Mix(dest,len,viewer,rvol,lvol,1);
+        for ( int side = 0; side < 2; ++side )
+            for ( int step = 0; step < turnNotes; ++step )
+                if ( turnNote_[side][step] )
+                    turnNote_[side][step]->Mix(dest,len,viewer,rvol,lvol,1);
     }
 }
 #endif
@@ -5924,6 +5966,7 @@ gCycle::gCycle(nMessage &m)
         boost(NULL),
         turning(NULL),
         spark(NULL),
+        turnNote_(),
         skew(0),skewDot(0),
         rotationFrontWheel(1,0),rotationRearWheel(1,0),heightFrontWheel(0),heightRearWheel(0),
         tactical_pos(TP_Start),
@@ -6763,7 +6806,7 @@ void gCycle::SyncEnemy ( const eCoord& )
     if ( distance > 0 && ( notTurned < .99 || this->turns < lastSyncMessage_.turns ) )
     {
         // reset sound
-        sg_SoundTurn( turning, turnPitch_, turnDirection > 0 ? 1 : -1 );
+        SoundTurn( turnDirection > 0 ? 1 : -1 );
 
         // update old wall as good as we can
         eCoord crossPos = lastSyncMessage_.pos;

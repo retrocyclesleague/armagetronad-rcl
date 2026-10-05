@@ -57,9 +57,10 @@ nobase_texture_DATA=textures/cycle_body.png textures/cycle_wheel.png textures/di
 
 nobase_sound_DATA=sound/cyclrun.wav sound/cyclhigh.wav sound/cyclboost.wav \
 	sound/grind.wav \
-	sound/turn.wav sound/turn2.wav sound/turn3.wav sound/turn4.wav \
-	sound/expl.wav sound/expl2.wav sound/expl3.wav sound/death.wav \
-	sound/count.wav sound/go.wav sound/notice.wav sound/zone.wav \
+	sound/turn_left1.wav sound/turn_left2.wav sound/turn_left3.wav sound/turn_left4.wav \
+	sound/turn_right1.wav sound/turn_right2.wav sound/turn_right3.wav sound/turn_right4.wav \
+	sound/expl.wav sound/death.wav \
+	sound/count.wav sound/go.wav \
 	sound/ui_hover.wav sound/ui_adjust.wav sound/ui_activate.wav sound/ui_back.wav \
 	sound/README-RCL.md
 

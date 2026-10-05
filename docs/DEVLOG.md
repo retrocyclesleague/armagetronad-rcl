@@ -1,5 +1,36 @@
 # Dev log
 
+## 2026-10-05 - online: walls that settle at once, sounds that say one thing
+
+Jamie's report after playing the last build online: "this has introduced some amount of lag in the inputs and the resolution between server authority accepting and replacing the walls our client sends. the sounds are also inconsistent in a way that isnt intuitive. if we go down this road clean binds should sound clean and harmonic".
+
+Nothing before this had been run online, and local practice cannot show the first half of that: a local game has no walls waiting for a server. So this was measured on a test bed: the branch's dedicated server in a container on the same machine (never announced, bound to 127.0.0.1), a relay holding every packet 25 ms each way (50 ms ping), eleven AIs, the physics of an RCL event server, and the client joining through the new `--connect`, with the settings of Jamie's profile that matter (2112x1320 window, 4x anti-aliasing, `PREDICT_OBJECTS 1`, `SPARKS 0`, rates 64/16).
+
+What it showed:
+
+- Frame time is not it. In play (own cycle alive, round under way) the pale arena took a median 1.19 ms a frame, 99.9th percentile 3.9 ms, over 14,000 frames; the classic arena 1.21 ms and 3.9 ms over 12,800. Both spend about 3.3 s of every change of rounds on 11 ms frames; that is the game's own pacing.
+- Input handling and the netcode had not been touched. The audio lock on the turn path, my first suspect, costs nothing: the engine already holds that lock for the whole timestep.
+- Walls the server had replaced stayed on screen. A wall a client draws before the server confirms it could be baked into its cycle's display list; when the server's wall arrived and the client's was released, the list was not told. In two runs of 70 and 75 s that happened 51 and 63 times (about every fourth turn of the test cycle), and the stale wall stayed for a median 0.8 s, 2.2 s at the 90th percentile, 22.8 s at worst. This is upstream's code, and the classic look hides it: its stale wall is a translucent copy on top of the right one. The pale arena's is a second solid wall with a second shadow.
+- The last five units of a wall were drawn solid but still bent towards the cycle's tail, as the classic core bends them. Classic fades that stretch out; solid, every corner took about a sixth of a second to straighten after a turn.
+- A sound started with the next piece the mixer filled, and that piece was 46 ms on Windows: turn notes waited 25.7 ms on average and up to 50 (75 of them, measured in the mixer). The grind and the pull were eased in over 0.1 to 0.25 s on top of that.
+- The sounds did not say one thing: a turn was one of two takes shifted by up to 4%, and a new turn cut the last one off; the pull followed the cycle's net acceleration (loud off the start line, silent at the top speed of a long grind); the grind only existed with sparks shown, which Jamie has off; a cycle's layers were dropped one by one when more than ten sources played; the chime rang for some centre messages and the zone sound for some zones.
+
+What changed:
+
+- Walls (`gWall.cpp`): an unconfirmed wall is never cached, and a cached wall that is released clears its cycle's list. After that: 0 stale walls in three runs. `displayListInhibition_` was read before it was ever set; it is initialised now.
+- Wall ends: the last stretch is drawn exactly where the wall is, so a corner is square in the frame the turn is made. Towards the cycle it loses height and solidity instead (`sg_CleanTip`, one layer, faces turned away from the viewer left out): that stretch is what a server can still move, and it no longer looks more settled than it is.
+- Between rounds the frame stays pale for ten seconds instead of three; online, the end of every change of rounds was a black frame.
+- Sound timing (`eSound.cpp`): the mixer fills 12 ms pieces on Windows (`SOUND_BUFFER_SHIFT -1`; `RCL_APPLY_SOUND_LATENCY` in `settings_client.cfg` moves profiles that saved the old default, once). Turn notes now wait 12.6 to 13.3 ms on average (195, 231 and 281 of them). Smaller pieces would not help: under sdl12-compat the device takes about 23 ms at a time and pieces are filled in pairs. Asking for a sound never takes the audio lock (`eSoundPlayer::Play`, and `se_PlaySound` through a ring the mixer reads).
+- Turns are notes (`gCycle::SoundTurn`): left is A3, right the D a fourth above, always. A turn the same way within 0.22 s of the last plays the next overtone of its note (octave, fifth above, second octave) on a voice of its own, so a double bind is two notes of one chord and each rings on. Exact ratios; rendered from the game's files, the notes of a double or triple bind hold their level within 1 dB where they overlap (2.5 dB for the four notes of a box), with nothing beating. A turn is heard when it is made and only if it is (the call sat before the check).
+- Pull and grind follow how close the walls are that draw the cycle along (`gCycleMovement::GetWallPull`, the walls' share of the acceleration against the most one wall can give), eased over 30 ms and no more, at a fixed pitch on the notes of the turns. No sparks needed.
+- A cycle is heard whole or not at all when sources run out, and what the camera follows always is (`se_SoundAudible`, `eSoundAlways`). A sound that plays once and is too quiet to get a voice is over, instead of starting late.
+- Gone: random takes and detuning (turns, explosions, menus), the chime for centre messages, the zone sound. Still 20 files, now one per thing that happens: eight turn notes in place of four takes, one explosion in place of three.
+- Tools: `--connect <server>[:<port>]` joins a server at start. `RCL_FRAME_LOG=<file>` writes every frame's time, its share spent in the swap, the game time and whether a local player was in play. An `RCL_AUDIO_DUMP` now comes with a `.txt` of the device's rate, the piece size, how the pieces were spaced and how long `Play()` requests waited.
+
+Checked on Windows, on the test bed above and in local practice: the figures given; the notes that sound for single turns, double binds, a triple, a box and both zigzags, read back from a capture of the mixer; screenshots of corners in the frame after a turn and of wall ends from the side; the profile migration (a profile with shift 1 came up with -1 and the marker). The final capture peaks at -4.4 dBFS, about -23 dBFS RMS, no sample at full scale.
+
+Not checked: by ear, any of it; a real server over a real connection (jitter, loss and packets out of order were not simulated); more than twelve cycles; whether 12 ms pieces crackle on this or any other sound device (the mixer was kept waiting more than 32 ms between two pieces 6 times in 75 s, startup and changes of rounds included; whether that was audible a capture cannot say); `PREDICT_OBJECTS 0`; split screen; a moviepack; macOS and Linux beyond CI compiling them. The test server, relay and analysis scripts are not in the repository.
+
 ## 2026-10-05 - sound, second pass: smooth
 
 Jamie's verdict on the first set: the grinding is "too particle ish", "everything should be smooth and vibration like", and the turn sounds need another look. The grinding was a string of separate scrapes, a fresh one every 75 ms; the turns were a click, a falling zip and a thump.

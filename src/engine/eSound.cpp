@@ -71,13 +71,41 @@ static bool uses_sdl_mixer=false;
 #define SOUND_MED 2
 #define SOUND_HIGH 3
 
+// How much the mixer fills at a time: a sound waits for the piece after the
+// one being filled, so this is how late it can start, and how unevenly. On
+// Windows that used to be 46 ms, from the days of DirectSound drivers that
+// crackled with less; SDL2 feeds the device in its own time whatever is asked
+// for here, so 12 ms costs nothing.
 #ifdef WIN32
-static int buffer_shift=1;
+static int buffer_shift=-1;
 #else
 static int buffer_shift=0;
 #endif
 
 static tConfItem<int> bs("SOUND_BUFFER_SHIFT",buffer_shift);
+
+// Profiles written by earlier builds have the old size saved as if it had
+// been chosen. Bring it down once (settings_client.cfg asks for it after
+// user.cfg has loaded); the persisted marker keeps whatever is chosen in the
+// sound menu afterwards.
+static bool se_soundLatencyApplied = false;
+static tConfItem<bool> se_soundLatencyAppliedConf(
+    "RCL_SOUND_LATENCY_APPLIED", se_soundLatencyApplied);
+
+static void se_ApplySoundLatency(std::istream &)
+{
+    if (se_soundLatencyApplied)
+        return;
+    se_soundLatencyApplied = true;
+
+#ifdef WIN32
+    if (buffer_shift > -1)
+        buffer_shift = -1;
+#endif
+}
+
+static tConfItemFunc se_applySoundLatencyConf(
+    "RCL_APPLY_SOUND_LATENCY", &se_ApplySoundLatency);
 
 static int sound_quality=SOUND_MED;
 static tConfItem<int> sq("SOUND_QUALITY",sound_quality);
@@ -108,6 +136,61 @@ struct eOneShot
 enum { se_oneShotVoices = 12 };
 eOneShot se_oneShots[se_oneShotVoices];
 
+// The game asks for them here and the mixer picks them up when it next runs,
+// so asking never waits for the mixer: a ring the game writes and the mixer
+// reads.
+struct eOneShotRequest
+{
+    eWavData * wav;
+    REAL       volume, speed;
+};
+
+enum { se_oneShotRequests = 16 };
+eOneShotRequest se_oneShotRequest[se_oneShotRequests];
+std::atomic< unsigned int > se_oneShotsAsked( 0 );  // counted up by the game
+unsigned int se_oneShotsTaken = 0;                  // followed by the mixer
+
+// starts what was asked for since the mixer last ran
+void se_TakeOneShots()
+{
+    unsigned int const asked = se_oneShotsAsked.load( std::memory_order_acquire );
+
+    // more than the ring holds: the oldest are gone
+    if ( asked - se_oneShotsTaken > se_oneShotRequests )
+        se_oneShotsTaken = asked - se_oneShotRequests;
+
+    for ( ; se_oneShotsTaken != asked; ++se_oneShotsTaken )
+    {
+        eOneShotRequest const & request = se_oneShotRequest[ se_oneShotsTaken % se_oneShotRequests ];
+
+        // take a free voice; if there is none, the one that is furthest along
+        eOneShot * voice = &se_oneShots[0];
+        for ( int i = 0; i < se_oneShotVoices; ++i )
+        {
+            eOneShot & candidate = se_oneShots[i];
+            if ( !candidate.wav )
+            {
+                voice = &candidate;
+                break;
+            }
+            if ( candidate.pos.pos > voice->pos.pos )
+                voice = &candidate;
+        }
+
+        voice->wav = request.wav;
+        voice->pos.Reset();
+        voice->volume = request.volume;
+        voice->speed = request.speed;
+    }
+}
+
+// sources the mixer has been told not to leave out or count (eSoundAlways)
+int se_mixingAlways = 0;
+
+// how long eSoundPlayer::Play() requests waited for the mixer, in
+// milliseconds; reported next to an RCL_AUDIO_DUMP
+unsigned int se_playWaits = 0, se_playWaitTotal = 0, se_playWaitMost = 0;
+
 // Everything is mixed here before it reaches the device, with room over full
 // scale, so a busy moment can be rounded off instead of clipped.
 std::vector< int > se_mixBuffer;
@@ -134,30 +217,55 @@ void se_PlaySound( eWavData & wav, REAL volume, REAL speed )
     // read the file here, not on the audio thread
     wav.Load();
 
+    unsigned int const asked = se_oneShotsAsked.load( std::memory_order_relaxed );
+    eOneShotRequest & request = se_oneShotRequest[ asked % se_oneShotRequests ];
+    request.wav = &wav;
     // a full voice is what the mixer lets any one sound have
-    volume *= .25f;
-
-    eSoundLocker locker;
-
-    // take a free voice; if there is none, the one that is furthest along
-    eOneShot * voice = &se_oneShots[0];
-    for ( int i = 0; i < se_oneShotVoices; ++i )
-    {
-        eOneShot & candidate = se_oneShots[i];
-        if ( !candidate.wav )
-        {
-            voice = &candidate;
-            break;
-        }
-        if ( candidate.pos.pos > voice->pos.pos )
-            voice = &candidate;
-    }
-
-    voice->wav = &wav;
-    voice->pos.Reset();
-    voice->volume = volume;
-    voice->speed = speed;
+    request.volume = volume * .25f;
+    request.speed = speed;
+    se_oneShotsAsked.store( asked + 1, std::memory_order_release );
 #endif
+}
+
+bool se_SoundAudible( REAL rvol, REAL lvol )
+{
+#ifndef DEDICATED
+    if ( se_mixingAlways > 0 )
+        return true;
+    if ( rvol + lvol > loudness_thresh )
+    {
+        real_sound_sources++;
+        return true;
+    }
+#endif
+    return false;
+}
+
+eSoundAlways::eSoundAlways( bool on )
+        :on_( on )
+{
+#ifndef DEDICATED
+    if ( on_ )
+        ++se_mixingAlways;
+#endif
+}
+
+eSoundAlways::~eSoundAlways()
+{
+#ifndef DEDICATED
+    if ( on_ )
+        --se_mixingAlways;
+#endif
+}
+
+REAL se_SoundSeconds( unsigned int len )
+{
+#ifndef DEDICATED
+    // two channels of 16 bits
+    if ( audio.freq > 0 )
+        return len / ( 4.0f * audio.freq );
+#endif
+    return 0;
 }
 
 void fill_audio(void *udata, Uint8 *stream, int len)
@@ -184,6 +292,7 @@ void fill_audio(void *udata, Uint8 *stream, int len)
     for(i=se_globalPlayers.Len()-1;i>=0;i--)
         se_globalPlayers(i)->Mix(mix,len,0,1,1);
 
+    se_TakeOneShots();
     for ( i = 0; i < se_oneShotVoices; ++i )
     {
         eOneShot & voice = se_oneShots[i];
@@ -226,6 +335,46 @@ void fill_audio(void *udata, Uint8 *stream, int len)
         fwrite( stream, 1, len, dump );
         fflush( dump );
         memset( stream, 0, len );
+
+        // And now and then, next to it, what it is being made with, and how
+        // long the mixer was kept waiting between two pieces: the game holds
+        // it up while it moves the world, and a wait much longer than a
+        // piece is a gap the device may have had nothing to play in.
+        static int pieces = 0;
+        static Uint32 lastPiece = 0;
+        static unsigned int longestWait = 0, longWaits = 0;
+        // how far apart the pieces come: under 3 ms, 3-7, 8-12, 13-17, 18-25, 26-40, more
+        static unsigned int apart[7] = { 0, 0, 0, 0, 0, 0, 0 };
+        Uint32 const now = SDL_GetTicks();
+        unsigned int const pieceTime = audio.freq > 0 ? ( len * 250u ) / audio.freq : 0;
+        if ( pieces > 8 )
+        {
+            unsigned int const waited = now - lastPiece;
+            if ( waited > longestWait )
+                longestWait = waited;
+            if ( waited > 2 * pieceTime + 10 )
+                ++longWaits;
+            ++apart[ waited < 3 ? 0 : waited < 8 ? 1 : waited < 13 ? 2 : waited < 18 ? 3 :
+                     waited < 26 ? 4 : waited < 41 ? 5 : 6 ];
+        }
+        lastPiece = now;
+
+        if ( ( pieces++ & 63 ) == 0 )
+        {
+            std::string const about = std::string( getenv( "RCL_AUDIO_DUMP" ) ) + ".txt";
+            if ( FILE * const said = fopen( about.c_str(), "w" ) )
+            {
+                fprintf( said, "rate %d\nbuffer %d\npiece_ms %u\npieces %d\n"
+                         "longest_wait_between_pieces_ms %u\nwaits_over_two_pieces_and_10ms %u\n"
+                         "pieces_apart_ms_under3_3to7_8to12_13to17_18to25_26to40_more %u %u %u %u %u %u %u\n"
+                         "plays %u\nplay_wait_mean_ms %.2f\nplay_wait_most_ms %u\n",
+                         int( audio.freq ), int( audio.samples ), pieceTime, pieces,
+                         longestWait, longWaits,
+                         apart[0], apart[1], apart[2], apart[3], apart[4], apart[5], apart[6], se_playWaits,
+                         se_playWaits ? float( se_playWaitTotal ) / se_playWaits : 0.0f, se_playWaitMost );
+                fclose( said );
+            }
+        }
     }
 
     if (real_sound_sources>sound_sources+4)
@@ -396,6 +545,7 @@ void se_SoundExit(){
 
         for ( int i = 0; i < se_oneShotVoices; ++i )
             se_oneShots[i].wav = NULL;
+        se_oneShotsTaken = se_oneShotsAsked.load( std::memory_order_acquire );
 
         eWavData::UnloadAll();
         se_SoundPause(true);
@@ -929,12 +1079,14 @@ void eAudioPos::Reset(int randomize){
 
 
 eSoundPlayer::eSoundPlayer(eWavData &w,bool l)
-        :id(-1),wav(&w),loop(l){
+        :id(-1),wav(&w),loop(l),played_(0),playedAt_(0){
     if (l)
         wav->Load();
 
-    for(int i=MAX_VIEWERS-1;i>=0;i--)
+    for(int i=MAX_VIEWERS-1;i>=0;i--){
         goon[i]=true;
+        followed_[i]=0;
+    }
 }
 
 eSoundPlayer::~eSoundPlayer()
@@ -950,16 +1102,44 @@ bool eSoundPlayer::Mix(Uint8 *dest,
                        REAL lvol,
                        REAL speed){
 
+#ifndef DEDICATED
+    // Play() was called since this viewer last heard the sound. One that
+    // could not be followed in time (nothing was mixed, or the source was
+    // too quiet for a voice) is let go: late, it would say something else.
+    unsigned int const played = played_.load( std::memory_order_acquire );
+    if ( played != followed_[viewer] )
+    {
+        followed_[viewer] = played;
+        unsigned int const waited = SDL_GetTicks() - playedAt_.load( std::memory_order_relaxed );
+        if ( waited < 200 )
+        {
+            pos[viewer].Reset();
+            goon[viewer] = true;
+
+            ++se_playWaits;
+            se_playWaitTotal += waited;
+            if ( waited > se_playWaitMost )
+                se_playWaitMost = waited;
+        }
+    }
+
     if (goon[viewer]){
+        if ( se_mixingAlways > 0 )
+            return goon[viewer]=!wav->Mix(dest,len,pos[viewer],rvol,lvol,speed,loop);
+
         if (rvol+lvol>loudness_thresh){
             real_sound_sources++;
             return goon[viewer]=!wav->Mix(dest,len,pos[viewer],rvol,lvol,speed,loop);
         }
-        else
-            return true;
+
+        // Too quiet for a voice. A loop waits where it is. A sound that
+        // plays once is over: picked up later, it would come out of nowhere.
+        if ( !loop )
+            goon[viewer] = false;
+        return loop;
     }
-    else
-        return false;
+#endif
+    return false;
 }
 
 void eSoundPlayer::Reset(int randomize){
@@ -971,16 +1151,14 @@ void eSoundPlayer::Reset(int randomize){
     }
 }
 
-void eSoundPlayer::Reset(eWavData &w, int randomize){
-    // read the file before the mixer is held up
-    w.Load();
+void eSoundPlayer::Play(){
+#ifndef DEDICATED
+    // read the file here, not on the audio thread
+    wav->Load();
 
-    eSoundLocker locker;
-    wav = &w;
-    for(int i=MAX_VIEWERS-1;i>=0;i--){
-        pos[i].Reset(randomize);
-        goon[i]=true;
-    }
+    playedAt_.store( SDL_GetTicks(), std::memory_order_relaxed );
+    played_.fetch_add( 1, std::memory_order_release );
+#endif
 }
 
 void eSoundPlayer::End(){
@@ -997,28 +1175,10 @@ void eSoundPlayer::MakeGlobal(){
     se_globalPlayers.Add(this,id);
 }
 
-// Sounds have a little sequence of their own to vary by: they must not use
-// up the game's random numbers, which recordings and the server depend on.
-static unsigned int se_SoundRandom()
-{
-    static unsigned int state = 0x52434C31;
-    state = state * 1664525u + 1013904223u;
-    return ( state >> 8 ) & 0xFFFF;
-}
-
-REAL se_SoundVariation( REAL spread )
-{
-    return 1 + spread * ( se_SoundRandom() * ( 2.0f / 65535 ) - 1 );
-}
-
-int se_SoundChoice( int count )
-{
-    return count > 1 ? int( se_SoundRandom() % count ) : 0;
-}
-
 // ***************************************************************
 
 // The menus know nothing of audio; they say what happened and this plays it.
+// The same thing always sounds the same.
 static eWavData se_menuMove("sound/ui_hover.wav");
 static eWavData se_menuActivate("sound/ui_activate.wav");
 static eWavData se_menuBack("sound/ui_back.wav");
@@ -1029,7 +1189,7 @@ static void se_MenuSound( uMenu::Sound sound )
     switch ( sound )
     {
     case uMenu::Sound_Move:
-        se_PlaySound( se_menuMove, .45f, se_SoundVariation( .025f ) );
+        se_PlaySound( se_menuMove, .45f );
         break;
     case uMenu::Sound_Activate:
         se_PlaySound( se_menuActivate, .6f );
@@ -1038,7 +1198,7 @@ static void se_MenuSound( uMenu::Sound sound )
         se_PlaySound( se_menuBack, .55f );
         break;
     case uMenu::Sound_Adjust:
-        se_PlaySound( se_menuAdjust, .45f, se_SoundVariation( .04f ) );
+        se_PlaySound( se_menuAdjust, .45f );
         break;
     }
 }

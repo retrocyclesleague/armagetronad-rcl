@@ -73,6 +73,7 @@ public:
     bool     use_directx_;
     bool     dont_use_directx_;
     bool     check_install_;
+    tString  connect_;      //!< the server to join at start, if any
 
     gMainCommandLineAnalyzer()
     {
@@ -103,6 +104,11 @@ private:
             tConfItemBase::ExportAll();
             exit(0);
         }
+#ifndef DEDICATED
+        else if ( parser.GetOption( connect_, "--connect" ) )
+        {
+        }
+#endif
 #if defined(WIN32) && !defined(DEDICATED)
         else if ( parser.GetSwitch( "--rcl-check-install" ) )
         {
@@ -138,6 +144,7 @@ private:
         s << "\n\nYes, I know this looks ugly. Sorry about that.\n";
 #endif
         s << "--exportallcfg               : print all configs and settings that can be saved to standard output\n";
+        s << "--connect <server>[:<port>]  : join this server at start; the menu follows when the game is left\n";
 #ifdef WIN32
         s << "--rcl-check-install          : validate the packaged Windows client and exit\n";
 #endif
@@ -966,6 +973,23 @@ int main(int argc,char **argv){
                     gLogo::SetSpinning(true);
 
                     sn_bigBrotherString = renderer_identification + "VER=" + sn_programVersion + "\n\n";
+
+                    // asked on the command line to go straight to a server
+                    if ( commandLineAnalyzer.connect_.Len() > 1 )
+                    {
+                        tString name = commandLineAnalyzer.connect_;
+                        unsigned int port = 4534;
+                        int const colon = name.StrPos( ":" );
+                        if ( colon > 0 )
+                        {
+                            port = atoi( name.SubStr( colon + 1 ) );
+                            name = name.SubStr( 0, colon );
+                        }
+                        gLogo::SetDisplayed( false );
+                        nServerInfoRedirect target( name, port );
+                        ConnectToServer( &target );
+                        gLogo::SetDisplayed( true );
+                    }
 
                     MainMenu();
 

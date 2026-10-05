@@ -2200,7 +2200,7 @@ sound_menu_volume_text         Volume:
 sound_menu_volume_help         How loud the game is. 1 is the level its sounds were balanced for; 0 is silent.
 
 sound_menu_sources_text        Sound Sources:
-sound_menu_sources_help        Gives the approximate number of sound sources to be mixed; setting it too low will result in important sound sources (your own engine) to be constantly turned on and off, too high values eat away too much CPU power. Six seems to be a good value for low-power CPUs.
+sound_menu_sources_help        About how many cycles and explosions are mixed at once. With more around than that, the quietest are left out, each as a whole; what the camera follows is always heard.
 
 sound_menu_quality_text        Sound Quality:
 sound_menu_quality_help        Selects the quality of the sound; currently, only 16 bit stereo modes are available.
@@ -2218,22 +2218,22 @@ sound_menu_quality_high_text    High
 sound_menu_quality_high_help    Sound output is 16 bit 44100 Hz stereo.
 
 sound_menu_buffer_text        Buffer Length:
-sound_menu_buffer_help        Selects the size of the sound buffer.
+sound_menu_buffer_help        How much sound is mixed at a time, which is how late a sound can start. Raise it only if the sound crackles.
 
 sound_menu_buffer_vsmall_text    Very Small
-sound_menu_buffer_vsmall_help    Latency of about 0.02s, but very high probability of artifacts.
+sound_menu_buffer_vsmall_help    A sound starts within 0.006s of what it belongs to.
 
 sound_menu_buffer_small_text    Small
-sound_menu_buffer_small_help    Latency below 0.04s, but high probability of artifacts.
+sound_menu_buffer_small_help    A sound starts within 0.012s of what it belongs to. The default on Windows.
 
 sound_menu_buffer_med_text    Normal
-sound_menu_buffer_med_help    Latency of about 0.1s, and may still produce artifacts.
+sound_menu_buffer_med_help    A sound starts within 0.023s of what it belongs to.
 
 sound_menu_buffer_high_text    High
-sound_menu_buffer_high_help    Latency of about 0.2s, probably no artifacts.
+sound_menu_buffer_high_help    A sound starts within 0.046s of what it belongs to.
 
 sound_menu_buffer_vhigh_text    Very High
-sound_menu_buffer_vhigh_help    Latency of about 0.4s.
+sound_menu_buffer_vhigh_help    A sound starts within 0.093s of what it belongs to.
 
 
 #********************************************

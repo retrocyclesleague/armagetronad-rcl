@@ -170,12 +170,17 @@ class gCycle: public gCycleMovement
     eSoundPlayer *engine;
     eSoundPlayer *engineWhine;  //!< the engine's upper layer, which comes in with speed
     eSoundPlayer *boost;        //!< the pull of a wall drawing the cycle along
-    eSoundPlayer *turning;
-    eSoundPlayer *spark;        //!< the grind along a wall
-    REAL turnPitch_;            //!< the pitch the turn that is sounding was given
-    REAL lastSparks_;           //!< when sparks last flew
-    REAL boostHeard_;           //!< how much of the pull is in the mix right now
+    eSoundPlayer *turning;      //!< a moviepack's turn sound
+    eSoundPlayer *spark;        //!< the grind along a wall that is very close
+    enum { turnNotes = 4 };
+    eSoundPlayer *turnNote_[2][turnNotes];  //!< RCL's turns: a note for left and one for right, and the overtones a run of turns climbs
+    int  turnRun_;              //!< how many turns the same way led up to the last, each soon after the one before
+    int  turnRunSide_;          //!< the way they went
+    REAL turnRunTime_;          //!< when the last of them was
+    REAL pullHeard_;            //!< how much of the pull is in the mix right now
     REAL grindHeard_;           //!< and of the grind
+
+    void SoundTurn( int direction );    //!< makes a turn heard
 
     REAL spawnTime_;    //!< time the cycle spawned at
     REAL lastTimeAnim;  //!< last time animation was simulated at

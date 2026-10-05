@@ -2230,6 +2230,9 @@ void eCamera::SoundMixGameObject(Uint8 *dest,unsigned int len,eGameObject *go){
     if (l>MAXVOL) l=MAXVOL;
     if (r>MAXVOL) r=MAXVOL;
 
+    // what the camera follows is always heard, however much else there is
+    eSoundAlways always( go==Center() && mode!=CAMERA_FREE );
+
     if (go==Center()){
         if (mode==CAMERA_IN || mode==CAMERA_SMART_IN)
             l=r=.2;

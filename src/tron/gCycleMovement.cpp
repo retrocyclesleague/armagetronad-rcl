@@ -2688,6 +2688,7 @@ gCycleMovement::gCycleMovement( eGrid * grid, const eCoord & pos, const eCoord &
         destinationList(NULL),currentDestination(NULL),lastDestination(NULL),
         dirDrive(dir),
         acceleration(0),
+        wallPull_(0),
         lastTimestep_(0),
         verletSpeed_(sg_speedCycleStart * SpeedMultiplier()),
         pendingTurns()
@@ -2712,6 +2713,7 @@ gCycleMovement::gCycleMovement( nMessage & message )
         destinationList(NULL),currentDestination(NULL),lastDestination(NULL),
         dirDrive(1,0),
         acceleration(0),
+        wallPull_(0),
         lastTimestep_(0),
         verletSpeed_(5)
 {
@@ -3244,6 +3246,20 @@ void gCycleMovement::CalculateAcceleration()
 
     // apply wall acceleration
     acceleration += totalWallAcceleration;
+
+    // What the walls give, against the most a single one can: what a client
+    // lets the player hear. The net acceleration will not do for that; it is
+    // large off the start line and nothing at the top speed of a long grind.
+    {
+        REAL const most = SpeedMultiplier() * sg_accelerationCycle *
+                          ( 1/sg_accelerationCycleOffs - 1/(sg_nearCycle+sg_accelerationCycleOffs) );
+        REAL pull = most > 0 ? totalWallAcceleration/most : 0;
+        if ( !( pull > 0 ) )
+            pull = 0;
+        if ( pull > 1 )
+            pull = 1;
+        wallPull_ = pull;
+    }
 
     tASSERT( good( acceleration ) );
     sg_ArchiveReal( acceleration, 9 );
@@ -4301,6 +4317,7 @@ void gCycleMovement::MyInitAfterCreation( void )
     uncannyTimingToReport_ = false;
 
     acceleration = 0;
+    wallPull_ = 0;
 
     refreshSpaceAhead_ = true;
     maxSpaceMaxCast_ = 0.0;

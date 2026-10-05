@@ -7,19 +7,23 @@ output.
 
 The set speaks one language: smooth, and felt as much as heard.  Things hum,
 swell, shudder and settle.  Nothing clicks, crackles or hisses; where noise
-is used at all (the explosions) it is low, wide and closing up.  Every onset
+is used at all (the explosion) it is low, wide and closing up.  Every onset
 is soft but immediate, a thousandth of a second or two.
+
+And it says the same thing the same way every time.  There are no takes to
+pick from and nothing is detuned at random: one file per thing that happens.
 
 The set is layered by what the game does with it:
 
   engine     cyclrun (body), cyclhigh (whine, comes in with speed),
-             cyclboost (pull, while a wall draws the cycle along),
-             grind (a current, while the cycle grinds a wall); all loops
-  turns      turn, turn3 (left) and turn2, turn4 (right); one is picked
-  explosions expl, expl2, expl3; death for the one whose cycle it was
+             cyclboost (pull, the closer a wall draws the cycle along),
+             grind (on top of it, for a wall closer than the cycle is long);
+             all loops
+  turns      turn_left1..4, turn_right1..4: a note for each way, and the
+             overtones of it that a run of turns the same way climbs
+  explosion  expl; death for the one whose cycle it was
   interface  ui_hover, ui_adjust, ui_activate, ui_back
-  round      count (a number on screen), go (the zero), notice (a message),
-             zone (a zone appears)
+  round      count (a number of the countdown), go (its zero)
 
 Everything is written band-limited below 10 kHz: the game's default output
 rate is 22.05 kHz and its mixer has no filter of its own.  The loops stay
@@ -329,14 +333,15 @@ def grind_loop():
     flutters at a steady rate, with two pairs of close tones beating over it.
 
     There is no grit in it and nothing in it starts or stops; the game
-    swells it while sparks fly and lets it settle when they stop.
+    brings it in over the pull when the wall is very close, at this pitch.
+    It is on the notes of the pull and of the turns, which it is heard with.
     """
     times = time_axis(LOOP_SECONDS)
-    partials = stack(((periodic(G3 * 0.5), 1.0), (periodic(G3 * 0.5) + 0.5, 0.8)),
+    partials = stack(((periodic(D3 * 0.5), 1.0), (periodic(D3 * 0.5) + 0.5, 0.8)),
                      1_900.0, 1.0, 600.0, 2.4, 280.0, 1_300.0, 0x52434C44)
     flutter = 36.0
-    low_pair = (periodic(G5), periodic(G5) + 2.0)
-    high_pair = (periodic(G5 * 2.0), periodic(G5 * 2.0) + flutter)
+    low_pair = (periodic(A5), periodic(A5) + 2.0)
+    high_pair = (periodic(D6), periodic(D6) + flutter)
 
     output = []
     for t in times:
@@ -353,26 +358,43 @@ def grind_loop():
 
 # ---------------------------------------------------------------- turns ----
 
-def turn_sound(seed, pitch, sag=0.80, flutter=52.0, duration=0.17):
-    """A turn, felt more than heard: a short round thrum that sags in pitch
-    and shivers once or twice as it dies, with a soft note two octaves up so
-    it carries over the engine and on small speakers.  No click, no zip."""
+# A turn is a note, and the same turn is always the same note: A below middle
+# C for left, the D a fourth above it for right.  A turn the same way soon
+# after the last plays the next overtone of its note instead (the octave, the
+# fifth over that, the second octave), so a double bind is two notes of one
+# chord and a box all four.  The ratios are exact, so notes that ring together
+# lock: there is nothing in a chord of them to beat.
+TURN_LEFT = A3
+TURN_RIGHT = A3 * 4.0 / 3.0
+TURN_STEPS = 4
+
+
+def turn_note(frequency, duration=0.34):
+    """One turn: a clean, round note.
+
+    It is all there at once (two thousandths of a second, eased, so it has
+    no click), because it is what tells a player the turn was made.  Its
+    overtones are exact and die sooner than it does, so it starts clear and
+    ends pure.  A short weight an octave down sits under its start, to be
+    felt.  Nothing in it glides, trembles or hisses, and it has no room
+    around it: whatever else is sounding, it is in tune with itself.
+    """
     times = time_axis(duration)
-    dry = []
+    # higher notes ring a little shorter, as struck things do
+    decay = 10.0 + frequency / 80.0
+    output = []
     for t in times:
-        phase = glide_phase(t, pitch, pitch * sag, duration, 2.0)
-        # Its overtones carry as much as its fundamental: a small speaker has
-        # nothing below them, and the engine's own low end sits right there.
-        thrum = math.exp(-20.0 * t) * (
-            math.sin(phase)
-            + 0.70 * math.exp(-9.0 * t) * math.sin(2.0 * phase + 0.3)
-            + 0.38 * math.exp(-16.0 * t) * math.sin(3.0 * phase + 0.7)
-            + 0.16 * math.exp(-26.0 * t) * math.sin(4.0 * phase + 1.2)
+        attack = 0.5 - 0.5 * math.cos(math.pi * min(1.0, t / 0.002))
+        base = TAU * frequency * t
+        note = math.exp(-decay * t) * (
+            math.sin(base)
+            + 0.42 * math.exp(-decay * 0.8 * t) * math.sin(2.0 * base)
+            + 0.20 * math.exp(-decay * 2.0 * t) * math.sin(3.0 * base)
+            + 0.07 * math.exp(-decay * 4.0 * t) * math.sin(4.0 * base)
         )
-        weight = math.sin(TAU * pitch * 0.5 * t) * math.exp(-25.0 * t)
-        carry = tone(t, pitch * 4.0, 30.0, 0.3)
-        dry.append(onset(t) * (shiver(t, flutter, 0.38) * (0.56 * thrum + 0.16 * weight) + 0.26 * carry))
-    return tail_fade(room(extend(settle(dry), 0.05), seed, wet=0.14, size=0.5), 0.05)
+        weight = 0.45 * math.exp(-34.0 * t) * math.sin(0.5 * base)
+        output.append(attack * (note + weight))
+    return tail_fade(output, 0.06)
 
 
 # ----------------------------------------------------------- explosions ----
@@ -486,26 +508,6 @@ def go_sound():
     return tail_fade(room(extend(settle(dry, 0.25, 0.12), 0.12), 0x52434C61, wet=0.26, size=1.2), 0.14)
 
 
-def notice_sound():
-    """The game has something to say: two soft notes, a fifth apart."""
-    return two_notes(0x52434C62, D5, A5, 0.085, 0.46, warmth=0.35, decay=9.0)
-
-
-def zone_sound():
-    """A zone comes into being: a tone that rises a fifth, swelling and
-    trembling as it goes."""
-    duration = 0.85
-    times = time_axis(duration)
-    dry = []
-    for t in times:
-        swell = (1.0 - math.exp(-9.0 * t)) * math.exp(-2.4 * t)
-        rise = glide_phase(t, D3, A3, duration, 2.0)
-        rising = math.sin(rise) + 0.45 * math.sin(2.0 * rise + 0.5) + 0.20 * math.sin(3.0 * rise + 1.0)
-        first = 0.26 * onset(t) * tone(t, D5, 12.0, 0.3)
-        dry.append(0.48 * swell * shiver(t, 11.0, 0.3, 5.0) * rising + first)
-    return tail_fade(room(extend(settle(dry, 0.25, 0.14), 0.14), 0x52434C64, wet=0.30, size=1.5), 0.16)
-
-
 # --------------------------------------------------------------- output ----
 
 def peak_normalize(signal, target_dbfs):
@@ -615,6 +617,19 @@ def metrics(name, signal, loop=False, smooth=True):
     )
 
 
+def turn_metrics(name, signal):
+    """A turn has to be heard when it is made: half its peak within three
+    thousandths of a second, and the peak itself within the first hundredth."""
+    peak = max(abs(value) for value in signal)
+    half = next(index for index, value in enumerate(signal) if abs(value) >= 0.5 * peak)
+    top = next(index for index, value in enumerate(signal) if abs(value) >= 0.999 * peak)
+    if half >= round(0.003 * SAMPLE_RATE):
+        raise SystemExit(f"{name}: takes {1000 * half / SAMPLE_RATE:.1f}ms to reach half its level; a turn would be heard late")
+    if top >= round(0.010 * SAMPLE_RATE):
+        raise SystemExit(f"{name}: peaks after {1000 * top / SAMPLE_RATE:.1f}ms; a turn would be heard late")
+    print(f"{'':16} half its level after {1000 * half / SAMPLE_RATE:.2f}ms, peak after {1000 * top / SAMPLE_RATE:.2f}ms")
+
+
 def main():
     OUTPUT.mkdir(parents=True, exist_ok=True)
     sounds = (
@@ -625,16 +640,16 @@ def main():
         ("cyclhigh.wav", engine_whine(), -11.0, True),
         ("cyclboost.wav", engine_pull(), -9.0, True),
         ("grind.wav", grind_loop(), -9.0, True),
+    )
 
-        # left turns on the two lower notes, right turns on the two upper
-        ("turn.wav", turn_sound(0x52434C32, G3), -3.5, False),
-        ("turn3.wav", turn_sound(0x52434C33, A3, sag=0.82, flutter=48.0), -3.5, False),
-        ("turn2.wav", turn_sound(0x52434C34, C4), -3.5, False),
-        ("turn4.wav", turn_sound(0x52434C35, D4, sag=0.78, flutter=56.0), -3.5, False),
+    # The turns: a note for each way and its overtones. The higher an
+    # overtone, the softer, so a full run is a chord and not a climb in level.
+    for side, base in (("left", TURN_LEFT), ("right", TURN_RIGHT)):
+        for step in range(1, TURN_STEPS + 1):
+            sounds += ((f"turn_{side}{step}.wav", turn_note(base * step), -3.5 - 1.5 * (step - 1), False),)
 
+    sounds += (
         ("expl.wav", explosion_sound(0x52434C39, 118.0, 44.0, 19.0), -2.2, False),
-        ("expl2.wav", explosion_sound(0x52434C3A, 132.0, 39.0, 16.0, duration=1.40), -2.2, False),
-        ("expl3.wav", explosion_sound(0x52434C3B, 104.0, 48.0, 23.0, duration=1.10), -2.2, False),
         ("death.wav", death_sound(), -3.0, False),
 
         ("ui_hover.wav", tick_sound(D6, 0.10), -10.0, False),
@@ -644,14 +659,19 @@ def main():
 
         ("count.wav", count_sound(), -4.0, False),
         ("go.wav", go_sound(), -3.0, False),
-        ("notice.wav", notice_sound(), -6.0, False),
-        ("zone.wav", zone_sound(), -5.0, False),
     )
+
+    # what earlier versions of the set had and this one does not
+    for name in ("turn.wav", "turn2.wav", "turn3.wav", "turn4.wav", "expl2.wav", "expl3.wav",
+                 "notice.wav", "zone.wav"):
+        (OUTPUT / name).unlink(missing_ok=True)
 
     for name, source, target, loop in sounds:
         rendered = write_wav(name, source, target, loop)
         # an explosion is the one place where wide noise belongs
         metrics(name, rendered, loop, smooth=not name.startswith("expl"))
+        if name.startswith("turn_"):
+            turn_metrics(name, rendered)
 
     print(f"Generated deterministic RCL procedural audio in {OUTPUT}")
 

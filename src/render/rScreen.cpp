@@ -1018,7 +1018,9 @@ void sr_CleanArenaDrawn()
 
 bool sr_CleanArenaRecent()
 {
-    return sr_cleanArena && tSysTimeFloat() - sr_cleanArenaLastDrawn < 3;
+    // long enough for a change of rounds on a server, which takes a good
+    // three seconds; with less, the end of every change was a black frame
+    return sr_cleanArena && tSysTimeFloat() - sr_cleanArenaLastDrawn < 10;
 }
 
 void sr_CleanPaint( REAL & r, REAL & g, REAL & b )

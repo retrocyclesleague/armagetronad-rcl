@@ -41,10 +41,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 static eWavData explode("moviesounds/dietron.wav","sound/expl.wav");
 
-// no two of RCL's own explosions in a row sound quite the same
-static eWavData explode_take2("sound/expl2.wav");
-static eWavData explode_take3("sound/expl3.wav");
-
 static tList< gExplosion > sg_Explosions;
 
 void clamp01(REAL &c)
@@ -177,21 +173,7 @@ gExplosion::gExplosion(eGrid *grid, const eCoord &pos,REAL time, gRealColor& col
     explosion_g = color.g;
     explosion_b = color.b;
     radius_ = radius;
-
-    // one of the takes, a little higher or lower; a moviepack's own
-    // explosion sound is played as it is
-    soundPitch_ = 1;
-    explode.Load();
-#ifndef DEDICATED
-    if ( explode.alt )
-    {
-        static eWavData * const takes[3] = { &explode, &explode_take2, &explode_take3 };
-        soundPitch_ = se_SoundVariation( .07f );
-        sound.Reset( *takes[se_SoundChoice( 3 )] );
-    }
-    else
-#endif
-        sound.Reset();
+    sound.Reset();
     sg_Explosions.Add( this, listID );
     z=0;
 
@@ -477,7 +459,7 @@ void gExplosion::Render(const eCamera *cam){
 
 void gExplosion::SoundMix(Uint8 *dest,unsigned int len,
                           int viewer,REAL rvol,REAL lvol){
-    sound.Mix(dest,len,viewer,rvol*4,lvol*4,soundPitch_);
+    sound.Mix(dest,len,viewer,rvol*4,lvol*4);
 }
 #endif
 

@@ -222,14 +222,35 @@ static eWavData extro("moviesounds/extro.wav");
 
 static eWavData sg_countWav("sound/count.wav");
 static eWavData sg_goWav("sound/go.wav");
-static eWavData sg_noticeWav("sound/notice.wav");
 
-// Centre messages are the game's announcements: the countdown, who won, what
-// a server has to say. Each new one is heard. A number is a tick, and the
-// zero a countdown ends on is the start signal; anything else is a chime,
-// held back so a server that talks a lot does not ring all the time.
+// A countdown in the centre of the screen is heard: every number a tick, the
+// zero it ends on the start signal. Nothing else there makes a sound. What
+// the other centre messages mean the client cannot tell, and a chime for
+// some of them and not others would mean nothing either.
+// Tells the frame log (RCL_FRAME_LOG) what the frame was for: only frames
+// with a player of this machine alive in a round under way are frames that
+// input waits for.
+static void sg_FrameLogNote()
+{
+    bool inPlay = false;
+    REAL const time = se_GameTime();
+    if ( time > 0 )
+    {
+        for ( int i = se_PlayerNetIDs.Len() - 1; i >= 0; --i )
+        {
+            ePlayerNetID * p = se_PlayerNetIDs( i );
+            if ( p->Owner() == sn_myNetID && p->IsHuman() && p->Object() && p->Object()->Alive() )
+                inPlay = true;
+        }
+    }
+    rSysDep::FrameLogNote( time, inPlay );
+}
+
+static rPerFrameTask sg_frameLogNoteTask( &sg_FrameLogNote );
+
 static void sg_AnnouncementSounds()
 {
+
     static int heard = 0;
     if ( heard == sr_centerMessageCount )
         return;
@@ -254,18 +275,7 @@ static void sg_AnnouncementSounds()
         }
     }
 
-    static double lastChime = -100;
-    double const now = tSysTimeFloat();
-
-    if ( words )
-    {
-        if ( now - lastChime > 1.5 )
-        {
-            lastChime = now;
-            se_PlaySound( sg_noticeWav, .5f );
-        }
-    }
-    else if ( number )
+    if ( number && !words )
     {
         if ( value == 0 )
             se_PlaySound( sg_goWav, .8f );

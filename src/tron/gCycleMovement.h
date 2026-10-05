@@ -93,6 +93,7 @@ public:
     virtual bool            Alive                   ()                                    const     ;   //!< returns whether the cycle is still alive
     virtual bool            Vulnerable              ()                                    const     ;   //!< returns whether the cycle can be killed
     REAL GetAcceleration(void) const  { return acceleration; };  //!< Gets the cycle's acceleration
+    REAL GetWallPull(void) const  { return wallPull_; };  //!< how hard walls pull the cycle along: 0 for none in reach, 1 for the most one wall can
 
     bool                    CanMakeTurn             (int direction)                                    const     ;   //!< returns whether a turn is currently possible
     bool                    CanMakeTurn             ( REAL time, int direction                         ) const     ;   //!< returns whether a turn is possible at the given time
@@ -212,6 +213,7 @@ protected:
     eCoord          dirDrive;                   //!< the direction we are facing
     eCoord          lastDirDrive;               //!< the direction we were facing before the last turn
     REAL            acceleration;               //!< current acceleration
+    REAL            wallPull_;                  //!< the walls' share of it, as a fraction of what one wall at no distance gives; presentation only
 
     REAL            lastTimestep_;              //!< the length of the last timestep
 

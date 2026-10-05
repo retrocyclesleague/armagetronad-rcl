@@ -34,6 +34,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "tString.h"
 #include "tLinkedList.h"
 
+#include <atomic>
+
 void se_SoundInit();
 void se_SoundExit();
 //void se_SoundLock();
@@ -108,6 +110,13 @@ class eSoundPlayer{
     bool goon[MAX_VIEWERS];
     bool loop;
 
+    // Play() is asked for by the game and done by the mixer, so neither waits
+    // for the other: the game counts its requests up and notes when it made
+    // the last, the mixer remembers how far it has followed for each viewer.
+    std::atomic< unsigned int > played_;
+    std::atomic< unsigned int > playedAt_;
+    unsigned int followed_[MAX_VIEWERS];
+
 public:
     eSoundPlayer(eWavData &w,bool loop=false);
     ~eSoundPlayer();
@@ -120,7 +129,7 @@ public:
              REAL speed=1);
 
     void Reset(int randomize=0);
-    void Reset(eWavData &w,int randomize=0); //!< starts over with another sound
+    void Play();    //!< plays the sound from its start for every viewer; never waits for the mixer
     void End();
 
     void MakeGlobal();
@@ -130,14 +139,31 @@ public:
 
 //! Plays a sound once for everyone at this machine, from no place in the
 //! arena: the interface, and what a round announces. A volume of 1 is as loud
-//! as the mixer lets one sound be; speed is the pitch it plays at.
+//! as the mixer lets one sound be; speed is the pitch it plays at. Never
+//! waits for the mixer.
 void se_PlaySound( eWavData & wav, REAL volume = 1, REAL speed = 1 );
 
-//! a factor around 1, so a sound that is played often does not repeat itself exactly
-REAL se_SoundVariation( REAL spread );
+// The three below are for the mixer's thread only: for SoundMix functions.
 
-//! which of count versions of a sound to play this time
-int se_SoundChoice( int count );
+//! Whether a source this loud is worth a voice just now. There are only so
+//! many (SOUND_SOURCES); with more to hear than that, the quietest are left
+//! out. Counts the source as one of them if it is.
+bool se_SoundAudible( REAL rvol, REAL lvol );
+
+//! While one of these exists, what is mixed is neither left out for being
+//! quiet nor counted: for a source that must not drop out (what the camera
+//! follows), and for the layers of one that se_SoundAudible() let in whole.
+class eSoundAlways
+{
+    eSoundAlways( eSoundAlways const & );
+    bool on_;
+public:
+    explicit eSoundAlways( bool on = true );
+    ~eSoundAlways();
+};
+
+//! how much time the mixer is filling in the call that hands a source this length
+REAL se_SoundSeconds( unsigned int len );
 
 
 #endif
