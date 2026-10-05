@@ -553,8 +553,19 @@ void rISurfaceTexture::Upload( rSurface & surface )
         else
             format=GL_RGB5;
 
-    gluBuild2DMipmaps(GL_TEXTURE_2D,format,tex->w,tex->h,
-                      texformat,GL_UNSIGNED_BYTE,tex->pixels);
+    // A group filtered without mip maps is sampled at the one level only:
+    // building the chain (on the CPU, in glu) is work for nothing, and the
+    // interface fonts, an atlas per face, are loaded when first drawn with,
+    // which can be in the middle of play. Sizes that are not powers of two
+    // still go through glu, which scales them for drivers that need that.
+    int const filter = rTextureGroups::TextureMode[group_];
+    bool const powers = ( tex->w & ( tex->w - 1 ) ) == 0 && ( tex->h & ( tex->h - 1 ) ) == 0;
+    if ( powers && ( filter == GL_NEAREST || filter == GL_LINEAR ) )
+        glTexImage2D(GL_TEXTURE_2D,0,format,tex->w,tex->h,0,
+                     texformat,GL_UNSIGNED_BYTE,tex->pixels);
+    else
+        gluBuild2DMipmaps(GL_TEXTURE_2D,format,tex->w,tex->h,
+                          texformat,GL_UNSIGNED_BYTE,tex->pixels);
 
     sr_UnlockSDL();
  #endif

@@ -140,6 +140,15 @@ static rFileTexture se_RimWallWrap(rTextureGroups::TEX_WALL,"textures/rim_wall.p
 void eWallRim::RenderAll( eCamera * camera )
 {
 #ifndef DEDICATED
+    // the rim is drawn differently in the clean arena (dashes on the floor,
+    // not walls): a list recorded in the other look is stale
+    static bool lastClean = sr_cleanArena;
+    if ( lastClean != sr_cleanArena )
+    {
+        lastClean = sr_cleanArena;
+        se_rimDisplayList.Clear( 0 );
+    }
+
     // call or fill display list
     if ( se_rimDisplayList.Call() )
     {

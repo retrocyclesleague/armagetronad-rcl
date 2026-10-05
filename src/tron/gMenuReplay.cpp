@@ -530,13 +530,19 @@ namespace
         glLineWidth(1);
         Color(gridColor[0], gridColor[1], gridColor[2], .55f);
         BeginLines();
-        for (float x = replay.minX; x <= replay.maxX + step * .01f; x += step)
+        // counted, not stepped: with arena numbers far larger than its size,
+        // x += step would change nothing and the loop would never end
+        int const linesX = int( ( replay.maxX - replay.minX ) / step + 1.01f );
+        int const linesY = int( ( replay.maxY - replay.minY ) / step + 1.01f );
+        for (int i = 0; i < linesX && i < 1000; ++i)
         {
+            float const x = replay.minX + step * i;
             Vertex(x, replay.minY, 0);
             Vertex(x, replay.maxY, 0);
         }
-        for (float y = replay.minY; y <= replay.maxY + step * .01f; y += step)
+        for (int i = 0; i < linesY && i < 1000; ++i)
         {
+            float const y = replay.minY + step * i;
             Vertex(replay.minX, y, 0);
             Vertex(replay.maxX, y, 0);
         }

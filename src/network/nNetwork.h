@@ -271,6 +271,7 @@ public:
     REAL GetPingSnail() const;    //!< returns the extremely longterm average ping
     REAL GetPingSlow() const;     //!< returns the longterm average ping
     REAL GetPingFast() const;     //!< returns the shortterm average ping
+    REAL TakePeak();              //!< returns the longest any message waited for its acknowledgement since the last call, and forgets it
     bool IsSpiking() const ;      //!< returns whether a lag spike is currently in process
     void Timestep( REAL decay );  //!< lets all values decay, so they can be replaced by new ones
     void Add( REAL value, REAL weight ); //!< adds a value to the average
@@ -281,6 +282,7 @@ private:
     nAverager snail_;    //!< extremely slow averager
     nAverager slow_;     //!< slow, reliable averager
     nAverager fast_;     //!< fast averager for detecting ping spikes
+    REAL peak_{};        //!< highest single measurement since TakePeak()
     static REAL weight_; //!< current default weight
     REAL recordedPing_{};//!< ping from recording
 public:
@@ -343,6 +345,11 @@ struct nConnectionInfo     // everything that is needed to manage a connection
 };
 
 extern nConnectionInfo sn_Connections[MAXCLIENTS+2];
+
+// (RCL) for the round lag log
+extern double sn_lastServerPacket; //!< clients: when the last packet from the server was read
+extern int    sn_reliableMessages; //!< how many messages went out that want an acknowledgement
+extern int    sn_resentMessages;   //!< how often one went out again because its acknowledgement was overdue
 
 extern int sn_maxNoAck;
 //extern int sn_ackPending[MAXCLIENTS+2];

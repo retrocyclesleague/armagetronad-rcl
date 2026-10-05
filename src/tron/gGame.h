@@ -288,6 +288,9 @@ extern tString mapfile;
 void sg_OutputOnlinePlayers();
 void LoadMap(tString mapName);
 
+// (RCL) round lag log: another player's cycle (by network ID) was synced with data this many seconds old
+void sg_RclLagSyncAge( REAL age, int cycle );
+
 void LogPlayersCycleTurns(gCycle *cycle, tString msg);
 void LogWinnerCycleTurns(gCycle *winner);
 

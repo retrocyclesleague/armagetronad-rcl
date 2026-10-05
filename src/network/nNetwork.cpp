@@ -931,6 +931,7 @@ void nWaitForAck::Resend(){
             // update timeout counters
             ::timeouts[pendingAck->receiver]++;
             pendingAck->timeouts++;
+            sn_resentMessages++;
 
             REAL timeoutTimeLimit;
             int timeoutPacketLimit;
@@ -2238,6 +2239,9 @@ int sn_SentBytes        = 0;
 int sn_SentPackets      = 0;
 int sn_ReceivedBytes    = 0;
 int sn_ReceivedPackets  = 0;
+double sn_lastServerPacket = 0;
+int    sn_reliableMessages = 0;
+int    sn_resentMessages   = 0;
 nTimeRolling sn_StatsTime		= 0;
 
 
@@ -2682,6 +2686,10 @@ static void rec_peer(unsigned int peer){
                 {
                     // everything seems allright. accept the id.
                     id = claim_id;
+
+                    // (RCL) the round lag log wants to know how long the server stays silent
+                    if ( claim_id == 0 && sn_GetNetState() == nCLIENT )
+                        sn_lastServerPacket = tSysTimeFloat();
                 }
                 else
                 {
@@ -4035,6 +4043,7 @@ void nConnectionInfo::Timestep( REAL dt )  //!< call whenever an an reliable mes
 
 void nConnectionInfo::ReliableMessageSent()  //!< call whenever an an reliable message got sent
 {
+    sn_reliableMessages++;
     packetLoss_.Add( 1 );
 }
 
@@ -4617,6 +4626,23 @@ REAL nPingAverager::GetPingFast( void ) const
 
 // *******************************************************************************************
 // *
+// *	TakePeak
+// *
+// *******************************************************************************************
+//!
+//!		@return		the highest single ping measured since the last call
+//!
+// *******************************************************************************************
+
+REAL nPingAverager::TakePeak( void )
+{
+    REAL ret = peak_;
+    peak_ = 0;
+    return ret;
+}
+
+// *******************************************************************************************
+// *
 // *	IsSpiking
 // *
 // *******************************************************************************************
@@ -4667,6 +4693,13 @@ void nPingAverager::Timestep( REAL decay )
 
 void nPingAverager::Add( REAL value, REAL weight )
 {
+    // (RCL) remember the longest any message waited for its acknowledgement,
+    // the ones that had to be sent again included (their weight is low, but a
+    // delayed acknowledgement is what a lag spike is). Reset() fills in a
+    // value of a second at next to no weight: that is not a measurement.
+    if ( weight > .0001f && value > peak_ )
+        peak_ = value;
+
     // add value to both averagers
     snail_.Add( value, weight );
     slow_.Add ( value, weight );

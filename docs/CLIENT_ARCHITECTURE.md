@@ -234,6 +234,29 @@ reviewed installation-scoped HTTPS session. Browser enrollment and OS credential
 storage are future architecture, not requirements for the shipped server-bridge
 v1 and not claims about current behaviour.
 
+## Round lag log
+
+The client measures its connection during every online round and can say what
+it found (`gRclLagLog` in `gGame.cpp`; `RCL_LAG_LOG 0` turns it off). Only the
+time a local player is alive counts.
+
+- Measured: average ping and the longest wait for an acknowledgement; how
+  often and for how long the server was silent (0.3 s or more is a freeze);
+  how much older cycles' syncs arrived than their best in the round; messages
+  sent and sent again; other players whose reported ping moved; and frames of
+  the client's own over 0.1 s, which are kept apart from the rest.
+- `var/rcl-lag.log`: one tab-separated line per round, with a header. It
+  starts over at half a megabyte; the one before is kept as
+  `rcl-lag.old.log`. Rounds left in the middle are logged as far as they got.
+- A round that lagged, or in which the machine stalled, gets a console line
+  when it ends.
+- `/lag` in chat says the line to the server: the round being played if it has
+  lagged so far, else the round that just ended if that one did. Without lag
+  in either, the line is shown to the player only. A stall of the player's
+  own machine is always part of the line.
+
+Nothing in it leaves the machine except the chat line the player asks for.
+
 ## Reliability and release constraints
 
 - Stay on the `0.2.9+sty+ct+ap+rcl` protocol-compatible line.

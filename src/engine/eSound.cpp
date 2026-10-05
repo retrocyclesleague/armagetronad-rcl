@@ -143,6 +143,7 @@ struct eOneShotRequest
 {
     eWavData * wav;
     REAL       volume, speed;
+    unsigned int at;    // SDL_GetTicks() when it was asked for
 };
 
 enum { se_oneShotRequests = 16 };
@@ -162,6 +163,12 @@ void se_TakeOneShots()
     for ( ; se_oneShotsTaken != asked; ++se_oneShotsTaken )
     {
         eOneShotRequest const & request = se_oneShotRequest[ se_oneShotsTaken % se_oneShotRequests ];
+
+        // Asked for while the device stood still (between rounds, or with
+        // the window out of focus): it is over. Let in now, everything asked
+        // for in that time would start on the same sample.
+        if ( SDL_GetTicks() - request.at > 200 )
+            continue;
 
         // take a free voice; if there is none, the one that is furthest along
         eOneShot * voice = &se_oneShots[0];
@@ -223,6 +230,7 @@ void se_PlaySound( eWavData & wav, REAL volume, REAL speed )
     // a full voice is what the mixer lets any one sound have
     request.volume = volume * .25f;
     request.speed = speed;
+    request.at = SDL_GetTicks();
     se_oneShotsAsked.store( asked + 1, std::memory_order_release );
 #endif
 }
@@ -525,6 +533,11 @@ void se_SoundInit()
             o << "$sound_inited";
             con << o;
 #endif
+            // Read every sound now, before the device plays. The first time
+            // one is wanted is in the middle of play, where a disk read is a
+            // hitch; and the mixer does not read files.
+            eWavData::LoadAll();
+
             se_SoundPause(false);
         }
     }
@@ -536,6 +549,10 @@ void se_SoundInit()
     }
 #endif
 }
+
+#ifndef DEDICATED
+static unsigned int locks;  // how often the audio lock is taken; se_SoundLock()
+#endif
 
 void se_SoundExit(){
 #ifndef DEDICATED
@@ -556,6 +573,16 @@ void se_SoundExit(){
     // function used to) hangs whenever the thread is waiting for it: at exit,
     // and in optimised builds at startup, where sound is initialised twice.
     if (sound_is_there){
+        // The caller may hold the lock itself (an exit() from inside a locked
+        // scope ends up here): it is let go of for the closing, which would
+        // hang on it the same way.
+        unsigned int const held = locks;
+        if ( held )
+        {
+            locks = 0;
+            SDL_UnlockAudio();
+        }
+
 #ifdef DEBUG
         con << tOutput("$sound_disabling");
 #endif
@@ -586,14 +613,17 @@ void se_SoundExit(){
 #ifdef DEBUG
         con << tOutput("$sound_disabling_done");
 #endif
+
+        // and taken again, so the scopes that held it count down as they expect
+        if ( held )
+        {
+            SDL_LockAudio();
+            locks = held;
+        }
     }
     sound_is_there=false;
 #endif
 }
-
-#ifndef DEDICATED
-static unsigned int locks;
-#endif
 
 void se_SoundLock(){
 #ifndef DEDICATED
@@ -660,6 +690,10 @@ void eWavData::Load(){
 #ifndef DEDICATED
 
     static char const * errorName = "Sound Error";
+
+    // The mixer reads these fields on its own thread and must not see them
+    // half set. (It never gets here itself: it does not load.)
+    eSoundLocker locker;
 
     freeData = false;
 
@@ -792,6 +826,24 @@ void eWavData::Unload(){
 #endif
 }
 
+void eWavData::LoadAll(){
+#ifndef DEDICATED
+    eWavData* wav = s_anchor;
+    while ( wav )
+    {
+        try
+        {
+            wav->Load();
+        }
+        catch ( tGenericException const & )
+        {
+            // a file that is not there: whoever asks for the sound hears of it, as before
+        }
+        wav = wav->Next();
+    }
+#endif
+}
+
 void eWavData::UnloadAll(){
     //wavs.Add(this,id);
     eWavData* wav = s_anchor;
@@ -817,17 +869,17 @@ bool eWavData::Mix( Uint8* dest_u8, Uint32 playlen, eAudioPos& pos,
     // sample that goes out, so sounds add up without clipping here.
     int* dest_s = reinterpret_cast<int*>( dest_u8 );
 
+    // Files are read by the game (LoadAll when the device opens, Load before
+    // a sound is first asked for), never here: this is the audio thread with
+    // the device's lock held, where a disk read holds the game up and can
+    // meet one the game is making.
     if ( !data )
-    {
-        if( !loadError )
-        {
-            Load();
-        }
-        if ( !data )
-        {
-            return false;
-        }
-    }
+        return false;
+
+    // A sample with no sound in it (what a missing file is replaced with) is
+    // over at once. A loop over it would never end.
+    if ( samples == 0 )
+        return true;
 
     playlen/=4;
 
@@ -856,8 +908,12 @@ bool eWavData::Mix( Uint8* dest_u8, Uint32 playlen, eAudioPos& pos,
 #define MAX_VAL ((1<<28)-1)
 #define MIN_VAL (-(1<<28))
 
-    // first, split the speed into the part before and after the decimal:
-    if (Speed<0) Speed=0;
+    // first, split the speed into the part before and after the decimal.
+    // Nothing below a standstill, nothing that is not a number (a speed from
+    // the network goes into it) and nothing absurd: the position would be
+    // stepped by billions.
+    if ( !( Speed > 0 ) ) Speed=0;
+    if ( Speed > 64 ) Speed=64;
 
     // adjust for different sample rates:
     Speed*=spec.freq;
@@ -1158,6 +1214,14 @@ void eSoundPlayer::Play(){
 
     playedAt_.store( SDL_GetTicks(), std::memory_order_relaxed );
     played_.fetch_add( 1, std::memory_order_release );
+#endif
+}
+
+void eSoundPlayer::Skip( int viewer ){
+#ifndef DEDICATED
+    followed_[viewer] = played_.load( std::memory_order_acquire );
+    if ( !loop )
+        goon[viewer] = false;
 #endif
 }
 

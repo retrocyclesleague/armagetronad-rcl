@@ -104,6 +104,9 @@ int st_PlainHttpGet( std::string host, std::string const & path, std::ostream & 
     }
 #endif
 
+    // what the request names as its host: with the port, if one was given
+    std::string const hostHeader = host;
+
     int port = 80;
     std::string::size_type const colon = host.find( ':' );
     if ( colon != std::string::npos )
@@ -164,7 +167,7 @@ int st_PlainHttpGet( std::string host, std::string const & path, std::ostream & 
         return -1;
     }
 
-    std::string const request = "GET " + path + " HTTP/1.0\r\nHost: " + host +
+    std::string const request = "GET " + path + " HTTP/1.0\r\nHost: " + hostHeader +
         "\r\nUser-Agent: armagetronad-rcl\r\nAccept: */*\r\nConnection: close\r\n\r\n";
     std::string::size_type sent = 0;
     while ( sent < request.size() )
@@ -183,11 +186,15 @@ int st_PlainHttpGet( std::string host, std::string const & path, std::ostream & 
     std::string response;
     std::string::size_type const cap = static_cast< std::string::size_type >( maxlen > 0 ? maxlen : 0 ) + 16384;
     char buffer[2048];
+    bool closed = false;    // the server ended the transfer itself
     while ( response.size() < cap && st_HttpWait( s, false, deadline, idle ) )
     {
         int const count = recv( s, buffer, sizeof( buffer ), 0 );
         if ( count <= 0 )
+        {
+            closed = ( count == 0 );
             break;
+        }
         response.append( buffer, count );
     }
     st_HttpClose( s );
@@ -199,6 +206,26 @@ int st_PlainHttpGet( std::string host, std::string const & path, std::ostream & 
          body == std::string::npos || space > body )
         return -1;
     body += 4;
+
+    // A transfer that was cut short (time up, connection lost, more than is
+    // taken) is not the resource: half a map, once saved, is found in the
+    // cache for ever after. It is whole when it has the length the server
+    // named, or, where it named none, when the server ended it itself.
+    {
+        std::string head = response.substr( 0, body );
+        for ( std::string::size_type i = 0; i < head.size(); ++i )
+            head[i] = static_cast< char >( tolower( static_cast< unsigned char >( head[i] ) ) );
+        std::string const name = "\r\ncontent-length:";
+        std::string::size_type const at = head.find( name );
+        if ( at != std::string::npos )
+        {
+            long const named = atol( head.c_str() + at + name.size() );
+            if ( named < 0 || response.size() - body < static_cast< std::string::size_type >( named ) )
+                return -1;
+        }
+        else if ( !closed )
+            return -1;
+    }
 
     std::string::size_type length = response.size() - body;
     if ( maxlen < 0 )

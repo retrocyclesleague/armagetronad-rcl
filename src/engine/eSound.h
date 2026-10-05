@@ -82,6 +82,7 @@ public:
 
     void Load(); 		// really load the file
     void Unload();	// remove the file from memory
+    static void LoadAll();   // read all sounds: before they are wanted, not when
     static void UnloadAll(); // unload all sounds
 
 
@@ -130,6 +131,7 @@ public:
 
     void Reset(int randomize=0);
     void Play();    //!< plays the sound from its start for every viewer; never waits for the mixer
+    void Skip(int viewer); //!< mixer: this viewer does not hear the source now; what was asked to play is over for it
     void End();
 
     void MakeGlobal();

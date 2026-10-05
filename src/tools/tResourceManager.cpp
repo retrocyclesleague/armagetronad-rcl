@@ -14,6 +14,8 @@
 #include "tHttp.h"
 #include <sstream>
 #include <string>
+#include <map>
+#include "tSysTime.h"
 #endif
 
 #include "tConfiguration.h"
@@ -64,14 +66,23 @@ static int myHTTPFetch(const char *URI, const char *filename, const char *savepa
             return 2;
         }
 
-        fd = fopen(savepath, "wb");
+        // under another name until it is all there: a file with the
+        // resource's name is taken for the resource from then on
+        std::string const partpath = std::string( savepath ) + ".part";
+        fd = fopen(partpath.c_str(), "wb");
         if (fd == NULL) {
             con << tOutput( "$resource_no_write", savepath );
             return 3;
         }
         std::string const data = content.str();
-        Ignore( fwrite(data.data(), data.size(), 1, fd) );
-        fclose(fd);
+        bool const written = data.empty() || fwrite(data.data(), data.size(), 1, fd) == 1;
+        bool const flushed = fclose(fd) == 0;
+        remove(savepath);
+        if ( !written || !flushed || rename(partpath.c_str(), savepath) != 0 ) {
+            remove(partpath.c_str());
+            con << tOutput( "$resource_no_write", savepath );
+            return 3;
+        }
 
         con << "OK\n";
         return 0;
@@ -228,9 +239,31 @@ tString tResourceManager::locateResource(const char *uri, const char *file) {
     if ( resRepoClient.Len() > 2 && resRepoClient != resRepoServer )
         a_uri << resRepoClient << file << ';';
 
+    // A fetch that has just taken seconds to fail will take them again, and
+    // the game waits for it every time it is asked (every round, for a map):
+    // let it be for two minutes.
+    static std::map< std::string, double > slowFailure;
+    std::string const key( file );
+    {
+        std::map< std::string, double >::iterator const before = slowFailure.find( key );
+        if ( before != slowFailure.end() )
+        {
+            if ( tSysTimeFloat() - before->second < 120 )
+            {
+                if ( NULL != to_free )
+                    free( to_free );
+                return (tString) NULL;
+            }
+            slowFailure.erase( before );
+        }
+    }
+
     con << tOutput( "$resource_not_cached", file );
 
+    double const asked = tSysTimeFloat();
     rv = myFetch((const char *)a_uri, file, (const char *)savepath);
+    if ( rv && tSysTimeFloat() - asked > 3 )
+        slowFailure[ key ] = tSysTimeFloat();
 
     if ( NULL != to_free )
         free( to_free );

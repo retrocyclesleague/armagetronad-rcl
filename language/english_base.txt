@@ -1021,6 +1021,9 @@ lower_sky_help            Draw lower sky plane
 sky_wobble_help            Sky animation
 infinity_plane_help        Use infinite points (Does not work properly on most Windows systems)
 lag_o_meter_help        Draw Lag-O-Meter in network play
+rcl_lag_log_help        Measure the connection during each online round: a line per round in var/rcl-lag.log, a console line when a round lagged or this machine stalled, and /lag in chat to say it.
+rcl_lag_none            No online round has been measured yet.\n
+rcl_lag_round           \1 - /lag says it in chat.\n
 lag_o_meter_scale_help  Scale of the Lag-O-Meter. 1.0 is the "correct" value, older clients were hardcoded to .5 due to a bug.
 lag_o_meter_threshold_help    The Lag-O-Meter will only be drawn if the product of cycle speed and lag is bigger than this value.
 lag_o_meter_blend_help        Amount the player color should be blended with white to get the color of the Lag-O-Meter. 1 means white, 0 means the color of the player.

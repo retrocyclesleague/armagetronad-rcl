@@ -306,8 +306,9 @@ class gTextureCycle: public rSurfaceTexture
 {
     gRealColor color_; // player color
     bool wheel; // wheel or body
+    bool model_; // on the built-in model, which the clean arena replaces with an arrow
 public:
-    gTextureCycle(rSurface const & surface, const gRealColor& color,bool repx=0,bool repy=0,bool wheel=false);
+    gTextureCycle(rSurface const & surface, const gRealColor& color,bool repx=0,bool repy=0,bool wheel=false,bool model=false);
 
     virtual void ProcessImage(SDL_Surface *im);
 
@@ -315,9 +316,9 @@ public:
     using rSurfaceTexture::OnSelect;
 };
 
-gTextureCycle::gTextureCycle(rSurface const & surface, const gRealColor& color,bool repx,bool repy,bool w)
+gTextureCycle::gTextureCycle(rSurface const & surface, const gRealColor& color,bool repx,bool repy,bool w,bool model)
         :rSurfaceTexture(rTextureGroups::TEX_OBJ,surface,repx,repy),
-        color_(color),wheel(w)
+        color_(color),wheel(w),model_(model)
 {
     Select();
 }
@@ -345,6 +346,16 @@ void gTextureCycle::ProcessImage(SDL_Surface *im)
 
 void gTextureCycle::OnSelect(bool enforce){
 #ifndef DEDICATED
+    // In the clean arena the built-in cycle is an arrow and is never drawn
+    // with this. Whoever selects it there only wants every texture ready:
+    // the constructor, for each cycle as it is created, and
+    // rITexture::LoadAll at every round start. Making it is a copy, a
+    // recolouring and a mip chain of the whole image on this thread, a
+    // tenth of a second for a cycle's pair, during which no network is
+    // read. It is made when the classic cycle is first drawn instead.
+    if ( model_ && sr_cleanArena )
+        return;
+
     rISurfaceTexture::OnSelect(enforce);
 
     if(rTextureGroups::TextureMode[rTextureGroups::TEX_OBJ]<0){
@@ -2166,7 +2177,7 @@ struct gCycleVisuals
             surface = LoadTextureSafe2( slot, 1-mpPreference );
 
         if ( surface )
-            return tNEW( gTextureCycle )( *surface, color, 0, 0, wheel );
+            return tNEW( gTextureCycle )( *surface, color, 0, 0, wheel, slot != SLOT_CUSTOM );
 
         return NULL;
     }
@@ -3260,9 +3271,15 @@ bool gCycle::TimestepCore(REAL currentTime, bool calculateAcceleration ){
             sparkdir=dirDrive.Turn(0,1);
         }
 
+        // Sparks by the clock, sixty sets a second at most. This runs once a
+        // frame, and one set per frame at a thousand frames a second is
+        // thousands of objects, alive for seconds, for one cycle grinding.
+        bool const sparkNow = crash_sparks && animts>0 &&
+            floor( currentTime*60 ) != floor( ( currentTime-animts )*60 );
+
         if (fabs(skew)<fabs(lr*.8) ){
             skewDot-=lr*1000*animts;
-            if (crash_sparks && animts>0)
+            if (sparkNow)
             {
                 gPlayerWall *tmpplayerWall=0;
 
@@ -3282,7 +3299,7 @@ bool gCycle::TimestepCore(REAL currentTime, bool calculateAcceleration ){
 
         if (fabs(skew)<fabs(lr*.9) ){
             skewDot-=lr*100*animts;
-            if (crash_sparks && animts>0)
+            if (sparkNow)
             {
                 gPlayerWall *tmpplayerWall=0;
 
@@ -5809,7 +5826,18 @@ void gCycle::SoundMix(Uint8 *dest,unsigned int len,
         // A cycle is heard whole or not at all: with more cycles about than
         // the mixer has voices for, the far ones go, not this layer or that.
         if ( !se_SoundAudible( rvol, lvol ) )
+        {
+            // What was asked to play while the cycle is not heard is over.
+            // Kept, a turn's note would come out late when the cycle is
+            // heard again, or go on from where it was cut.
+            if (turning)
+                turning->Skip(viewer);
+            for ( int side = 0; side < 2; ++side )
+                for ( int step = 0; step < turnNotes; ++step )
+                    if ( turnNote_[side][step] )
+                        turnNote_[side][step]->Skip(viewer);
             return;
+        }
         eSoundAlways whole;
 
         // how fast the engine turns: the pitch its sounds play at
@@ -6915,6 +6943,7 @@ void gCycle::SyncEnemy ( const eCoord& )
         REAL lag = se_GameTime() - lastSyncMessage_.time;
         if ( lag < 0 )
             lag = 0;
+        sg_RclLagSyncAge( lag, ID() );
 
         // try not to let the lag jump
         REAL maxLag = laggometer * 1.2;

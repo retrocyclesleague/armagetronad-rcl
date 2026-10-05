@@ -127,6 +127,21 @@ private:
     bool lastAlpha_; //!< the last alpha blending value
 };
 
+//! display list wrapper for lists with text drawn over the scene: it is written
+//! in ink over the clean arena and in light under a menu, and a list recorded
+//! in the one is wrong in the other
+class rDisplayListInkSensitive: public rDisplayList
+{
+public:
+    rDisplayListInkSensitive();
+
+protected:
+    //! calls the display list, returns true if there was a list to call
+    virtual bool OnCall();
+private:
+    bool lastInk_; //!< the ink setting the list was last asked for in
+};
+
 //! create an object of this type to fill a display list while you render
 class rDisplayListFiller
 {

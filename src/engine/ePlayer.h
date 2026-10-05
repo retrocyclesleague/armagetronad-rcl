@@ -590,6 +590,10 @@ private:
 };
 
 extern tList<ePlayerNetID> se_PlayerNetIDs;
+
+// (RCL) the round lag log, asked for the line /lag says; returns whether there is lag in it.
+// Set by the game code that measures (gGame.cpp).
+extern bool (*se_rclLagSay)( tString & line );
 extern int    sr_viewportBelongsToPlayer[MAX_VIEWPORTS];
 
 void se_ChatState( ePlayerNetID::ChatFlags flag, bool cs);

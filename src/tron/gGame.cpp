@@ -170,7 +170,10 @@ void LoadMap(tString mapName)
 // otherwise, it's from game state changes.
 static void sg_SoundPause( bool pause, bool fromActivity )
 {
-    static bool flags[2]={true, false};
+    // Neither reason holds at the start: the device runs from when it is
+    // opened, and the menus have sounds. (With the game's reason set, the
+    // window losing focus once before the first game left them silent.)
+    static bool flags[2]={false, false};
     flags[ fromActivity ] = pause;
     se_SoundPause( flags[0] || flags[1] );
 }
@@ -2447,6 +2450,410 @@ static void sg_StopQuickExit()
     }
 }
 
+// *******************************************************************************
+// *
+// *	round lag log
+// *
+// *******************************************************************************
+//! What the connection did during each online round, so that a laggy round can
+//! be called out with numbers. A line per round goes to var/rcl-lag.log; a round
+//! that lagged gets a line on the console; /lag in chat says the line of the
+//! round being played, or of the last one, to the server (ePlayerNetID::Chat,
+//! through se_rclLagSay). Only the time a local player is
+//! alive counts: that is when lag costs something, and it is when the server
+//! talks to us often enough for its silence to mean anything.
+// *******************************************************************************
+
+#ifndef DEDICATED
+static bool sg_rclLagLog = true;
+static tSettingItem< bool > sg_rclLagLogConf( "RCL_LAG_LOG", sg_rclLagLog );
+
+static const REAL sg_rclLagFreeze = .3f;   //!< the server silent for at least this long is a freeze
+static const REAL sg_rclLagSpike  = .1f;   //!< a message acknowledged this much later than the round's ping is a spike
+static const REAL sg_rclLagLate   = .25f;  //!< a cycle's sync this much older than its best is late
+static const REAL sg_rclLagHitch  = .1f;   //!< a frame of our own this long is this machine, not the line
+static const REAL sg_rclLagLeast  = 1;     //!< seconds of play it takes to say anything about a round
+static const long sg_rclLagLogMax = 512*1024; //!< the log starts over at this size; the one before is kept
+
+class gRclLagLog
+{
+public:
+    gRclLagLog(): round_( 0 ), active_( false ), lastBad_( false ){}
+
+    //! a server was connected to: its rounds are counted from here, and
+    //! nothing measured on the one before is said on this one
+    void Connected( tString const & server )
+    {
+        server_ = tColoredString::RemoveColors( server );
+        for ( int i = server_.Len()-2; i >= 0; --i )
+            if ( server_[i] == '\t' || server_[i] == '\n' || server_[i] == '\r' )
+                server_[i] = ' ';
+        round_   = 0;
+        active_  = false;
+        last_    = "";
+        lastBad_ = false;
+    }
+
+    //! a round begins
+    void Begin()
+    {
+        active_ = sg_rclLagLog && sn_GetNetState() == nCLIENT && !tRecorder::IsPlayingBack();
+        if ( !active_ )
+            return;
+
+        ++round_;
+        lastSample_ = -1;
+        nextOthers_ = 0;
+        time_ = pingSum_ = lateSum_ = 0;
+        pingPeak_ = silence_ = lateMax_ = frame_ = 0;
+        freezes_ = lateCount_ = hitches_ = sent_ = resent_ = 0;
+        frozen_ = false;
+        others_.clear();
+        lates_.clear();
+    }
+
+    //! the game loop stood still for a reason that is not lag (a full screen
+    //! message from the server): what comes next is a new stretch
+    void Skip()
+    {
+        lastSample_ = -1;
+    }
+
+    //! a cycle of another player was synced with data this many seconds old
+    void SyncAge( REAL age, int cycle )
+    {
+        if ( !active_ || lastSample_ < 0 )
+            return;
+
+        // read late because our own frame was long: that is not the line
+        if ( tSysTimeFloat() - lastSample_ > sg_rclLagHitch )
+            return;
+
+        // The server keeps every cycle as far behind as its owner's lag, so a
+        // sync is never fresh. What counts is how much older than that cycle's
+        // best this one is.
+        gLate & late = lates_[ cycle ];
+        if ( !late.seen || age < late.least )
+        {
+            late.seen  = true;
+            late.least = age;
+        }
+        REAL over = age - late.least;
+        lateSum_ += over;
+        ++lateCount_;
+        if ( over > lateMax_ )
+            lateMax_ = over;
+    }
+
+    //! once a frame, after the network has been read
+    void Sample()
+    {
+        if ( !active_ )
+            return;
+
+        // the countdown is not the round, and neither is watching it dead
+        if ( se_GameTime() <= 0 || !LocalAlive() )
+        {
+            lastSample_ = -1;
+            return;
+        }
+
+        double now = tSysTimeFloat();
+        nPingAverager & ping = sn_Connections[0].ping;
+        if ( lastSample_ < 0 )
+        {
+            // first frame of a stretch: nothing to compare with yet
+            lastSample_ = stretch_ = now;
+            lastPacket_ = sn_lastServerPacket;
+            lastSent_   = sn_reliableMessages;
+            lastResent_ = sn_resentMessages;
+            gap_        = sg_rclLagFreeze/3;
+            frozen_     = false;
+            ping.TakePeak();
+            return;
+        }
+        REAL dt = now - lastSample_;
+        lastSample_ = now;
+        time_ += dt;
+
+        // a long frame of our own
+        bool hitch = dt > sg_rclLagHitch;
+        if ( dt > frame_ )
+            frame_ = dt;
+        if ( hitch )
+            ++hitches_;
+
+        // the server's usual gap between packets, to know what silence is
+        if ( sn_lastServerPacket > lastPacket_ )
+        {
+            if ( lastPacket_ >= stretch_ )
+                gap_ += ( REAL( sn_lastServerPacket - lastPacket_ ) - gap_ ) * .02f;
+            lastPacket_ = sn_lastServerPacket;
+        }
+
+        // How long it has been silent, counted from no earlier than the start
+        // of this stretch: the countdown before it is quiet anyway. The network
+        // was read just before this, so a long frame of ours does not show here.
+        double heard = sn_lastServerPacket > stretch_ ? sn_lastServerPacket : stretch_;
+        REAL silence = now - heard;
+        if ( silence > silence_ )
+            silence_ = silence;
+        if ( silence <= sg_rclLagFreeze || silence <= 3*gap_ )
+            frozen_ = false;
+        else if ( !frozen_ )
+        {
+            frozen_ = true;
+            ++freezes_;
+        }
+
+        // Our ping: the averaged one for the round's level. For its worst, the
+        // longest any one message waited for its acknowledgement, less this
+        // frame (it may have lain unread that long); nothing from a long frame.
+        pingSum_ += ping.GetPingFast() * dt;
+        REAL peak = ping.TakePeak() - dt;
+        if ( !hitch && peak > pingPeak_ )
+            pingPeak_ = peak;
+
+        sent_   += sn_reliableMessages - lastSent_;
+        resent_ += sn_resentMessages - lastResent_;
+        lastSent_   = sn_reliableMessages;
+        lastResent_ = sn_resentMessages;
+
+        // Everyone else's ping as the server reports it, four times a second.
+        // A player's first second is left out: the first value told is a guess.
+        if ( now >= nextOthers_ )
+        {
+            nextOthers_ = now + .25;
+            for ( int i = se_PlayerNetIDs.Len()-1; i >= 0; --i )
+            {
+                ePlayerNetID * p = se_PlayerNetIDs(i);
+                if ( !p || !p->IsHuman() || p->Owner() == sn_myNetID || p->ping <= 0 )
+                    continue;
+
+                gOther & other = others_[ p->ID() ];
+                if ( ++other.looks <= 4 )
+                    other.low = other.high = p->ping;
+                else if ( p->ping < other.low )
+                    other.low = p->ping;
+                else if ( p->ping > other.high )
+                    other.high = p->ping;
+            }
+        }
+    }
+
+    //! the round is over, or we left it: log it, and keep its line for /lag
+    void End( bool left = false )
+    {
+        if ( !active_ )
+            return;
+        active_ = false;
+
+        if ( time_ < sg_rclLagLeast )
+        {
+            last_ = "";
+            last_ << "r" << round_ << ": too little of it played to measure";
+            lastBad_ = false;
+            return;
+        }
+
+        gFigures f = Figures();
+        last_    = Line( f, false );
+        lastBad_ = f.bad;
+
+        if ( f.bad )
+        {
+            tOutput o;
+            o.SetTemplateParameter( 1, last_ );
+            o << "$rcl_lag_round";
+            con << o;
+        }
+        else if ( hitches_ > 0 )
+        {
+            // the line was fine and this machine was not: ours to know
+            con << last_ << "\n";
+        }
+
+        Log( f, left );
+    }
+
+    //! The line /lag says, and whether there is lag in it. The round being
+    //! played, if it has lagged; if it has not (or has hardly begun), the one
+    //! that just ended, if that did: a moment into the next round is when a
+    //! round gets called out. With no lag in either, the one being played.
+    bool Say( tString & line ) const
+    {
+        if ( active_ && time_ >= sg_rclLagLeast )
+        {
+            gFigures f = Figures();
+            if ( f.bad || !lastBad_ )
+            {
+                line = Line( f, true );
+                return f.bad;
+            }
+        }
+        line = last_;
+        return lastBad_;
+    }
+private:
+    struct gOther
+    {
+        REAL low, high;
+        int looks;
+        gOther(): low( 0 ), high( 0 ), looks( 0 ){}
+    };
+
+    struct gLate
+    {
+        REAL least;
+        bool seen;
+        gLate(): least( 0 ), seen( false ){}
+    };
+
+    //! what a round came to, times in milliseconds
+    struct gFigures
+    {
+        int ping, peak, silence, lateAverage, late, others, spiked, frame;
+        bool bad;
+    };
+
+    static int Ms( double seconds ){ return int( seconds * 1000 + .5 ); }
+
+    static bool LocalAlive()
+    {
+        for ( int i = MAX_PLAYERS-1; i >= 0; --i )
+        {
+            ePlayer * p = ePlayer::PlayerConfig( i );
+            if ( !p )
+                continue;
+            ePlayerNetID * np = p->netPlayer;
+            if ( np && np->Object() && np->Object()->Alive() )
+                return true;
+        }
+        return false;
+    }
+
+    gFigures Figures() const
+    {
+        gFigures f;
+        f.ping = Ms( pingSum_ / time_ );
+        f.peak = Ms( pingPeak_ );
+        if ( f.peak < f.ping )
+            f.peak = f.ping;
+        f.silence     = Ms( silence_ );
+        f.lateAverage = Ms( lateCount_ > 0 ? lateSum_ / lateCount_ : 0 );
+        f.late        = Ms( lateMax_ );
+        f.frame       = Ms( frame_ );
+        f.others = f.spiked = 0;
+        for ( std::map< unsigned short, gOther >::const_iterator i = others_.begin(); i != others_.end(); ++i )
+        {
+            if ( i->second.looks <= 4 )
+                continue;
+            ++f.others;
+            if ( i->second.high - i->second.low > sg_rclLagSpike )
+                ++f.spiked;
+        }
+
+        // One message that waited is a lost packet, which every line has now
+        // and then. Two in a round, and well past what a resend alone costs
+        // at this ping, is a spike.
+        bool spike = resent_ >= 2 && f.peak - f.ping > std::max( Ms( sg_rclLagSpike ), f.ping * 3 / 2 );
+        f.bad = freezes_ > 0 || spike || f.late > Ms( sg_rclLagLate );
+        return f;
+    }
+
+    //! The line: short, with the clauses a server's chat length may cut last.
+    //! A stall of this machine is in it whenever there was one.
+    tString Line( gFigures const & f, bool running ) const
+    {
+        tString say;
+        say << ( f.bad ? "lag r" : "r" ) << round_ << ( running ? " so far" : "" ) << ( f.bad ? ": ping " : " clean: ping " )
+            << f.ping << " avg " << f.peak << " peak";
+        if ( freezes_ > 0 )
+            say << ", " << freezes_ << ( freezes_ == 1 ? " freeze " : " freezes " ) << f.silence << "ms";
+        if ( hitches_ == 1 )
+            say << ", my pc stalled " << f.frame << "ms";
+        else if ( hitches_ > 1 )
+            say << ", my pc stalled " << hitches_ << "x " << f.frame << "ms";
+        if ( f.late > Ms( sg_rclLagLate ) )
+            say << ", syncs " << f.late << "ms late";
+        if ( f.bad && f.spiked > 0 )
+            say << ", " << f.spiked << "/" << f.others << " others spiked";
+        return say;
+    }
+
+    //! one line a round, tab separated
+    void Log( gFigures const & f, bool left ) const
+    {
+        // how big the log is; past its limit it starts over and the old one is kept
+        long size = -1;
+        {
+            std::ifstream probe;
+            if ( tDirectories::Var().Open( probe, "rcl-lag.log" ) )
+            {
+                probe.seekg( 0, std::ios::end );
+                size = long( probe.tellg() );
+            }
+        }
+        if ( size > sg_rclLagLogMax )
+        {
+            tString now = tDirectories::Var().GetWritePath( "rcl-lag.log" );
+            tString old = tDirectories::Var().GetWritePath( "rcl-lag.old.log" );
+            remove( old );
+            if ( rename( now, old ) == 0 )
+                size = -1;
+        }
+
+        std::ofstream o;
+        if ( !tDirectories::Var().Open( o, "rcl-lag.log", std::ios::app ) )
+            return;
+        if ( size <= 0 )
+            o << "time\tserver\tround\tseconds_alive\tping_avg_ms\tping_peak_ms\tsent\tresent\tfreezes\tlongest_silence_ms"
+                 "\tsync_late_avg_ms\tsync_late_max_ms\tothers\tothers_spiked\tlong_frames\tlongest_frame_ms\tend\tverdict\n";
+        o << st_GetCurrentTime("%Y-%m-%d %H:%M:%S") << '\t' << server_ << '\t' << round_ << '\t' << int( time_ + .5 )
+          << '\t' << f.ping << '\t' << f.peak << '\t' << sent_ << '\t' << resent_ << '\t' << freezes_ << '\t' << f.silence
+          << '\t' << f.lateAverage << '\t' << f.late << '\t' << f.others << '\t' << f.spiked
+          << '\t' << hitches_ << '\t' << f.frame << '\t' << ( left ? "left" : "over" )
+          << '\t' << ( f.bad ? "lag" : "clean" ) << '\n';
+    }
+
+    tString server_;      //!< the server's name
+    int     round_;       //!< rounds seen on it, this one included
+    bool    active_;      //!< a round is being measured
+    tString last_;        //!< the last finished round's line
+    bool    lastBad_;     //!< whether there was lag in it
+    double  lastSample_;  //!< when the last frame was looked at; below zero while not playing
+    double  stretch_;     //!< when the stretch of play being measured began
+    double  lastPacket_;  //!< the server packet last seen
+    double  nextOthers_;  //!< when to look at the other players' pings again
+    double  time_;        //!< seconds measured
+    double  pingSum_, lateSum_;
+    REAL    pingPeak_;
+    REAL    gap_;         //!< usual time between two packets from the server
+    REAL    silence_;     //!< longest time without one
+    REAL    lateMax_, frame_;
+    int     freezes_, lateCount_, hitches_;
+    int     sent_, resent_, lastSent_, lastResent_;
+    bool    frozen_;      //!< in a freeze right now
+    std::map< unsigned short, gOther > others_; //!< the other players' pings, by network ID
+    std::map< int, gLate > lates_;              //!< the freshest sync each cycle has had, by network ID
+};
+
+static gRclLagLog sg_rclLag;
+
+void sg_RclLagSyncAge( REAL age, int cycle )
+{
+    sg_rclLag.SyncAge( age, cycle );
+}
+
+static bool sg_RclLagSay( tString & line )
+{
+    return sg_rclLag.Say( line );
+}
+static bool sg_rclLagSayHooked = ( se_rclLagSay = &sg_RclLagSay, true );
+#else
+void sg_RclLagSyncAge( REAL, int ){}
+#endif
+
 // return code: false if there was an error or abort
 bool ConnectToServerCore(nServerInfoBase *server)
 {
@@ -2491,6 +2898,9 @@ bool ConnectToServerCore(nServerInfoBase *server)
     o.SetTemplateParameter(1, server->GetName());
     o << "$network_connecting_to_server";
     con << o;
+#ifndef DEDICATED
+    sg_rclLag.Connected( server->GetName() );
+#endif
     error = server->Connect();
 
     switch (error)
@@ -4517,11 +4927,17 @@ void gGame::StateUpdate(){
             se_SyncGameTimer();
             sr_con.fullscreen=false;
             sr_con.autoDisplayAtNewline=false;
+#ifndef DEDICATED
+            sg_rclLag.Begin();
+#endif
 
             break;
         case GS_PLAY:
             sg_SoundPause( true, false );
             sr_con.autoDisplayAtNewline=false;
+#ifndef DEDICATED
+            sg_rclLag.End();
+#endif
 #ifdef DEDICATED
             {
                 // save current players into a file
@@ -5954,6 +6370,10 @@ bool gGame::GameLoop(bool input){
     // Queue Now emits /add once this client has answered the server's
     // password request. This works for @rcl and linked legacy IDs.
     sg_RclMaybeAutoQueue();
+
+    // the round lag log looks at the connection once a frame, after it was read
+    if ( state == GS_PLAY )
+        sg_rclLag.Sample();
 #endif
 
 	gDelayCommand::Run(gtime);
@@ -6271,6 +6691,11 @@ void sg_EnterGameCore( nNetState enter_state ){
 
 void sg_EnterGameCleanup()
 {
+#ifndef DEDICATED
+    // a round we are leaving in the middle of (or were thrown out of) is logged as far as it got
+    sg_rclLag.End( true );
+#endif
+
     gHighscoresBase::SaveAll();
     gQueuePlayers::Save();
     //HACK RACE begin
@@ -6404,6 +6829,11 @@ static void sg_FullscreenIdle()
 void sg_ClientFullscreenMessage( tOutput const & title, tOutput const & message, REAL timeout ){
     // keep syncing the network
     rPerFrameTask idle( sg_FullscreenIdle );
+
+#ifndef DEDICATED
+    // the game loop stands still for as long as the message is up: not a long frame
+    sg_rclLag.Skip();
+#endif
 
     // stop the game
     bool paused = se_mainGameTimer && se_mainGameTimer->speed < .0001;

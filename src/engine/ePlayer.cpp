@@ -5565,12 +5565,42 @@ static bool IsLegalPlayerName( tString const & name )
     return false;
 }
 
+bool (*se_rclLagSay)( tString & line ) = 0;
+
 void ePlayerNetID::Chat(const tString &s_orig)
 {
     tColoredString s( s_orig );
     s.NetFilter();
 
 #ifndef DEDICATED
+    // (RCL) /lag says what the round lag log measured, for the round being played
+    // or else the last one. A round without lag is not worth everyone's chat:
+    // that one is only told to us.
+    if ( s_orig == "/lag" || s_orig.StartsWith("/lag ") )
+    {
+        tString report;
+        bool bad = se_rclLagSay && (*se_rclLagSay)( report );
+        if ( report.Len() <= 1 )
+            con << tOutput( "$rcl_lag_none" );
+        else if ( !bad )
+            con << report << "\n";
+        else
+        {
+            // the server takes no more than its chat length: drop what does
+            // not fit, clause by clause, from the end
+            std::string line( report );
+            while ( se_SpamMaxLen > 0 && int( line.size() ) > se_SpamMaxLen )
+            {
+                size_t cut = line.rfind( ", " );
+                if ( cut == std::string::npos )
+                    break;
+                line.erase( cut );
+            }
+            Chat( tString( line.c_str() ) );
+        }
+        return;
+    }
+
     // check for direct console commands
     tString command("");
     if(s_orig.StartsWith("/"))

@@ -215,6 +215,22 @@ bool rDisplayListAlphaSensitive::OnCall()
     return rDisplayList::OnCall();
 }
 
+rDisplayListInkSensitive::rDisplayListInkSensitive()
+: lastInk_( sr_cleanInk )
+{}
+
+bool rDisplayListInkSensitive::OnCall()
+{
+    // recorded in the other ink: have it filled again
+    if ( sr_cleanInk != lastInk_ )
+    {
+        lastInk_ = sr_cleanInk;
+        return false;
+    }
+
+    return rDisplayList::OnCall();
+}
+
 //! constructor, automatically starting to fill teh list
 rDisplayListFiller::rDisplayListFiller( rDisplayList & list, bool respectBlacklist )
 #ifndef DEDICATED

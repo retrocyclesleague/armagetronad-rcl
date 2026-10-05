@@ -188,7 +188,7 @@ public:
 private:
     REAL oldTime_;      // last rendered game time
     REAL oldRel_;       // last rendered gauge position
-    rDisplayList list_; // caching display list
+    rDisplayListInkSensitive list_; // caching display list; its text follows the ink
 };
 
 // caches stuff based on two float properties
@@ -215,7 +215,7 @@ public:
         }
     }
 
-    rDisplayList list_;
+    rDisplayListInkSensitive list_; // its text follows the ink
 private:
     REAL propa_, propb_;
 };
@@ -679,15 +679,9 @@ static void display_hud_subby_all()
     sr_ResetRenderState(true);
 
     // The gauges cache their text. Over the clean arena it is written in
-    // ink, under a menu it is not; the caches have to follow.
-    {
-        static bool lastInk = sr_cleanInk;
-        if ( lastInk != sr_cleanInk )
-        {
-            lastInk = sr_cleanInk;
-            rDisplayList::ClearAll();
-        }
-    }
+    // ink, under a menu it is not: their lists are rDisplayListInkSensitive.
+    // (This used to clear every display list in the game when the ink
+    // changed, so opening chat rebuilt all the cycles' walls.)
 
     display_fps_subby();
 
