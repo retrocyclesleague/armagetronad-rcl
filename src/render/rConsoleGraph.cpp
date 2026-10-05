@@ -249,9 +249,17 @@ void rConsole::Render(){
 }
 
 
+int sr_centerMessageCount = 0;
+
+tString const & sr_CenterMessageText()
+{
+    return sr_centerString;
+}
+
 void CenterDisplay(const tString &s,REAL timeout,REAL r,REAL g,REAL b){
     rCenterDisplayCallback::CenterDisplay();
 
+    ++sr_centerMessageCount;
     sr_centerString=s;
     center_fadetime=timeout+tSysTimeFloat();
     center_r=r;
@@ -262,6 +270,7 @@ void CenterDisplay(const tString &s,REAL timeout,REAL r,REAL g,REAL b){
 void rConsole::DoCenterDisplay(const tString &s,REAL timeout,REAL r,REAL g,REAL b){
     rCenterDisplayCallback::CenterDisplay();
 
+    ++sr_centerMessageCount;
     sr_centerString=s;
     center_fadetime=timeout+tSysTimeFloat();
     center_r=r;

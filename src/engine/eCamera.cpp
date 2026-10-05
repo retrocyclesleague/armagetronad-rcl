@@ -2236,6 +2236,14 @@ void eCamera::SoundMixGameObject(Uint8 *dest,unsigned int len,eGameObject *go){
         else if (mode!=CAMERA_FREE){
             l*=.9;
             r*=.9;
+
+            // What the camera follows stays present, however far back the
+            // camera sits: that distance grows with speed and says nothing
+            // about the game, and it used to make one's own cycle the
+            // quietest thing in the arena.
+            static const REAL presence = .12f;
+            if (l<presence) l=presence;
+            if (r<presence) r=presence;
         }
     }
 

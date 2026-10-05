@@ -2196,6 +2196,9 @@ team_name_black            Team black
 sound_menu_text            Audio
 sound_menu_help            Sound quality settings.
 
+sound_menu_volume_text         Volume:
+sound_menu_volume_help         How loud the game is. 1 is the level its sounds were balanced for; 0 is silent.
+
 sound_menu_sources_text        Sound Sources:
 sound_menu_sources_help        Gives the approximate number of sound sources to be mixed; setting it too low will result in important sound sources (your own engine) to be constantly turned on and off, too high values eat away too much CPU power. Six seems to be a good value for low-power CPUs.
 

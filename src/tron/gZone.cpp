@@ -29,6 +29,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "gZone.h"
 #include "eFloor.h"
+#include "eSound.h"
 #include "eTimer.h"
 #include "eGrid.h"
 #include "gCycle.h"
@@ -417,6 +418,22 @@ void gZone::FindAll(tString object_id_str, bool byId, std::function<bool(gZone *
 //!
 // *******************************************************************************
 
+#ifndef DEDICATED
+// A zone coming into being is heard: softly, and never as a volley when
+// several appear at once.
+static eWavData sg_zoneWav("sound/zone.wav");
+
+static void sg_ZoneSound()
+{
+    static double last = -100;
+    double const now = tSysTimeFloat();
+    if ( now - last < .6 )
+        return;
+    last = now;
+    se_PlaySound( sg_zoneWav, .45f, se_SoundVariation( .03f ) );
+}
+#endif
+
 gZone::gZone( eGrid * grid, const eCoord & pos, bool dynamicCreation, bool delayCreation)
 :eNetGameObject( grid, pos, eCoord( 0,0 ), NULL, true ), rotation_(1,0), lastCoord_(0), nextUpdate_(-1)
 {
@@ -486,6 +503,12 @@ gZone::gZone( eGrid * grid, const eCoord & pos, bool dynamicCreation, bool delay
 
     //wrtl: Ok, this is the result of three hours of debugging, I hope it helps...
     eGameObject::pos = pos;
+
+#ifndef DEDICATED
+    // zones thrown up in play (shots and the like) come too often for it
+    if ( !dynamicCreation )
+        sg_ZoneSound();
+#endif
 }
 
 
@@ -543,6 +566,10 @@ gZone::gZone( nMessage & m )
 
     // initialize position functions
     SetPosition( pos );
+
+#ifndef DEDICATED
+    sg_ZoneSound();
+#endif
 }
 
 

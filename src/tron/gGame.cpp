@@ -217,6 +217,66 @@ static tSettingItem<REAL> dedicaded_idle("DEDICATED_IDLE",ded_idle);
 static eWavData intro("moviesounds/intro.wav");
 static eWavData extro("moviesounds/extro.wav");
 
+#ifndef DEDICATED
+// ---- what the game announces, heard ----
+
+static eWavData sg_countWav("sound/count.wav");
+static eWavData sg_goWav("sound/go.wav");
+static eWavData sg_noticeWav("sound/notice.wav");
+
+// Centre messages are the game's announcements: the countdown, who won, what
+// a server has to say. Each new one is heard. A number is a tick, and the
+// zero a countdown ends on is the start signal; anything else is a chime,
+// held back so a server that talks a lot does not ring all the time.
+static void sg_AnnouncementSounds()
+{
+    static int heard = 0;
+    if ( heard == sr_centerMessageCount )
+        return;
+    heard = sr_centerMessageCount;
+
+    tString const text = tColoredString::RemoveColorsLoose( sr_CenterMessageText() );
+    bool number = false, words = false;
+    int value = 0;
+    for ( int i = 0; i < text.Len(); ++i )
+    {
+        char const c = text[i];
+        if ( c >= '0' && c <= '9' )
+        {
+            number = true;
+            if ( value < 100000 )
+                value = value * 10 + ( c - '0' );
+        }
+        else if ( c != ' ' && c != '\n' && c != '\t' && c != 0 )
+        {
+            words = true;
+            break;
+        }
+    }
+
+    static double lastChime = -100;
+    double const now = tSysTimeFloat();
+
+    if ( words )
+    {
+        if ( now - lastChime > 1.5 )
+        {
+            lastChime = now;
+            se_PlaySound( sg_noticeWav, .5f );
+        }
+    }
+    else if ( number )
+    {
+        if ( value == 0 )
+            se_PlaySound( sg_goWav, .8f );
+        else
+            se_PlaySound( sg_countWav, .6f );
+    }
+}
+
+static rPerFrameTask sg_announcementSoundTask( &sg_AnnouncementSounds );
+#endif
+
 
 #define MAXAI (gAICharacter::s_Characters.Len())
 

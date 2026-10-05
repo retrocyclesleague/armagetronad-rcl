@@ -10,22 +10,57 @@ Regenerate them with:
 bash scripts/generate-rcl-audio.sh
 ```
 
-All generated files are mono, 48 kHz, signed 16-bit PCM WAVs. `cyclrun.wav` is
-periodic and designed to loop without a boundary click. The generator uses a
-fixed pseudo-random seed for every noise layer, normalizes peak level with
-headroom, removes DC, and validates onset, quiet tails, and the engine seam.
+All generated files are mono, 48 kHz, signed 16-bit PCM WAVs. The generator
+uses a fixed pseudo-random seed for every noise layer, normalizes peak level
+with headroom, removes DC, and validates onset, quiet tails, the loops' seams
+and how much energy lies above 10 kHz. That last check is there because the
+game's default output rate is 22.05 kHz and its mixer has no filter of its
+own: whatever a file has up there would fold back as noise.
 
-The gameplay set is intentionally layered by function:
+Everything with a pitch is in one key (D), so the set sounds like one thing.
 
-- `cyclrun.wav`: harmonic and half-order motor body plus a small periodic
-  filtered-noise residual. Runtime pitch continues to follow cycle speed.
-- `turn.wav`: immediate bright transient, short descending servo chirp, and
-  lower mechanical body so a turn reads through the engine loop.
-- `scrape.wav`: deterministic filtered friction noise, chatter, and resonant
-  body. It is authored low because the legacy mixer plays it at four times
-  source speed.
-- `expl.wav`: a zero-latency crack, modal metallic body, low descending punch,
-  and a longer debris tail, with headroom for the existing positional mix.
+Engine, three loops the game layers per cycle and pitches with its speed:
+
+- `cyclrun.wav`: the body. Two saws a hair apart, so every overtone beats at
+  its own slow rate; the weight is in the overtones, not the fundamental,
+  because cycles idle at two thirds of its pitch and small speakers have no
+  sub. Exactly periodic over its two seconds.
+- `cyclhigh.wav`: the whine, a motor tone with sidebands and a narrow hiss.
+  Faint at cruising speed, it grows with it.
+- `cyclboost.wav`: the rush, two bands of surging noise over a low tone. The
+  game fades it in with the cycle's acceleration, which is what grinding a
+  wall gives.
+
+One-shots, of which the game picks a take and varies the pitch by a few
+percent every time, so a burst of them is not one sample stuttering:
+
+- `turn.wav`, `turn3.wav` (left) and `turn2.wav`, `turn4.wav` (right): a
+  click, a zip that falls from one pitch to another, a thump, a short space.
+- `scrape.wav`, `scrape2.wav`, `scrape3.wav`: grit that chatters and a few
+  partials that ring out of tune with each other. While sparks fly the game
+  starts a fresh take about every 75 ms. They are written at the pitch they
+  are played at (the old one was played at four times its pitch).
+- `expl.wav`, `expl2.wav`, `expl3.wav`: a crack that is there at once, a body
+  that falls in pitch, metal that rings, debris that keeps arriving, a room.
+- `death.wav`: for the one whose cycle it was, on top of the explosion: a
+  tone that falls and closes up over one heavy beat.
+
+Round and interface, which used to be silent:
+
+- `count.wav`: a number shown in the centre of the screen (3, 2, 1).
+- `go.wav`: the zero a countdown ends on.
+- `notice.wav`: any other centre message, at most every 1.5 seconds.
+- `zone.wav`: a zone comes into being.
+- `ui_hover.wav`, `ui_adjust.wav`, `ui_activate.wav`, `ui_back.wav`: the
+  selection moves, a value is stepped, a row is entered, a menu is left.
+
+A moviepack's own `moviesounds/` still take precedence where it has them;
+the extra engine layers and the takes are only used with this set.
+
+To check a mix without a speaker, start the client with the environment
+variable `RCL_AUDIO_DUMP` set to a file name: what the mixer would play is
+written there (16-bit stereo at the device's rate, no header) and the device
+gets silence.
 
 ## Design references
 

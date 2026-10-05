@@ -39,6 +39,13 @@ extern REAL rCHEIGHT_CON;
 
 extern float sr_chatLayer;
 
+#ifndef DEDICATED
+//! How many centre messages have been shown so far, and the text of the
+//! latest: lets the game give a new one a sound.
+extern int sr_centerMessageCount;
+tString const & sr_CenterMessageText();
+#endif
+
 class rConsole:public tConsole{
     tArray<tString> lines;
 

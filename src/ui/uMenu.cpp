@@ -146,6 +146,8 @@ static REAL MenuSliderFraction(REAL mouseX)
     return std::max(0.0f, std::min(1.0f, (mouseX - left) / (right - left)));
 }
 
+static void su_MenuSound( uMenu::Sound sound );
+
 // Escape and the right mouse button go back. From the main menu that would
 // end the program, so there they first go to its last row, the one that quits.
 void uMenu::Back()
@@ -159,9 +161,11 @@ void uMenu::Back()
         {
             selected = bottom;
             mouseSelection_ = -1;
+            su_MenuSound( Sound_Move );
             return;
         }
     }
+    su_MenuSound( Sound_Back );
     Exit();
 }
 
@@ -301,6 +305,20 @@ static bool disphelp=false;
 static REAL lastkey;
 #endif
 
+// who plays the menus' sounds, if anyone
+static uMenu::SoundFunc * su_menuSoundFunc = NULL;
+
+void uMenu::SetSoundFunc( SoundFunc * func )
+{
+    su_menuSoundFunc = func;
+}
+
+static void su_MenuSound( uMenu::Sound sound )
+{
+    if ( su_menuSoundFunc )
+        (*su_menuSoundFunc)( sound );
+}
+
 // inhibit console newline display while in a menu, it causes flickering
 static bool su_inMenu = false;
 bool uMenu::MenuActive()
@@ -314,6 +332,7 @@ static rNoAutoDisplayAtNewlineCallback su_noNewline( uMenu::MenuActive );
 void uMenu::ActivateSelected()
 {
     s_globalRepeat = false;
+    su_MenuSound( Sound_Activate );
 
     // Enter() may synchronously run gameplay or another menu. Restore the
     // caller's mouse state for that duration, then capture it again on return.
@@ -751,6 +770,7 @@ void uMenu::HandleEvent( SDL_Event event )
             const int hit = ItemAt(mouseX, MenuMouseY(event.motion.y));
             if (hit >= 0 && selected != hit)
             {
+                su_MenuSound( Sound_Move );
                 selected = hit;
                 mouseSelection_ = hit;
                 lastkey = tSysTimeFloat();
@@ -815,6 +835,8 @@ void uMenu::HandleEvent( SDL_Event event )
                 const int next = GetNextSelectable(selected);
                 if (next >= 0)
                 {
+                    if (next != selected)
+                        su_MenuSound( Sound_Move );
                     selected = next;
                     items[selected]->DisplayHelp(false, 0, 0.0f);
                 }
@@ -827,6 +849,8 @@ void uMenu::HandleEvent( SDL_Event event )
                 const int next = GetPrevSelectable(selected);
                 if (next >= 0)
                 {
+                    if (next != selected)
+                        su_MenuSound( Sound_Move );
                     selected = next;
                     items[selected]->DisplayHelp(false, 0, 0.0f);
                 }
@@ -862,22 +886,26 @@ void uMenu::HandleEvent( SDL_Event event )
                 break;
 
             case(SDLK_UP):
-                lastkey=tSysTimeFloat();
-                selected = GetNextSelectable(selected);
-                items[selected]->DisplayHelp(false, 0, 0.0f);
-                break;
-
             case(SDLK_DOWN):
+            {
                 lastkey=tSysTimeFloat();
-                selected = GetPrevSelectable(selected);
+                int const next = event.key.keysym.sym == SDLK_UP ?
+                    GetNextSelectable(selected) : GetPrevSelectable(selected);
+                if (next != selected)
+                    su_MenuSound( Sound_Move );
+                selected = next;
                 items[selected]->DisplayHelp(false, 0, 0.0f);
                 break;
+            }
 
             case(SDLK_LEFT):
-                items[selected]->LeftRight(-1);
-                break;
             case(SDLK_RIGHT):
-                items[selected]->LeftRight(1);
+                // only rows that have a value to step make a sound of it
+                if (items[selected]->Control() == uRclTheme::Control_Toggle ||
+                    items[selected]->Control() == uRclTheme::Control_Selector ||
+                    items[selected]->Control() == uRclTheme::Control_Slider)
+                    su_MenuSound( Sound_Adjust );
+                items[selected]->LeftRight(event.key.keysym.sym == SDLK_LEFT ? -1 : 1);
                 break;
 
             case(SDLK_SPACE):

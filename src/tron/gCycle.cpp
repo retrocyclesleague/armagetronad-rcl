@@ -240,6 +240,59 @@ static eWavData cycle_run("moviesounds/engine.wav","sound/cyclrun.wav");
 static eWavData turn_wav("moviesounds/cycturn.wav","sound/turn.wav");
 static eWavData scrap("sound/scrape.wav");
 
+// There is more to the engine than its body: a whine that comes in with
+// speed, and a rush when a wall pulls the cycle along.
+static eWavData cycle_whine("sound/cyclhigh.wav");
+static eWavData cycle_boost("sound/cyclboost.wav");
+
+// A turn or a scrape is one of a few takes at a slightly different pitch
+// every time, so a burst of them does not sound like one sample stuttering.
+static eWavData turn_take2("sound/turn2.wav");
+static eWavData turn_take3("sound/turn3.wav");
+static eWavData turn_take4("sound/turn4.wav");
+static eWavData scrap_take2("sound/scrape2.wav");
+static eWavData scrap_take3("sound/scrape3.wav");
+
+// for the one whose cycle it was, a death is more than the explosion
+static eWavData death_wav("sound/death.wav");
+
+static void sg_SoundTurn( eSoundPlayer * turning, REAL & pitch, int direction )
+{
+#ifndef DEDICATED
+    if ( !turning )
+        return;
+
+    // a moviepack brings one turn sound of its own; that is played as it is
+    turn_wav.Load();
+    if ( !turn_wav.alt )
+    {
+        pitch = 1;
+        turning->Reset();
+        return;
+    }
+
+    // left and right turns draw on different takes
+    static eWavData * const takes[2][2] = { { &turn_wav, &turn_take3 }, { &turn_take2, &turn_take4 } };
+    pitch = se_SoundVariation( .04f );
+    turning->Reset( *takes[direction > 0 ? 1 : 0][se_SoundChoice( 2 )] );
+#endif
+}
+
+// Sparks fly on every frame a cycle grinds along a wall. Their sound is a
+// string of short scrapes, a fresh take every so often, not one per frame.
+static void sg_SoundScrape( eSoundPlayer * spark, REAL & pitch, REAL & last, REAL now )
+{
+#ifndef DEDICATED
+    if ( !spark || fabs( now - last ) < .075f )
+        return;
+    last = now;
+
+    static eWavData * const takes[3] = { &scrap, &scrap_take2, &scrap_take3 };
+    pitch = se_SoundVariation( .12f );
+    spark->Reset( *takes[se_SoundChoice( 3 )] );
+#endif
+}
+
 // a class of textures where the transparent part of the
 // image is replaced by the player color
 class gTextureCycle: public rSurfaceTexture
@@ -2244,8 +2297,13 @@ void gCycle::MyInitAfterCreation(){
     // con << "creating cycle.\n";
 #endif
     engine  = tNEW(eSoundPlayer)(cycle_run,true);
+    engineWhine = tNEW(eSoundPlayer)(cycle_whine,true);
+    boost   = tNEW(eSoundPlayer)(cycle_boost,true);
     turning = tNEW(eSoundPlayer)(turn_wav);
     spark   = tNEW(eSoundPlayer)(scrap);
+    turnPitch_ = sparkPitch_ = 1;
+    lastScrape_ = -100;
+    boostHeard_ = 0;
 
     //correctDistSmooth=correctTimeSmooth=correctSpeedSmooth=0;
     correctDistanceSmooth = 0;
@@ -2392,6 +2450,10 @@ void gCycle::MyInitAfterCreation(){
 
     if ( engine )
         engine->Reset(10000);
+    if ( engineWhine )
+        engineWhine->Reset(10000);
+    if ( boost )
+        boost->Reset(10000);
 
     if ( turning )
         turning->End();
@@ -2432,7 +2494,10 @@ static eLadderLogWriter se_cycleCreatedWriter("CYCLE_CREATED", false);
 gCycle::gCycle(eGrid *grid, const eCoord &pos,const eCoord &d,ePlayerNetID *p)
         :gCycleMovement(grid, pos,d,p,false),
         engine(NULL),
+        engineWhine(NULL),
+        boost(NULL),
         turning(NULL),
+        spark(NULL),
         skew(0),skewDot(0),
         rotationFrontWheel(1,0),rotationRearWheel(1,0),heightFrontWheel(0),heightRearWheel(0),
         tactical_pos(TP_Start),
@@ -2500,6 +2565,8 @@ gCycle::~gCycle(){
     }
 
     tDESTROY(engine);
+    tDESTROY(engineWhine);
+    tDESTROY(boost);
     tDESTROY(turning);
     tDESTROY(spark);
 
@@ -3187,8 +3254,7 @@ bool gCycle::TimestepCore(REAL currentTime, bool calculateAcceleration ){
                 else
                     new gSpark(grid, sparkpos-dirDrive*.1,sparkdir,currentTime,color_.r,color_.g,color_.b,1,1,1);
 
-                if ( spark )
-                    spark->Reset();
+                sg_SoundScrape( spark, sparkPitch_, lastScrape_, currentTime );
             }
         }
 
@@ -3302,6 +3368,12 @@ void gCycle::Die( REAL time )
     {
         // death is hardly good timing.
         player->AnalyzeTiming( -1 );
+
+#ifndef DEDICATED
+        // whoever was riding it hears more than the explosion
+        if ( player->IsHuman() && player->Owner() == sn_myNetID )
+            se_PlaySound( death_wav, .9f );
+#endif
     }
 
     gCycleMovement::Die( time );
@@ -3922,8 +3994,7 @@ bool gCycle::DoTurn(int d)
     if (d < -1) d = -1;
 
     if (Alive()){
-        if ( turning )
-            turning->Reset();
+        sg_SoundTurn( turning, turnPitch_, d );
 
         clientside_action();
 
@@ -5712,17 +5783,43 @@ void gCycle::SoundMix(Uint8 *dest,unsigned int len,
           }
         */
 
+        // how fast the engine turns: the pitch its sounds play at
+        REAL const rate = verletSpeed_/(sg_speedCycleSound * SpeedMultiplier());
+
         if (engine)
-            engine->Mix(dest,len,viewer,rvol,lvol,verletSpeed_/(sg_speedCycleSound * SpeedMultiplier()));
+            engine->Mix(dest,len,viewer,rvol,lvol,rate);
+
+        // RCL's own engine has two more layers. A moviepack's is one sample.
+        if ( cycle_run.alt )
+        {
+            // the whine is faintly there at cruising speed and grows with it
+            REAL whine = ( rate - .6f ) / 1.2f;
+            if ( whine > 1 ) whine = 1;
+            if ( engineWhine && whine > 0 )
+            {
+                whine *= sqrt( whine ) * .9f;
+                engineWhine->Mix(dest,len,viewer,rvol*whine,lvol*whine,rate);
+            }
+
+            // the rush follows how hard a wall pulls the cycle along; it is
+            // eased in and out so it swells instead of switching
+            REAL pull = GetAcceleration() * ( 1 / 12.0f );
+            if ( !( pull > 0 ) ) pull = 0;
+            if ( pull > 1 ) pull = 1;
+            boostHeard_ += ( pull - boostHeard_ ) * .2f;
+            if ( boost && boostHeard_ > .02f )
+                boost->Mix(dest,len,viewer,rvol*boostHeard_,lvol*boostHeard_,.85f+.15f*rate);
+        }
 
         if (turning)
             // sound/turn.wav is an authored fallback, not the historical
             // explosion sample. Play both it and moviepack turn sounds at
-            // their native rate so the transient and mechanical body survive.
-            turning->Mix(dest,len,viewer,rvol,lvol,1);
+            // (nearly) their native rate so the transient and mechanical
+            // body survive.
+            turning->Mix(dest,len,viewer,rvol,lvol,turnPitch_);
 
         if (spark)
-            spark->Mix(dest,len,viewer,rvol*.5,lvol*.5,4);
+            spark->Mix(dest,len,viewer,rvol*.7f,lvol*.7f,sparkPitch_);
     }
 }
 #endif
@@ -5825,6 +5922,8 @@ void gCycle::DrawSvg(std::ofstream &f) {
 gCycle::gCycle(nMessage &m)
         :gCycleMovement(m),
         engine(NULL),
+        engineWhine(NULL),
+        boost(NULL),
         turning(NULL),
         spark(NULL),
         skew(0),skewDot(0),
@@ -6666,8 +6765,7 @@ void gCycle::SyncEnemy ( const eCoord& )
     if ( distance > 0 && ( notTurned < .99 || this->turns < lastSyncMessage_.turns ) )
     {
         // reset sound
-        if (turning)
-            turning->Reset();
+        sg_SoundTurn( turning, turnPitch_, turnDirection > 0 ? 1 : -1 );
 
         // update old wall as good as we can
         eCoord crossPos = lastSyncMessage_.pos;

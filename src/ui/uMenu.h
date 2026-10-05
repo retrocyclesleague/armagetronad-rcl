@@ -167,6 +167,19 @@ public:
 
     //! returns whether there is currently an active menu
     static bool MenuActive();
+
+    //! what a menu can be heard doing
+    enum Sound
+    {
+        Sound_Move,     //!< the selection went to another row
+        Sound_Activate, //!< a row was entered
+        Sound_Back,     //!< the menu was left
+        Sound_Adjust    //!< a row's value was stepped
+    };
+    typedef void SoundFunc( Sound sound );
+
+    //! Sets what plays those. The menus know nothing of audio themselves.
+    static void SetSoundFunc( SoundFunc * func );
 protected:
     //! handles a key press
     virtual void HandleEvent( SDL_Event event );

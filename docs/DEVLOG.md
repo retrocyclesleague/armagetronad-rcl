@@ -1,5 +1,20 @@
 # Dev log
 
+## 2026-10-05 - sound: a mixer that can carry a mix, 22 sounds instead of 4
+
+Jamie asked for sounds that are more diverse, rich, dense and satisfying. The game had four (engine loop, turn, scrape, explosion), each one layer, and nothing in menus or around a round. `sound/README-RCL.md` lists the new set and what each sound is made of.
+
+- Mixer (`eSound.cpp`): sources are mixed into a buffer with room over full scale and rounded off by a soft limiter, instead of each being clipped into the output; samples are interpolated, so a pitched sound is no longer gritty; `se_PlaySound` plays a sound once from no place in the arena (12 voices). The sum is brought up to a level like other programs' (without that gain a practice round peaked at -13 dBFS and sat at -31 dBFS RMS); `SOUND_VOLUME` and a Volume row in the Audio menu scale it.
+- Presence (`eCamera.cpp`): what the camera follows no longer gets quieter the further back the camera sits. One's own cycle used to be the quietest thing in the arena at speed.
+- Engine: three loops per cycle (body, whine with speed, rush with acceleration) instead of one. Turns and scrapes pick one of several takes and vary the pitch; scrapes are a string of short takes while grinding instead of one sample restarted every frame; explosions have three takes; one's own death has a sound of its own.
+- New cues: menus (move, adjust, enter, back) through a hook in `uMenu`, which itself knows nothing of audio; countdown numbers, the start, other centre messages (held to one per 1.5 s) from a per-frame check of the centre message; a zone appearing.
+- `scripts/generate-rcl-audio.py` writes all 22 files, still from oscillators, noise, filters and short delay lines only, in one key, band-limited below 10 kHz.
+- `RCL_AUDIO_DUMP=<file>` makes the mixer write what it would play to a file and send silence to the device. Test runs use it, so they are silent and leave a capture to measure.
+
+Checked by measurement, not by ear: I cannot hear. Every file passes the generator's checks (headroom, DC, onset under 2 ms, quiet tail, loop seam, under 1% of energy above 10 kHz). A 56 s capture of a local practice session at the default 22.05 kHz output shows every cue firing where it should (menu ticks, three counts and the start, turn chirps on the turns I sent, scrape strings, explosions, the engine bed), peaks at -4.7 dBFS, sits around -23 dBFS RMS in play, with no sample at full scale and none above the limiter's knee; bass and low-mid are within a few dB of each other where the first version of the engine was 15 dB sub-heavy. Whether it is satisfying is for ears to say; an audition page with every sound and that capture was handed to Jamie.
+
+Not checked: by ear; online; with more than six cycles; 44.1 kHz and 11 kHz output; a moviepack's sounds (the code keeps them, untested); macOS and Linux beyond CI compiling them. SDL's `dummy` and `disk` audio drivers make this client exit at startup under sdl12-compat; not looked into, the dump switch replaced them.
+
 ## 2026-10-05 - clean arena: cycles are arrows
 
 Jamie did not like the bikes. In the clean arena a cycle is now a low, faceted arrow in the player's colour (`sg_RenderCleanCycle` in `gCycle.cpp`): a lighter tint on top, a shade of the paint on the flanks, each face lit by the sun the way the walls' faces are, a pale line down the spine. Its tail is notched and the wall leaves it there; the live end of the wall comes down to the arrow's height (`hfuncClean`). Lean, blinking, the shadow and the mirrored image work as before. The lofted body, its texture and `scripts/generate-rcl-cycle-body.py` are gone; the classic arena keeps the classic body and wheels.

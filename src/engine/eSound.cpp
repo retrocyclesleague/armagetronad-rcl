@@ -38,6 +38,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 //#include "tList.h"
 #include <iostream>
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <math.h>
+#include <vector>
 #include "eGrid.h"
 #include "tException.h"
 
@@ -80,27 +84,149 @@ static tConfItem<int> sq("SOUND_QUALITY",sound_quality);
 
 static int sound_sources=10;
 static tConfItem<int> ss("SOUND_SOURCES",sound_sources);
+
+// how loud the whole mix is; 1 is the level the sounds were balanced for
+static REAL sound_volume=1;
+static tConfItem<REAL> sv("SOUND_VOLUME",sound_volume);
 static REAL loudness_thresh=0;
 static int real_sound_sources=0;
 
 static tList<eSoundPlayer> se_globalPlayers;
 
+#ifndef DEDICATED
+// ---- sounds played once, for the whole machine ----
+
+namespace
+{
+struct eOneShot
+{
+    eWavData * wav;     // what plays; none if the voice is free
+    eAudioPos  pos;
+    REAL       volume, speed;
+};
+
+enum { se_oneShotVoices = 12 };
+eOneShot se_oneShots[se_oneShotVoices];
+
+// Everything is mixed here before it reaches the device, with room over full
+// scale, so a busy moment can be rounded off instead of clipped.
+std::vector< int > se_mixBuffer;
+
+inline int se_SoftClip( int value )
+{
+    // straight up to three fifths of full scale, bending towards it above
+    static const int knee = 19660, room = 13107;
+    int const size = value < 0 ? -value : value;
+    if ( size <= knee )
+        return value;
+    int const shaped = knee + int( ( room - 1 ) * tanhf( ( size - knee ) * ( 1.0f / room ) ) );
+    return value < 0 ? -shaped : shaped;
+}
+}
+#endif
+
+void se_PlaySound( eWavData & wav, REAL volume, REAL speed )
+{
+#ifndef DEDICATED
+    if ( !sound_is_there || !( volume > 0 ) )
+        return;
+
+    // read the file here, not on the audio thread
+    wav.Load();
+
+    // a full voice is what the mixer lets any one sound have
+    volume *= .25f;
+
+    eSoundLocker locker;
+
+    // take a free voice; if there is none, the one that is furthest along
+    eOneShot * voice = &se_oneShots[0];
+    for ( int i = 0; i < se_oneShotVoices; ++i )
+    {
+        eOneShot & candidate = se_oneShots[i];
+        if ( !candidate.wav )
+        {
+            voice = &candidate;
+            break;
+        }
+        if ( candidate.pos.pos > voice->pos.pos )
+            voice = &candidate;
+    }
+
+    voice->wav = &wav;
+    voice->pos.Reset();
+    voice->volume = volume;
+    voice->speed = speed;
+#endif
+}
 
 void fill_audio(void *udata, Uint8 *stream, int len)
 {
 #ifndef DEDICATED
     real_sound_sources=0;
     int i;
+
+    // 16 bit samples for both channels go out; mix them with room to spare
+    int const count = len / 2;
+    se_mixBuffer.assign( count, 0 );
+    if ( count <= 0 )
+        return;
+    Uint8 * const mix = reinterpret_cast< Uint8 * >( &se_mixBuffer[0] );
+
     if (eGrid::CurrentGrid())
         for(i=eGrid::CurrentGrid()->Cameras().Len()-1;i>=0;i--)
         {
             eCamera *pCam = eGrid::CurrentGrid()->Cameras()(i);
             if(pCam)
-                pCam->SoundMix(stream,len);
+                pCam->SoundMix(mix,len);
         }
 
     for(i=se_globalPlayers.Len()-1;i>=0;i--)
-        se_globalPlayers(i)->Mix(stream,len,0,1,1);
+        se_globalPlayers(i)->Mix(mix,len,0,1,1);
+
+    for ( i = 0; i < se_oneShotVoices; ++i )
+    {
+        eOneShot & voice = se_oneShots[i];
+        if ( voice.wav && voice.wav->Mix( mix, len, voice.pos, voice.volume, voice.volume, voice.speed ) )
+            voice.wav = NULL;
+    }
+
+    // The sources are mixed quietly, as they always were: each is held to a
+    // quarter of full scale and most sit far below that. Bring the sum up to
+    // a level like other programs', times what the player asked for.
+    REAL volume = sound_volume;
+    if ( !( volume > 0 ) ) volume = 0;
+    if ( volume > 2 ) volume = 2;
+    float const gain = 3.0f * volume;
+
+    // onto whatever is in the stream already (music, where there is any)
+    short * const out = reinterpret_cast< short * >( stream );
+    for ( i = 0; i < count; ++i )
+    {
+        int value = out[i] + se_SoftClip( int( se_mixBuffer[i] * gain ) );
+        if ( value > 32767 ) value = 32767;
+        if ( value < -32768 ) value = -32768;
+        out[i] = value;
+    }
+
+    // A way to check the mix without a speaker: with RCL_AUDIO_DUMP set to a
+    // file name, what would be played is written there (16 bit stereo at the
+    // device's rate, no header) and the device gets silence instead.
+    static FILE * dump = NULL;
+    static bool dumpChecked = false;
+    if ( !dumpChecked )
+    {
+        dumpChecked = true;
+        char const * const name = getenv( "RCL_AUDIO_DUMP" );
+        if ( name && *name )
+            dump = fopen( name, "wb" );
+    }
+    if ( dump )
+    {
+        fwrite( stream, 1, len, dump );
+        fflush( dump );
+        memset( stream, 0, len );
+    }
 
     if (real_sound_sources>sound_sources+4)
         loudness_thresh+=.01;
@@ -268,6 +394,9 @@ void se_SoundExit(){
         // the mixer must not run while the sounds it plays are unloaded
         eSoundLocker locker;
 
+        for ( int i = 0; i < se_oneShotVoices; ++i )
+            se_oneShots[i].wav = NULL;
+
         eWavData::UnloadAll();
         se_SoundPause(true);
     }
@@ -343,7 +472,7 @@ void se_SoundPause(bool p){
 eWavData* eWavData::s_anchor = NULL;
 
 eWavData::eWavData(const char * fileName,const char *alternative)
-        :tListItem<eWavData>(s_anchor),data(NULL),len(0),freeData(false), loadError(false){
+        :tListItem<eWavData>(s_anchor),data(NULL),len(0),freeData(false), loadError(false), alt(false){
     //wavs.Add(this,id);
     filename     = fileName;
     filename_alt = alternative;
@@ -534,8 +663,9 @@ bool eWavData::Mix( Uint8* dest_u8, Uint32 playlen, eAudioPos& pos,
                     REAL Rvol, REAL Lvol, REAL Speed, bool loop )
 {
 #ifndef DEDICATED
-    // we know the alignment is correct
-    short* dest_s = reinterpret_cast<short*>( dest_u8 );
+    // The destination is the mixer's own buffer: one int for every 16 bit
+    // sample that goes out, so sounds add up without clipping here.
+    int* dest_s = reinterpret_cast<int*>( dest_u8 );
 
     if ( !data )
     {
@@ -572,8 +702,9 @@ bool eWavData::Mix( Uint8* dest_u8, Uint32 playlen, eAudioPos& pos,
 #define VOL_SHIFT 16
 #define VOL_FRACTION (1<<VOL_SHIFT)
 
-#define MAX_VAL ((1<<15)-1)
-#define MIN_VAL (-(1<<15))
+// far above full scale: fill_audio rounds the sum off afterwards
+#define MAX_VAL ((1<<28)-1)
+#define MIN_VAL (-(1<<28))
 
     // first, split the speed into the part before and after the decimal:
     if (Speed<0) Speed=0;
@@ -687,7 +818,14 @@ bool eWavData::Mix( Uint8* dest_u8, Uint32 playlen, eAudioPos& pos,
                 while (playlen>0 && pos.pos<samples){
                     int l = dest_s[0];
                     int r = dest_s[1];
+
+                    // between this sample and the next, by how far the
+                    // position has got into it; without that, a sound played
+                    // slower or faster than recorded turns gritty
+                    Uint32 const next = pos.pos+1 < samples ? pos.pos+1 : ( loop ? 0 : pos.pos );
                     int d = data_s[pos.pos];
+                    d += ( ( data_s[next] - d ) * int( pos.fraction >> (SPEED_SHIFT-8) ) ) >> 8;
+
                     l += (lvol*d) >> VOL_SHIFT;
                     r += (rvol*d) >> VOL_SHIFT;
                     if (r>MAX_VAL) r=MAX_VAL;
@@ -833,6 +971,18 @@ void eSoundPlayer::Reset(int randomize){
     }
 }
 
+void eSoundPlayer::Reset(eWavData &w, int randomize){
+    // read the file before the mixer is held up
+    w.Load();
+
+    eSoundLocker locker;
+    wav = &w;
+    for(int i=MAX_VIEWERS-1;i>=0;i--){
+        pos[i].Reset(randomize);
+        goon[i]=true;
+    }
+}
+
 void eSoundPlayer::End(){
     for(int i=MAX_VIEWERS-1;i>=0;i--){
         goon[i]=false;
@@ -845,6 +995,61 @@ void eSoundPlayer::MakeGlobal(){
 
     eSoundLocker locker;
     se_globalPlayers.Add(this,id);
+}
+
+// Sounds have a little sequence of their own to vary by: they must not use
+// up the game's random numbers, which recordings and the server depend on.
+static unsigned int se_SoundRandom()
+{
+    static unsigned int state = 0x52434C31;
+    state = state * 1664525u + 1013904223u;
+    return ( state >> 8 ) & 0xFFFF;
+}
+
+REAL se_SoundVariation( REAL spread )
+{
+    return 1 + spread * ( se_SoundRandom() * ( 2.0f / 65535 ) - 1 );
+}
+
+int se_SoundChoice( int count )
+{
+    return count > 1 ? int( se_SoundRandom() % count ) : 0;
+}
+
+// ***************************************************************
+
+// The menus know nothing of audio; they say what happened and this plays it.
+static eWavData se_menuMove("sound/ui_hover.wav");
+static eWavData se_menuActivate("sound/ui_activate.wav");
+static eWavData se_menuBack("sound/ui_back.wav");
+static eWavData se_menuAdjust("sound/ui_adjust.wav");
+
+static void se_MenuSound( uMenu::Sound sound )
+{
+    switch ( sound )
+    {
+    case uMenu::Sound_Move:
+        se_PlaySound( se_menuMove, .45f, se_SoundVariation( .025f ) );
+        break;
+    case uMenu::Sound_Activate:
+        se_PlaySound( se_menuActivate, .6f );
+        break;
+    case uMenu::Sound_Back:
+        se_PlaySound( se_menuBack, .55f );
+        break;
+    case uMenu::Sound_Adjust:
+        se_PlaySound( se_menuAdjust, .45f, se_SoundVariation( .04f ) );
+        break;
+    }
+}
+
+namespace
+{
+struct eMenuSoundHook
+{
+    eMenuSoundHook(){ uMenu::SetSoundFunc( &se_MenuSound ); }
+};
+eMenuSoundHook se_menuSoundHook;
 }
 
 
@@ -910,6 +1115,12 @@ static uSelectEntry<int> be(bm_men,
                             "$sound_menu_buffer_vhigh_text",
                             "$sound_menu_buffer_vhigh_help",
                             2);
+
+// the last item added is the menu's first row
+static uMenuItemReal volume_men
+(&Sound_menu,"$sound_menu_volume_text",
+ "$sound_menu_volume_help",
+ sound_volume,0,1.5f,.05f);
 
 
 void se_SoundMenu(){

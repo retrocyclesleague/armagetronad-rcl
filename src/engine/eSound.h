@@ -120,12 +120,24 @@ public:
              REAL speed=1);
 
     void Reset(int randomize=0);
+    void Reset(eWavData &w,int randomize=0); //!< starts over with another sound
     void End();
 
     void MakeGlobal();
 
     //  static eGrid *S_Grid; // the grid we play the sounds on
 };
+
+//! Plays a sound once for everyone at this machine, from no place in the
+//! arena: the interface, and what a round announces. A volume of 1 is as loud
+//! as the mixer lets one sound be; speed is the pitch it plays at.
+void se_PlaySound( eWavData & wav, REAL volume = 1, REAL speed = 1 );
+
+//! a factor around 1, so a sound that is played often does not repeat itself exactly
+REAL se_SoundVariation( REAL spread );
+
+//! which of count versions of a sound to play this time
+int se_SoundChoice( int count );
 
 
 #endif
