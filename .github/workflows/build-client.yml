@@ -25,7 +25,11 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 45
     steps:
+      # The build ID counts commits (batch/make/version); a shallow clone
+      # would name every build z1.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Verify Apple Silicon runner
         run: test "$(uname -m)" = arm64
@@ -60,6 +64,8 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Install build dependencies
         run: |
@@ -99,7 +105,16 @@ jobs:
       run:
         shell: msys2 {0}
     steps:
+      # Check out with the repository's own line endings. With the runner's
+      # default (CRLF) the MSYS2 git sees every text file as changed, and the
+      # build ID gets a date suffix the other platforms do not have.
+      - name: Keep line endings as committed
+        shell: bash
+        run: git config --global core.autocrlf false
+
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: msys2/setup-msys2@v2
         with:
