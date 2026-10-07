@@ -3266,8 +3266,10 @@ namespace
 {
 struct gRclPlayNowMode
 {
-    const char * name;
+    const char * name;      // what a server of this kind has in its name
     unsigned int port;
+    unsigned int port2;     // where a region runs two of the kind, the second one's; else 0
+    const char * label;     // what to call it to the player, where the name will not do
 };
 
 static bool sg_rclQueueOnJoin = false;
@@ -3290,12 +3292,15 @@ static const char * sg_rclPlayNowHosts[] =
     "retrocyclesleague.com",
     "us.retrocyclesleague.com",
     "sc.retrocyclesleague.com",
-    "mtl.retrocyclesleague.com"
+    "mtl.retrocyclesleague.com",
+    // where the European servers are moving; no answer from here until they have
+    "de.retrocyclesleague.com"
 };
 
 static bool sg_RclServerNameMatches( tString const & serverName, char const * mode )
 {
-    std::string name( static_cast< char const * >( serverName ) );
+    // without its colours: some names change colour with every letter
+    std::string name( static_cast< char const * >( tColoredString::RemoveColors( serverName ) ) );
     std::transform( name.begin(), name.end(), name.begin(), ::tolower );
 
     if ( std::string( mode ) == "sumo" )
@@ -3323,7 +3328,8 @@ static void sg_RclPlayNow( gRclPlayNowMode const & mode, bool queueOnJoin = fals
         }
     }
 
-    con << tOutput( "$rcl_play_now_finding", mode.name );
+    char const * const called = mode.label ? mode.label : mode.name;
+    con << tOutput( "$rcl_play_now_finding", called );
 
     nServerInfo * best = 0;
     nServerInfo::DeleteAll( false );
@@ -3332,6 +3338,12 @@ static void sg_RclPlayNow( gRclPlayNowMode const & mode, bool queueOnJoin = fals
         nServerInfo * candidate = tNEW( nServerInfo );
         candidate->SetConnectionName( tString( sg_rclPlayNowHosts[i] ) );
         candidate->SetPort( mode.port );
+        if ( mode.port2 )
+        {
+            candidate = tNEW( nServerInfo );
+            candidate->SetConnectionName( tString( sg_rclPlayNowHosts[i] ) );
+            candidate->SetPort( mode.port2 );
+        }
     }
 
     // Keep drawing and reading input while the probes are out; Esc cancels,
@@ -3342,7 +3354,7 @@ static void sg_RclPlayNow( gRclPlayNowMode const & mode, bool queueOnJoin = fals
     while ( nServerInfo::DoQueryAll( 4 ) && tSysTimeFloat() < probeDeadline )
     {
         if ( !uMenu::Busy( tOutput( "$rcl_play_now_finding_title" ),
-                           tOutput( "$rcl_play_now_finding_text", mode.name ) ) )
+                           tOutput( "$rcl_play_now_finding_text", called ) ) )
         {
             cancelled = true;
             break;
@@ -3402,7 +3414,7 @@ static void sg_RclPlayNow( gRclPlayNowMode const & mode, bool queueOnJoin = fals
         sg_rclQueueOnJoin = false;
         nServerInfo::DeleteAll( false );
         uMenu::Message( tOutput( "$rcl_play_now_unavailable_title" ),
-                        tOutput( "$rcl_play_now_unavailable", mode.name ), 20 );
+                        tOutput( "$rcl_play_now_unavailable", called ), 20 );
         return;
     }
 
@@ -3459,32 +3471,153 @@ static void sg_RclQueueTst()
     sg_RclPlayNow( mode, true );
 }
 
+// ---- the practice servers: one kind each, open to walk into ----
+static const gRclPlayNowMode sg_rclPractice[] = {
+    { "fort",   4595, 0, "Fort practice" },    // six a side, bots fill the teams
+    { "sumo",   4552, 0, "Sumobar" },          // the beginners' sumobar
+    { "dojo",   4543, 0, "Sumo bot dojo" },    // sumo against bots
+    { "mazing", 4547, 4548, "Mazing" },
+    { "trap",   4546, 4549, "Trap survival" },
+    { "maze r", 4558, 0, "Maze runner" }       // "Maze Runner", and not "Mazing"
+};
+static const gRclPlayNowMode sg_rclPickup[] = {
+    { "tst",  4551, 0, 0 },
+    { "sumo", 4534, 0, 0 },
+    { "fort", 4554, 0, 0 }
+};
+
+static void sg_RclPracticeFort()    { sg_RclPlayNow( sg_rclPractice[0] ); }
+static void sg_RclPracticeSumobar() { sg_RclPlayNow( sg_rclPractice[1] ); }
+static void sg_RclPracticeDojo()    { sg_RclPlayNow( sg_rclPractice[2] ); }
+static void sg_RclPracticeMazing()  { sg_RclPlayNow( sg_rclPractice[3] ); }
+static void sg_RclPracticeTrap()    { sg_RclPlayNow( sg_rclPractice[4] ); }
+static void sg_RclPracticeMaze()    { sg_RclPlayNow( sg_rclPractice[5] ); }
+
+// how many people are on one kind of server, over every region that answered
+struct gRclLobbyCount
+{
+    int players, servers;
+};
+
+// Asks every region for all the given kinds at once. False if the player
+// pressed Escape while the answers were out.
+static bool sg_RclCountLobbies( gRclPlayNowMode const * modes, int count, gRclLobbyCount * found )
+{
+    for ( int m = 0; m < count; ++m )
+        found[m].players = found[m].servers = 0;
+
+    nServerInfo::DeleteAll( false );
+    for ( unsigned int i = 0; i < sizeof( sg_rclPlayNowHosts ) / sizeof( sg_rclPlayNowHosts[0] ); ++i )
+        for ( int m = 0; m < count; ++m )
+            for ( int second = 0; second < 2; ++second )
+            {
+                unsigned int const port = second ? modes[m].port2 : modes[m].port;
+                if ( !port )
+                    continue;
+                nServerInfo * candidate = tNEW( nServerInfo );
+                candidate->SetConnectionName( tString( sg_rclPlayNowHosts[i] ) );
+                candidate->SetPort( port );
+            }
+
+    bool cancelled = false;
+    double const probeDeadline = tSysTimeFloat() + sg_rclPlayNowProbeBudget;
+    nServerInfo::StartQueryAll( nServerInfo::QUERY_ALL );
+    while ( nServerInfo::DoQueryAll( 12 ) && tSysTimeFloat() < probeDeadline )
+    {
+        if ( !uMenu::Busy( tOutput( "$rcl_play_now_finding_title" ),
+                           tOutput( "$rcl_play_now_counting_text" ) ) )
+        {
+            cancelled = true;
+            break;
+        }
+        tAdvanceFrame( 10000 );
+        st_DoToDo();
+    }
+
+    if ( !cancelled )
+        for ( nServerInfo * candidate = nServerInfo::GetFirstServer(); candidate; candidate = candidate->Next() )
+        {
+            if ( !candidate->Reachable() )
+                continue;
+            for ( int m = 0; m < count; ++m )
+                if ( ( candidate->GetPort() == modes[m].port ||
+                       ( modes[m].port2 && candidate->GetPort() == modes[m].port2 ) ) &&
+                     sg_RclServerNameMatches( candidate->GetName(), modes[m].name ) )
+                {
+                    found[m].players += candidate->Users();
+                    ++found[m].servers;
+                }
+        }
+    nServerInfo::DeleteAll( false );
+    return !cancelled;
+}
+
+// a row's text: what it is and who is there
+static tOutput sg_RclLobbyTitle( char const * key, gRclLobbyCount const & count )
+{
+    tOutput title;
+    title << key;
+    if ( count.servers <= 0 )
+        title << "$rcl_lobby_offline";
+    else if ( count.players <= 0 )
+        title << "$rcl_lobby_empty";
+    else
+    {
+        tString playing;
+        playing << ": " << count.players << " ";
+        title << playing << "$rcl_lobby_playing";
+    }
+    return title;
+}
+
+// Play Now: the practice servers, each with how many are on it right now.
+// Choosing one joins the fullest of its kind among the nearest.
 static void sg_RclPlayNowMenu()
 {
+    int const kinds = sizeof( sg_rclPractice ) / sizeof( sg_rclPractice[0] );
+    gRclLobbyCount count[ sizeof( sg_rclPractice ) / sizeof( sg_rclPractice[0] ) ];
+    if ( !sg_RclCountLobbies( sg_rclPractice, kinds, count ) )
+        return;
+
     uMenu menu( "$rcl_play_now_text" );
     menu.SetStyle( uMenuStyle_RclPanel );
 
-    uMenuItemFunction tst( &menu, "$rcl_play_now_tst_text",
-                           "$rcl_play_now_tst_help", &sg_RclPlayTst );
-    uMenuItemFunction sumobar( &menu, "$rcl_play_now_sumobar_text",
-                              "$rcl_play_now_sumobar_help", &sg_RclPlaySumobar );
-    uMenuItemFunction fort( &menu, "$rcl_play_now_fort_text",
-                           "$rcl_play_now_fort_help", &sg_RclPlayFort );
+    // rows are added bottom up
+    uMenuItemFunction maze( &menu, sg_RclLobbyTitle( "$rcl_practice_maze_text", count[5] ),
+                            "$rcl_practice_maze_help", &sg_RclPracticeMaze );
+    uMenuItemFunction trap( &menu, sg_RclLobbyTitle( "$rcl_practice_trap_text", count[4] ),
+                            "$rcl_practice_trap_help", &sg_RclPracticeTrap );
+    uMenuItemFunction mazing( &menu, sg_RclLobbyTitle( "$rcl_practice_mazing_text", count[3] ),
+                              "$rcl_practice_mazing_help", &sg_RclPracticeMazing );
+    uMenuItemFunction dojo( &menu, sg_RclLobbyTitle( "$rcl_practice_dojo_text", count[2] ),
+                            "$rcl_practice_dojo_help", &sg_RclPracticeDojo );
+    uMenuItemFunction sumobar( &menu, sg_RclLobbyTitle( "$rcl_practice_sumobar_text", count[1] ),
+                               "$rcl_practice_sumobar_help", &sg_RclPracticeSumobar );
+    uMenuItemFunction fort( &menu, sg_RclLobbyTitle( "$rcl_practice_fort_text", count[0] ),
+                            "$rcl_practice_fort_help", &sg_RclPracticeFort );
 
     menu.Enter();
 }
 
+// Queue Now: the pickup lobbies, each with how many are in it. Nothing is
+// joined until one is chosen; choosing joins that lobby and asks for its
+// draft queue, which is where the queue lives today.
 static void sg_RclQueueNowMenu()
 {
+    int const kinds = sizeof( sg_rclPickup ) / sizeof( sg_rclPickup[0] );
+    gRclLobbyCount count[ sizeof( sg_rclPickup ) / sizeof( sg_rclPickup[0] ) ];
+    if ( !sg_RclCountLobbies( sg_rclPickup, kinds, count ) )
+        return;
+
     uMenu menu( "$rcl_queue_now_text" );
     menu.SetStyle( uMenuStyle_RclPanel );
 
-    uMenuItemFunction tst( &menu, "$rcl_play_now_tst_text",
+    uMenuItemFunction fort( &menu, sg_RclLobbyTitle( "$rcl_play_now_fort_text", count[2] ),
+                            "$rcl_queue_now_fort_help", &sg_RclQueueFort );
+    uMenuItemFunction sumobar( &menu, sg_RclLobbyTitle( "$rcl_play_now_sumobar_text", count[1] ),
+                               "$rcl_queue_now_sumobar_help", &sg_RclQueueSumobar );
+    uMenuItemFunction tst( &menu, sg_RclLobbyTitle( "$rcl_play_now_tst_text", count[0] ),
                            "$rcl_queue_now_tst_help", &sg_RclQueueTst );
-    uMenuItemFunction sumobar( &menu, "$rcl_play_now_sumobar_text",
-                              "$rcl_queue_now_sumobar_help", &sg_RclQueueSumobar );
-    uMenuItemFunction fort( &menu, "$rcl_play_now_fort_text",
-                           "$rcl_queue_now_fort_help", &sg_RclQueueFort );
 
     menu.Enter();
 }

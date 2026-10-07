@@ -2542,7 +2542,23 @@ welcome_message_2_heading   We hope you enjoyed it so far.
 welcome_message_2           You will now enter the main menu. Play Now and Queue Now take you straight into RCL lobbies, Servers lists every public server, and Local Game starts a match against the AI.
 
 rcl_play_now_text              Play Now
-rcl_play_now_help              Join the busiest open RCL lobby near you.
+rcl_play_now_help              See who is on the practice servers and join one.
+rcl_play_now_counting_text     Asking the servers who is on... Press Escape to cancel.
+rcl_lobby_offline              : offline
+rcl_lobby_empty                : empty
+rcl_lobby_playing              playing
+rcl_practice_fort_text         Fort practice
+rcl_practice_fort_help         Fortress, six a side, with bots filling the teams.
+rcl_practice_sumobar_text      Sumobar
+rcl_practice_sumobar_help      The beginners' sumobar.
+rcl_practice_dojo_text         Sumo bot dojo
+rcl_practice_dojo_help         Sumo against bots.
+rcl_practice_mazing_text       Mazing
+rcl_practice_mazing_help       Mazing practice.
+rcl_practice_trap_text         Trap survival
+rcl_practice_trap_help         Trap Survival.
+rcl_practice_maze_text         Maze runner
+rcl_practice_maze_help         Maze Runner.
 rcl_play_now_fort_text         Fort
 rcl_play_now_fort_help         Join an available RCL Fortress pickup lobby.
 rcl_play_now_sumobar_text      Sumobar
@@ -2556,7 +2572,7 @@ rcl_play_now_finding_title     Play Now
 rcl_play_now_finding_text      Finding the best available \1 lobby... Press Escape to cancel.
 rcl_play_now_unavailable       No online, non-full \1 lobby answered. Please try again or use Online Multiplayer.
 rcl_queue_now_text             Queue Now
-rcl_queue_now_help             Join a lobby and enter its draft queue. Needs an RCL sign-in.
+rcl_queue_now_help             See who is in the pickup lobbies. Choosing one joins it and enters its draft queue. Needs an RCL sign-in.
 rcl_queue_now_fort_help        Join an available Fortress lobby and send /add once you have signed in to it.
 rcl_queue_now_sumobar_help     Join an available Sumobar lobby and send /add once you have signed in to it.
 rcl_queue_now_tst_help         Join an available TST lobby and send /add once you have signed in to it.
