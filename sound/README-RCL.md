@@ -55,21 +55,22 @@ are pitched with its speed, the other two keep their pitch:
   pairs of beating tones. It joins the pull for a wall closer than the cycle
   is long. It does not depend on sparks being shown.
 
-Turns, which are notes:
+Turns:
 
 - `turn_left1.wav` is a left turn (A below middle C) and `turn_right1.wav` a
-  right turn (the D a fourth above). Always.
-- `turn_left2.wav` to `turn_left4.wav` and `turn_right2.wav` to
-  `turn_right4.wav` are the next overtones of those notes: the octave, the
-  fifth above it, the second octave. A turn the same way within 0.22 seconds
-  of the last plays the next one up instead of the first, and each rings on
-  while the next starts. So a double bind is two notes of one chord, a box
-  all four, and a run played tightly sounds tight. Any other turn starts over
-  on the first note of its side.
-- A note is all there within two thousandths of a second (the generator
-  refuses one that takes three to reach half its level): it is what tells a
-  player the turn was made. Its overtones are exact multiples and the notes
-  are exact ratios of each other, so nothing in a chord of them beats.
+  right turn (the D a fourth above): a note, all there within two
+  thousandths of a second (the generator refuses one that takes three to
+  reach half its level). It is what tells a player the turn was made.
+- `turn_left_quick.wav` and `turn_right_quick.wav` are what a turn sounds
+  like when it comes within 0.22 seconds of the one before it, whichever way
+  either went: a short low pulse an octave under its side's note, much
+  quieter, gone in a twentieth of a second. So a double bind is a note and a
+  pulse, a box a note and three pulses, and a fast run is a rhythm under
+  whatever the player has on. The pulses take turns on three voices, so one
+  never cuts the one before it off.
+- Until 2026-10-07 quick turns climbed the overtones of their side's note
+  instead (octave, fifth above, second octave). Played fast over music, that
+  was a tune of its own, in A or in D whatever the music was in.
 
 The rest:
 

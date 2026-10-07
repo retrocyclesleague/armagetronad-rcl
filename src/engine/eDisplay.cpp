@@ -417,7 +417,8 @@ void se_CleanArenaBackdrop()
     ProjMatrix();
     glPushMatrix();
     glLoadIdentity();
-    glColor4f( sr_cleanFloorColor[0], sr_cleanFloorColor[1], sr_cleanFloorColor[2], 1 );
+    REAL const * const floor = sr_CleanFloorColor();
+    glColor4f( floor[0], floor[1], floor[2], 1 );
     BeginQuads();
     glVertex2f( -1, -1 );
     glVertex2f(  1, -1 );
@@ -508,6 +509,14 @@ void se_CleanArenaFloor( eCoord const & centre, REAL eyeHeight, bool mirror )
     static const REAL mirrored[rings] = { .30f, .30f, .30f, .30f, .30f, .24f, .20f, .15f, .08f, 0, 0, 0, 0, 0 };
 
     REAL const unit = eyeHeight > 4 ? eyeHeight : 4;
+    REAL const * const floor = sr_CleanFloorColor();
+
+    // The dark floor is black as far as it goes, and so is the frame it is
+    // drawn into. It is only there to dim what it mirrors close by and to
+    // cover it further out.
+    bool const dark = sr_cleanDark;
+    if ( dark && !mirror )
+        return;
 
     glDisable(GL_TEXTURE_2D);
     for ( int ring = 0; ring < rings - 1; ++ring )
@@ -521,6 +530,12 @@ void se_CleanArenaFloor( eCoord const & centre, REAL eyeHeight, bool mirror )
             {
                 int const at = ring + edge;
                 REAL const alpha = mirror ? 1 - mirrored[at] : 1;
+                if ( dark )
+                {
+                    glColor4f( 0, 0, 0, alpha );
+                    glVertex2f( centre.x + c * radius[at] * unit, centre.y + s * radius[at] * unit );
+                    continue;
+                }
 
                 // What lies under the floor shows through by the share it
                 // mirrors; where nothing stands, that is the plain floor
@@ -529,7 +544,7 @@ void se_CleanArenaFloor( eCoord const & centre, REAL eyeHeight, bool mirror )
                 REAL rgb[3];
                 for ( int k = 0; k < 3; ++k )
                 {
-                    rgb[k] = sr_cleanFloorColor[k] + ( colour[at][k] / 255.f - sr_cleanFloorColor[k] ) / alpha;
+                    rgb[k] = floor[k] + ( colour[at][k] / 255.f - floor[k] ) / alpha;
                     if ( rgb[k] < 0 ) rgb[k] = 0;
                     if ( rgb[k] > 1 ) rgb[k] = 1;
                 }
@@ -593,8 +608,9 @@ void eGrid::display_simple( eCamera* cam, int viewer,bool floor,
     eCoord camPos = cam->CameraGlancePos();
     // eWallRim::Bound( camPos, 10 );
 
-    // the mirrored pass leaves the cleared floor colour as its backdrop
-    if ( sr_cleanArena && cam->RenderingMain() )
+    // the mirrored pass leaves the cleared floor colour as its backdrop;
+    // the dark arena's sky is the cleared frame
+    if ( sr_cleanArena && !sr_cleanDark && cam->RenderingMain() )
         se_CleanArenaSky( camPos, cam->CameraZ() );
 
     if (!sr_cleanArena && (sr_upperSky || se_BlackSky())){
@@ -642,7 +658,7 @@ void eGrid::display_simple( eCamera* cam, int viewer,bool floor,
         {
             // one pale, glossy floor to the horizon; no grid, no texture
             se_CleanArenaFloor( camPos, cam->CameraZ(), sr_alphaBlend && flooralpha < 1 );
-            if ( sr_alphaBlend )
+            if ( sr_alphaBlend && !sr_cleanDark )
                 se_CleanArenaGlint( camPos, cam->CameraZ() );
             floorDetail = rFLOOR_OFF;
         }

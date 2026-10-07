@@ -809,9 +809,12 @@ void  rSysDep::ClearGL(){
         // Between rounds, nothing draws the arena for a moment. Where it was
         // the pale one, the frame stays pale meanwhile instead of flashing
         // dark, and what is written on it is written in ink.
-        bool const pale = sr_CleanArenaRecent();
+        bool const pale = sr_CleanArenaRecent() && !sr_cleanDark;
         if (pale)
-            glClearColor(sr_cleanFloorColor[0],sr_cleanFloorColor[1],sr_cleanFloorColor[2],1.0);
+        {
+            REAL const * const floor = sr_CleanFloorColor();
+            glClearColor(floor[0],floor[1],floor[2],1.0);
+        }
         else
             glClearColor(0.0,0.0,0.0,1.0);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);

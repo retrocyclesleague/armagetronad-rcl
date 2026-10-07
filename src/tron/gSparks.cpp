@@ -110,8 +110,8 @@ void gSpark::Kill(){createTime=lastTime-100000;}
 #ifndef DEDICATED
 void gSpark::Render(const eCamera *cam){
     // light added to the clean arena's pale floor would not show; there,
-    // sparks are drawn as embers over it
-    bool const embers = sr_cleanArena;
+    // sparks are drawn as embers over it. On the dark one they are light.
+    bool const embers = sr_cleanArena && !sr_cleanDark;
     if ( !embers )
         glBlendFunc(GL_SRC_ALPHA,GL_ONE);
 

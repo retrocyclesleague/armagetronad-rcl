@@ -19,8 +19,8 @@ The set is layered by what the game does with it:
              cyclboost (pull, the closer a wall draws the cycle along),
              grind (on top of it, for a wall closer than the cycle is long);
              all loops
-  turns      turn_left1..4, turn_right1..4: a note for each way, and the
-             overtones of it that a run of turns the same way climbs
+  turns      turn_left1, turn_right1: a note for each way; turn_left_quick,
+             turn_right_quick: the pulse a turn right after another gets
   explosion  expl; death for the one whose cycle it was
   interface  ui_hover, ui_adjust, ui_activate, ui_back
   round      count (a number of the countdown), go (its zero)
@@ -359,14 +359,13 @@ def grind_loop():
 # ---------------------------------------------------------------- turns ----
 
 # A turn is a note, and the same turn is always the same note: A below middle
-# C for left, the D a fourth above it for right.  A turn the same way soon
-# after the last plays the next overtone of its note instead (the octave, the
-# fifth over that, the second octave), so a double bind is two notes of one
-# chord and a box all four.  The ratios are exact, so notes that ring together
-# lock: there is nothing in a chord of them to beat.
+# C for left, the D a fourth above it for right.  Only a turn on its own is a
+# note, though.  A turn made right after another (a bind, a box, a wiggle) is
+# a pulse: the weight under the note without the note, low and over at once.
+# A run of quick turns used to climb its note's overtones, and with music
+# playing that was a second tune on top of it; now it is a beat under it.
 TURN_LEFT = A3
 TURN_RIGHT = A3 * 4.0 / 3.0
-TURN_STEPS = 4
 
 
 def turn_note(frequency, duration=0.34):
@@ -395,6 +394,27 @@ def turn_note(frequency, duration=0.34):
         weight = 0.45 * math.exp(-34.0 * t) * math.sin(0.5 * base)
         output.append(attack * (note + weight))
     return tail_fade(output, 0.06)
+
+
+def turn_pulse(frequency, duration=0.16):
+    """A turn made right after another: felt more than heard.
+
+    It is the weight that sits under a turn's note, an octave below it, with
+    just enough of the note's own pitch for a small speaker to carry it.  It
+    is there at once, like the note, and gone in a twentieth of a second, so
+    however fast turns follow each other they stay a pulse: nothing in it
+    rings long enough to be a tune.
+    """
+    output = []
+    for t in time_axis(duration):
+        attack = 0.5 - 0.5 * math.cos(math.pi * min(1.0, t / 0.002))
+        base = TAU * frequency * t
+        body = math.exp(-30.0 * t) * (
+            math.sin(0.5 * base)
+            + 0.30 * math.exp(-20.0 * t) * math.sin(base)
+        )
+        output.append(attack * body)
+    return tail_fade(output, 0.05)
 
 
 # ----------------------------------------------------------- explosions ----
@@ -642,11 +662,13 @@ def main():
         ("grind.wav", grind_loop(), -9.0, True),
     )
 
-    # The turns: a note for each way and its overtones. The higher an
-    # overtone, the softer, so a full run is a chord and not a climb in level.
+    # The turns: for each way a note, and the pulse a turn made right after
+    # another gets instead. The pulse sits well under the note.
     for side, base in (("left", TURN_LEFT), ("right", TURN_RIGHT)):
-        for step in range(1, TURN_STEPS + 1):
-            sounds += ((f"turn_{side}{step}.wav", turn_note(base * step), -3.5 - 1.5 * (step - 1), False),)
+        sounds += (
+            (f"turn_{side}1.wav", turn_note(base), -3.5, False),
+            (f"turn_{side}_quick.wav", turn_pulse(base), -9.0, False),
+        )
 
     sounds += (
         ("expl.wav", explosion_sound(0x52434C39, 118.0, 44.0, 19.0), -2.2, False),
@@ -663,7 +685,9 @@ def main():
 
     # what earlier versions of the set had and this one does not
     for name in ("turn.wav", "turn2.wav", "turn3.wav", "turn4.wav", "expl2.wav", "expl3.wav",
-                 "notice.wav", "zone.wav"):
+                 "notice.wav", "zone.wav",
+                 "turn_left2.wav", "turn_left3.wav", "turn_left4.wav",
+                 "turn_right2.wav", "turn_right3.wav", "turn_right4.wav"):
         (OUTPUT / name).unlink(missing_ok=True)
 
     for name, source, target, loop in sounds:

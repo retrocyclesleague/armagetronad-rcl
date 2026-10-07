@@ -255,8 +255,12 @@ void gWallRim::RenderReal(const eCamera *cam){
                 glDepthMask(GL_FALSE);
                 BeginQuads();
 
+                // on black, white at full strength would be the brightest
+                // thing in the frame; there the marking is a quiet grey
+                REAL const strength = sr_cleanDark ? .45f : 1;
+
                 eCoord side = across * fine;
-                glColor4f( .98f, 1, 1, .55f );
+                glColor4f( .98f, 1, 1, .55f * strength );
                 glVertex3f( a.x - side.x, a.y - side.y, rise );
                 glVertex3f( b.x - side.x, b.y - side.y, rise );
                 glVertex3f( b.x + side.x, b.y + side.y, rise );
@@ -266,7 +270,7 @@ void gWallRim::RenderReal(const eCamera *cam){
                 int const dashes = length > period ? int( length / period + .5f ) : 1;
                 REAL const step = length / dashes;
                 side = across * bold;
-                glColor4f( .98f, 1, 1, 1 );
+                glColor4f( .98f, 1, 1, strength );
                 for ( int i = 0; i < dashes; ++i )
                 {
                     eCoord const from = a + along * ( ( i + .25f ) * step );

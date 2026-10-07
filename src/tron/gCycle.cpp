@@ -249,20 +249,17 @@ static eWavData cycle_boost("sound/cyclboost.wav");
 static eWavData cycle_grind("sound/grind.wav");
 
 // RCL's own turns are notes, and the same turn is always the same note: one
-// for left (turn_wav, above) and one a fourth higher for right. A turn the
-// same way soon after the last plays the next overtone of its note instead:
-// the octave, the fifth above that, the second octave. So a double bind is
-// two notes of one chord, a box all four, and how tightly they were played is
-// how tightly they sound.
-static eWavData turn_left2("sound/turn_left2.wav");
-static eWavData turn_left3("sound/turn_left3.wav");
-static eWavData turn_left4("sound/turn_left4.wav");
+// for left (turn_wav, above) and one a fourth higher for right. That is a
+// turn on its own. A turn made right after another, either way, is a pulse
+// instead: the weight under its side's note, low and over at once. So a bind
+// is a note and a beat, a box a note and three, and how tightly they were
+// played is how tightly they sound; but quick turns no longer make a tune of
+// their own over whatever the player is listening to.
 static eWavData turn_right1("sound/turn_right1.wav");
-static eWavData turn_right2("sound/turn_right2.wav");
-static eWavData turn_right3("sound/turn_right3.wav");
-static eWavData turn_right4("sound/turn_right4.wav");
+static eWavData turn_left_quick("sound/turn_left_quick.wav");
+static eWavData turn_right_quick("sound/turn_right_quick.wav");
 
-// how soon after a turn the next one the same way must come to go on from it
+// how soon after a turn the next one must come to count as part of its run
 static const REAL sg_turnRunWindow = .22f;
 
 // for the one whose cycle it was, a death is more than the explosion
@@ -283,10 +280,11 @@ void gCycle::SoundTurn( int direction )
     int const side = direction > 0 ? 1 : 0;
     REAL const now = se_GameTime();
     REAL const since = now - turnRunTime_;
-    if ( side == turnRunSide_ && since >= 0 && since < sg_turnRunWindow )
+    if ( since >= 0 && since < sg_turnRunWindow )
     {
-        if ( turnRun_ < turnNotes - 1 )
-            ++turnRun_;
+        // voice 0 is the note; the pulses take turns on the others, so one
+        // never cuts off the one before it
+        turnRun_ = turnRun_ % ( turnNotes - 1 ) + 1;
     }
     else
         turnRun_ = 0;
@@ -2321,8 +2319,8 @@ void gCycle::MyInitAfterCreation(){
     spark   = tNEW(eSoundPlayer)(cycle_grind,true);
     {
         static eWavData * const notes[2][turnNotes] = {
-            { &turn_wav, &turn_left2, &turn_left3, &turn_left4 },
-            { &turn_right1, &turn_right2, &turn_right3, &turn_right4 } };
+            { &turn_wav, &turn_left_quick, &turn_left_quick, &turn_left_quick },
+            { &turn_right1, &turn_right_quick, &turn_right_quick, &turn_right_quick } };
         for ( int side = 0; side < 2; ++side )
             for ( int step = 0; step < turnNotes; ++step )
             {
@@ -4863,8 +4861,12 @@ static void sg_RenderCleanWalls( eCamera const * camera, gNetPlayerWall * list, 
     {
         // shadows and the walls' sheen must not hide anything drawn later
         glDepthMask( GL_FALSE );
-        sg_RenderWallOverlay( camera, list, cached, gNetPlayerWall::gWallRenderMode_Shadow );
-        RenderEnd();
+        if ( !sr_cleanDark )
+        {
+            // nothing lights the dark arena from the side
+            sg_RenderWallOverlay( camera, list, cached, gNetPlayerWall::gWallRenderMode_Shadow );
+            RenderEnd();
+        }
         sg_RenderWallOverlay( camera, list, cached, gNetPlayerWall::gWallRenderMode_Sheen );
         RenderEnd();
     }
@@ -4954,12 +4956,14 @@ void gCycleWallsDisplayListManager::RenderAll( eCamera const * camera, gCycle * 
 
 void gCycleWallsDisplayListManager::RenderAll( eCamera const * camera, gCycle * cycle )
 {
-    // The lists hold the passes of one look, not of both. A negative glow
-    // intensity marks them as the clean arena's.
-    if ( sr_cleanArena != ( glowIntensity_ < 0 ) )
+    // The lists hold the passes of one look, not of all three. A negative
+    // glow intensity marks them as one of the clean arena's: -1 the pale
+    // one, -2 the dark.
+    int const look = sr_CleanArenaLook();
+    if ( look ? glowIntensity_ != -look : glowIntensity_ < 0 )
     {
         Clear( 0 );
-        glowIntensity_ = sr_cleanArena ? -1 : 0;
+        glowIntensity_ = -look;
     }
 
     // render everything you can with a display list
@@ -5529,7 +5533,7 @@ void gCycle::Render(const eCamera *cam){
         {
             // The clean arena's sun stands low: the cycle's shadow is a soft
             // patch that reaches away from it, like those of the walls.
-            if ( !blinking && sr_alphaBlend && ( !cam || cam->RenderingMain() ) )
+            if ( !blinking && sr_alphaBlend && !sr_cleanDark && ( !cam || cam->RenderingMain() ) )
             {
                 eCoord toSun;
                 REAL reach;

@@ -1,5 +1,40 @@
 # Dev log
 
+## 2026-10-07 - a dark arena, a scoreboard panel, quick turns that are not a tune
+
+Jamie: "dark mode. its too bright for some users. i like the pure black", "a much better scoreboard. moving towards a dynamic scoreboard world where the tab shows the server information in a much richer way" (with a picture of a console shooter's board: where the game is, each team with a large score, one row per player, the viewer's own row outlined), and, while playing with music on, "the binds too quick are too melodic".
+
+**Dark arena** (`RCL_ARENA_DARK`, off by default; Settings / Display / Arena: Light, Dark, Classic grid). The clean arena on pure black, as a second palette of the same drawing, not a third arena: the same open floor, solid trails, arrows, floor marking for the rim and painted zones.
+
+- `sr_CleanArenaLook()` (`rScreen.cpp`) says which of the three is drawn; the wall lists and the rim's list are rebuilt when it changes (`gCycle.cpp`, `eAdvWall.cpp`). `sr_CleanFloorColor()` replaces the constant.
+- Not drawn there at all: the sky, the sun and its halo, the sun's glint on the floor (`eDisplay.cpp`), and every shadow (walls and wall tips in `gCycle.cpp`'s wall passes, the cycle's own). The floor itself is the cleared frame; its rings are only drawn to dim what the floor mirrors, and not at all without the mirror. So the dark arena draws less than the pale one.
+- Text stays light: `sr_cleanInk` is never set there, so names, console and HUD are drawn as they are over the classic arena. Between rounds the frame is black.
+- Colours (`sr_CleanPaint`): the pale arena takes the glare out of a player's colour so it sits on the floor like paint; on black the colour is left as it is, and one with too little light in it to be seen (luminance under 0.22) is brought up towards white. A black trail on a black floor would be a wall nobody can see.
+- Sparks are light again there (additive), not the pale arena's embers. The rim's white marking is at 45%.
+
+**Scoreboard** (`eRclScoreboard`, `RCL_SCOREBOARD`, on by default; off brings the text table back). A panel in the interface's own language in place of the fixed-width table; `docs/CLIENT_ARCHITECTURE.md` describes it. `uRclTheme` gained `FillRect` and `FrameRect` for panels outside a menu. The game hands it the server's name at connect and the map each frame (`gGame.cpp`); a server reached by a bare address is shown as "Online game", so an address never ends up in a recording.
+
+Of its own accord a server sends no kills or deaths, no limits, no round number and no mode, so the board has none of them unless the server says so:
+
+**What a server tells the board** (`eRclBoard`, `docs/SCOREBOARD_DATA.md`). Jamie, on hearing that the richer board needs the server's help: "lets do that small bit that makes that paradigm easier for us then we will iterate a lot on this. we have rcl server versions already". The small bit is a way for a server, or the script that runs its mode, to put text on every RCL client's board with console commands: `RCL_BOARD_TITLE`, `RCL_BOARD_INFO` (facts, each on a plate under the headline), `RCL_BOARD_NOTE`, `RCL_BOARD_COLUMNS` (columns of its own between score and ping) and `RCL_BOARD_PLAYER <player> <value>, ...` for the values, `RCL_BOARD_CLEAR` to drop them. From here on, a new thing on the board is a line in a server script and a look at how it is drawn, not a change to what travels.
+
+- It travels as one new kind of message (descriptor 270): a line's number and its text, sent when the line changes and to a client as it comes in. Twelve lines: the four settings, and eight the game fills with the players' values by network ID. Everything said in one go is sent once (`st_ToDoOnce`).
+- The first version made the lines server settings, which travel for free. A client that is told of a setting it does not know prints "YOU PROBABLY SHOULD UPGRADE ARMAGETRON ADVANCED!!!"; a client that gets a kind of message it does not know says nothing. Everyone on another client would have seen the first, so it was changed before it left this machine.
+- On the server the values are kept by player, not by ID (an ID is given out again, and a local game has none), and dropped when the player goes (`ePlayerNetID`'s destructor). A client forgets what a server told it when it leaves.
+- The file pair uses nothing of the client's interface. The servers are built from another line of this source (their images are `rcl.0` to `rcl.6`, from commits that are not on this branch): that line takes the two files, one `Makefile.am` line, six help texts and one call. Not done, and not this branch's to do.
+
+
+**Quick turns** (`gCycle::SoundTurn`, `scripts/generate-rcl-audio.py`). A turn within 0.22 s of the one before it used to play the next overtone of its side's note when it went the same way: a double bind was two notes of a chord, a box four, and a fast run a rising figure in A or in D over whatever the player was listening to. Now any turn that soon after another, either way, is a short low pulse an octave under its side's note (110 or 147 Hz), 5.5 dB under the note and gone in about 115 ms; the pulses take turns on three voices. A turn on its own is the note it was. Six files less (`turn_left2..4`, `turn_right2..4`), two new (`turn_left_quick`, `turn_right_quick`).
+
+Rendered from the game's files with the game's rule, before and after: a double bind's second sound was 440 Hz at -5 dB and is 110 Hz at -9 dB; the share of a run's energy above 300 Hz fell from 38% to 7% (double), 48% to 6% (triple) and 59% to 13% (box of rights). A left-right weave still alternates two low pulses a fourth apart.
+
+**Checked**, in the Windows build at 1600x900 in a window nobody sees, and what was not:
+
+- Dark arena: practice games and a game on the local server. Black floor and frame, grey rim marking, light text, solid trails in their own colours; the pale arena beside it as before, shadows and all. Not looked at: zones, sparks, an explosion, and the classic grid after switching back and forth in one session. The Display page's selector was not operated by hand.
+- Scoreboard: teams and no teams in practice, and online. The first picture showed "cl" for "Local game" and "lr" for "Player 1": the interface font's bold only holds the wordmark's letters. Emphasis is the medium weight now.
+- Board data: a server built from this branch in a container, with a title, three facts, a note, three columns and values for six players set from its config; this client joined through a relay and showed all of it, the values in the right rows, its own row included. The client packaged on 2026-10-05, which has never heard of any of this, joined the same server, played, showed its text table and printed nothing about anything unknown. Not checked: what the server prints for a name that fits nobody, more players than the lines hold, a player leaving, and any real RCL server or script.
+- Quick turns: measured from the files as above. In the game the code ran (doubles were sent in every run) but what came out of the mixer was not measured, and nobody has heard it.
+
 ## 2026-10-05 - a stall at every spawn, the round lag log, and a pass over buffers, caches and cleanup
 
 Jamie, in a pickup: "i am lagging crazy rn in the rcl client its happened a couple times in this pickup round", then, with a picture of a lag-o-meter half the size of the screen, "look at these lagos. can we build in logging so i can call out round lag?", and afterwards "do another pass for buffers and caches and cleanup logic. probably a bunch of errors".

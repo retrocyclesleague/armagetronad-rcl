@@ -142,10 +142,10 @@ void eWallRim::RenderAll( eCamera * camera )
 #ifndef DEDICATED
     // the rim is drawn differently in the clean arena (dashes on the floor,
     // not walls): a list recorded in the other look is stale
-    static bool lastClean = sr_cleanArena;
-    if ( lastClean != sr_cleanArena )
+    static int lastLook = sr_CleanArenaLook();
+    if ( lastLook != sr_CleanArenaLook() )
     {
-        lastClean = sr_cleanArena;
+        lastLook = sr_CleanArenaLook();
         se_rimDisplayList.Clear( 0 );
     }
 

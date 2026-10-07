@@ -173,7 +173,7 @@ class gCycle: public gCycleMovement
     eSoundPlayer *turning;      //!< a moviepack's turn sound
     eSoundPlayer *spark;        //!< the grind along a wall that is very close
     enum { turnNotes = 4 };
-    eSoundPlayer *turnNote_[2][turnNotes];  //!< RCL's turns: a note for left and one for right, and the overtones a run of turns climbs
+    eSoundPlayer *turnNote_[2][turnNotes];  //!< RCL's turns, left and right: the note of a turn on its own, then the voices for the pulse of a turn made right after another
     int  turnRun_;              //!< how many turns the same way led up to the last, each soon after the one before
     int  turnRunSide_;          //!< the way they went
     REAL turnRunTime_;          //!< when the last of them was

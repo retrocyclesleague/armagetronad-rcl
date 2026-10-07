@@ -433,6 +433,47 @@ static uMenuItemToggle sg_cleanArenaMenu
  "$detail_clean_arena_help",
  sr_cleanArena);
 
+static uMenuItemToggle sg_cleanDarkMenu
+(&screen_menu_detail,"$detail_clean_dark_text",
+ "$detail_clean_dark_help",
+ sr_cleanDark);
+
+// The arena's look as one choice of three, over the two switches it is saved
+// as. Choosing the classic grid leaves the clean arena's light or dark as it
+// was, for when it is chosen again.
+class gArenaLookItem: public uMenuItemSelection<int>
+{
+    int look_;
+
+    void Apply()
+    {
+        sr_cleanArena = look_ != 0;
+        if ( look_ )
+            sr_cleanDark = look_ == 2;
+    }
+public:
+    gArenaLookItem( uMenu * m )
+            :uMenuItemSelection<int>( m, "$rcl_arena_text", "$rcl_arena_help", look_ )
+            ,look_( sr_CleanArenaLook() )
+    {
+        NewChoice( "$rcl_arena_light_text", "$rcl_arena_light_help", 1 );
+        NewChoice( "$rcl_arena_dark_text", "$rcl_arena_dark_help", 2 );
+        NewChoice( "$rcl_arena_classic_text", "$rcl_arena_classic_help", 0 );
+    }
+
+    virtual void LeftRight( int lr )
+    {
+        uMenuItemSelection<int>::LeftRight( lr );
+        Apply();
+    }
+
+    virtual void Render( REAL x, REAL y, REAL alpha = 1, bool selected = 0 )
+    {
+        look_ = sr_CleanArenaLook();
+        uMenuItemSelection<int>::Render( x, y, alpha, selected );
+    }
+};
+
 static uMenuItemToggle fs_dither
 (&screen_menu_detail,"$detail_dither_text",
  "$detail_dither_help",
@@ -1477,10 +1518,7 @@ void sg_RclDisplayPage()
     mirror.NewChoice("$detail_floor_mirror_ow_text","$detail_floor_mirror_ow_help",rMIRROR_WALLS);
     mirror.NewChoice("$detail_floor_mirror_ev_text","$detail_floor_mirror_ev_help",rMIRROR_ALL);
 
-    uMenuItemToggle arena
-    (&menu,"$rcl_pale_arena_text",
-     "$detail_clean_arena_help",
-     sr_cleanArena);
+    gArenaLookItem arena( &menu );
 
     uMenuItemSelection<int> aa
     (&menu,

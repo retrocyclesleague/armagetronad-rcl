@@ -28,6 +28,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "eTeam.h"
 #include "tMemManager.h"
 #include "ePlayer.h"
+#include "eRclBoard.h"
+#include "eRclScoreboard.h"
 //#include "tInitExit.h"
 #include "tConfiguration.h"
 #include "eNetGameObject.h"
@@ -7080,6 +7082,9 @@ bool ePlayerNetID::ClearToTransmit(int user) const
 
 ePlayerNetID::~ePlayerNetID()
 {
+    // what the server kept for the scoreboard about this player goes with them
+    eRclBoard::Forget( this );
+
     // se_PlayerNetIDs.Remove(this,listID);
     if ( sn_GetNetState() == nSERVER && disconnected )
     {
@@ -9084,6 +9089,10 @@ void ePlayerNetID::DisplayScores()
     se_alreadyDisplayedScores = true;
 
     sr_ResetRenderState(true);
+
+    // the panel, unless it is switched off; then the text table below
+    if ( eRclScoreboard::Render() )
+        return;
 
     REAL W=sr_screenWidth;
     REAL H=sr_screenHeight;

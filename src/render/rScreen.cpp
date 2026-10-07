@@ -1077,15 +1077,29 @@ int sr_floorMirror=0;
 
 bool sr_cleanArena=true;
 static tConfItem<bool> sr_cleanArenaConf("RCL_CLEAN_ARENA", sr_cleanArena);
-const REAL sr_cleanFloorColor[3]  = { .694f, .753f, .804f };
+bool sr_cleanDark=false;
+static tConfItem<bool> sr_cleanDarkConf("RCL_ARENA_DARK", sr_cleanDark);
 const REAL sr_cleanShadowColor[3] = { .20f, .27f, .36f };
 bool sr_cleanInk=false;
+
+int sr_CleanArenaLook()
+{
+    return sr_cleanArena ? ( sr_cleanDark ? 2 : 1 ) : 0;
+}
+
+REAL const * sr_CleanFloorColor()
+{
+    static const REAL pale[3] = { .694f, .753f, .804f };
+    static const REAL dark[3] = { 0, 0, 0 };
+    return sr_cleanDark ? dark : pale;
+}
 
 static double sr_cleanArenaLastDrawn = -100;
 
 void sr_CleanArenaDrawn()
 {
-    sr_cleanInk = true;
+    // light text stays light on the dark floor
+    sr_cleanInk = !sr_cleanDark;
     sr_cleanArenaLastDrawn = tSysTimeFloat();
 }
 
@@ -1110,6 +1124,23 @@ void sr_CleanPaint( REAL & r, REAL & g, REAL & b )
     REAL low = r < g ? r : g;
     if ( b < low ) low = b;
     if ( low < 0 ) low = 0;
+
+    if ( sr_cleanDark )
+    {
+        // On black a colour is a light and is left as it is, except where so
+        // little of it would show that a wall could be missed: that is
+        // brought up towards white, which keeps its hue.
+        static const REAL least = .22f;
+        REAL const seen = .299f * r + .587f * g + .114f * b;
+        if ( seen < least )
+        {
+            REAL const lift = ( least - seen ) / ( 1 - seen );
+            r += ( 1 - r ) * lift;
+            g += ( 1 - g ) * lift;
+            b += ( 1 - b ) * lift;
+        }
+        return;
+    }
 
     // no fuller and no brighter than paint in daylight gets
     static const REAL fullest = .66f, brightest = .77f;

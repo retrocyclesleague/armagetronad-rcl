@@ -225,9 +225,32 @@ the pages it always had.
 
 Escape goes back; on the main menu it first moves to quit.
 
-Not yet in this system: the scoreboard, the HUD's layout (only its font),
-connection and loading screens, the first-run setup, a dedicated camera page,
-and distinct empty/loading/error states in the server browser.
+The scoreboard (`eRclScoreboard`, engine layer; the scores key or the end of
+a round shows it) is a panel drawn with the same theme, 600 logical pixels
+wide so a portrait capture of the window keeps all of it. Top to bottom: the
+server's name as the server gives it (or "Local game"), the round's clock, the
+map's name taken from its resource path, how many play and how many watch;
+then each team as a band in its colour with its score large and how many of
+it are alive; then its players by score, each with a square in their colour
+(filled while alive, an outline once out), name, score and ping, "typing"
+while they chat, and the local player's row outlined in the accent; then who
+watches. Where nobody shares a team the bands are left out and players are
+numbered. Rows close up and then are left out ("and 3 more") before the panel
+outgrows the window. `RCL_SCOREBOARD 0` brings the text table back.
+
+Of its own accord a server sends names, colours, teams, scores, pings and who
+is alive: no kills or deaths, no score or round limit, no round number and no
+mode. Whatever else is to be on the board, the server says (`eRclBoard`,
+`docs/SCOREBOARD_DATA.md`): a title that becomes the headline, facts shown on
+plates under it, a note under the list, and columns of its own between score
+and ping with a value in each for every player. A server or its mode's script
+sets them with `RCL_BOARD_*` console commands; they travel as one kind of
+message that clients without it drop silently. With more than two such
+columns the panel grows wider than a portrait capture keeps.
+
+Not yet in this system: the HUD's layout (only its font), connection and
+loading screens, the first-run setup, a dedicated camera page, and distinct
+empty/loading/error states in the server browser.
 
 Future queue polling, match-pop overlays, and automatic match handoff may use a
 reviewed installation-scoped HTTPS session. Browser enrollment and OS credential

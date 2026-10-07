@@ -126,6 +126,14 @@ namespace uRclTheme
     int Paragraph( REAL x, REAL top, REAL width, REAL sizePx, int weight, Color const & color,
                    REAL alpha, char const * text, int maxLines = 0, int firstLine = 0 );
 
+    // ---- plain shapes, for panels drawn outside a menu ----
+    //! a filled rectangle on whole pixels, in field coordinates
+    void FillRect( REAL left, REAL top, REAL right, REAL bottom, Color const & color, REAL alpha,
+                   REAL radiusPx = 0 );
+    //! a rectangle's outline, drawn inside it, in real pixels thick
+    void FrameRect( REAL left, REAL top, REAL right, REAL bottom, int pixels, Color const & color,
+                    REAL alpha );
+
     // ---- drawing a menu frame, in this order ----
     void NoteSceneBehind();     //!< a live scene (game or replay) was drawn behind the menu this frame
     void DrawBackground( REAL alpha );

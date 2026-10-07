@@ -48,6 +48,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "rModel.h"
 #include "uInput.h"
 #include "ePlayer.h"
+#include "eRclScoreboard.h"
 #include "gArena.h"
 #include "gSpawn.h"
 #include "uInput.h"
@@ -126,6 +127,9 @@ static nSettingItem<tString> conf_mapuri("MAP_URI",mapuri);
 
 #define DEFAULT_MAP "Anonymous/polygon/regular/square-1.0.1.aamap.xml"
 tString mapfile(DEFAULT_MAP);
+
+// the server being played on as it names itself, for the scoreboard
+static tString sg_rclScoreboardServer;
 
 static bool sg_waitForExternalScript = false;
 static tSettingItem< bool > sg_waitForExternalScriptConf( "WAIT_FOR_EXTERNAL_SCRIPT", sg_waitForExternalScript );
@@ -2175,6 +2179,7 @@ void RenderAllViewports(eGrid *grid){
     }
 
     // render the console and scores so it appears behind the global HUD
+    eRclScoreboard::SetContext( sg_rclScoreboardServer, mapfile );
     ePlayerNetID::DisplayScores();
 
     // Over the pale arena the console is written in ink. Under a menu that
@@ -2901,6 +2906,7 @@ bool ConnectToServerCore(nServerInfoBase *server)
 #ifndef DEDICATED
     sg_rclLag.Connected( server->GetName() );
 #endif
+    sg_rclScoreboardServer = server->GetName();
     error = server->Connect();
 
     switch (error)
@@ -2958,6 +2964,7 @@ bool ConnectToServerCore(nServerInfoBase *server)
     bool ret = true;
 
     sn_SetNetState(nSTANDALONE);
+    sg_rclScoreboardServer = "";
 
     sg_currentGame = NULL;
     nNetObject::ClearAll();

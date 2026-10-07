@@ -143,12 +143,22 @@ extern int sr_floorMirror;
 // under a low sun, with solid trails that cast long soft shadows.
 extern bool sr_cleanArena;
 extern int sr_antialias;                   //!< multisample count, applied at display init
-extern const REAL sr_cleanFloorColor[3];   //!< floor at the viewer's feet; also what the floor mirrors where nothing stands
-extern const REAL sr_cleanShadowColor[3];  //!< shadows on the floor
+
+// The clean arena at night: the same open floor and solid trails on pure
+// black. No sky, no sun and so no shadows; text stays light.
+extern bool sr_cleanDark;
+
+//! which arena is drawn: 0 the classic grid, 1 the pale clean arena, 2 the dark one.
+//! Whatever caches drawing of one look compares this.
+int sr_CleanArenaLook();
+
+//! floor at the viewer's feet; also what the floor mirrors where nothing stands
+REAL const * sr_CleanFloorColor();
+extern const REAL sr_cleanShadowColor[3];  //!< shadows on the pale floor; the dark one has none
 
 //! True while what is drawn lies straight on the clean arena's pale floor and
 //! sky, until something covers them (a menu) or the frame ends. Text drawn
-//! meanwhile has its light colours darkened to ink.
+//! meanwhile has its light colours darkened to ink. Never set in the dark one.
 extern bool sr_cleanInk;
 
 //! says that the clean arena is being drawn into the current frame
@@ -162,7 +172,8 @@ void sr_CleanInk( REAL & r, REAL & g, REAL & b );
 
 //! The colour a player's or a zone's own colour takes in the clean arena:
 //! with the glare taken out, so it sits on the pale floor like paint rather
-//! than like light.
+//! than like light. On the dark floor it stays a light, and one too dim to
+//! see there is brought up.
 void sr_CleanPaint( REAL & r, REAL & g, REAL & b );
 
 #define rFLOOR_OFF        0

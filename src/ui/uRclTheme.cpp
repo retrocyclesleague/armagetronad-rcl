@@ -401,6 +401,18 @@ namespace uRclTheme
         }
     }
 
+    void FillRect( REAL left, REAL top, REAL right, REAL bottom, Color const & color, REAL alpha,
+                   REAL radiusPx )
+    {
+        Rect( left, top, right, bottom, color, alpha, radiusPx );
+    }
+
+    void FrameRect( REAL left, REAL top, REAL right, REAL bottom, int pixels, Color const & color,
+                    REAL alpha )
+    {
+        Frame( left, top, right, bottom, pixels, color, alpha );
+    }
+
     // ---------------------------------------------------------------- text
 
     REAL TextWidth( char const * text, REAL sizePx, int weight, REAL tracking )
@@ -930,6 +942,8 @@ namespace uRclTheme
 
 #else   // DEDICATED: there is no interface to draw
 
+    void FillRect( REAL, REAL, REAL, REAL, Color const &, REAL, REAL ) {}
+    void FrameRect( REAL, REAL, REAL, REAL, int, Color const &, REAL ) {}
     void Text( REAL, REAL, REAL, int, Color const &, REAL, char const *, int, REAL, REAL ) {}
     REAL TextWidth( char const *, REAL, int, REAL ) { return 0; }
     int Paragraph( REAL, REAL, REAL, REAL, int, Color const &, REAL, char const *, int, int ) { return 0; }

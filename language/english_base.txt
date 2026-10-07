@@ -2585,7 +2585,14 @@ rcl_cycle_keys_text            Cycle Keys
 rcl_camera_keys_text           Camera Keys
 rcl_general_keys_text          General Keys
 rcl_instant_chat_text          Instant Chat
-rcl_pale_arena_text            Pale Arena:
+rcl_arena_text                 Arena:
+rcl_arena_help                 What the arena looks like.
+rcl_arena_light_text           Light
+rcl_arena_light_help           A pale, glossy open floor under a low sun. Solid trails with long soft shadows.
+rcl_arena_dark_text            Dark
+rcl_arena_dark_help            The same open floor and solid trails on pure black. No sky, no sun, no shadows.
+rcl_arena_classic_text         Classic grid
+rcl_arena_classic_help         The original dark grid arena with rim walls and glowing trails.
 rcl_reflections_text           Reflections:
 rcl_all_players_text           All Player Options
 rcl_all_players_help           Players 2 to 4 and split screen; team, spectator mode and identity for each player.
@@ -4255,4 +4262,13 @@ detail_antialias_on_help       Samples per pixel. Higher is smoother and costs m
 detail_clean_arena_text        Clean Arena:
 detail_clean_arena_help        A pale, glossy open floor under a low sun: no grid and no rim walls, solid trails that cast long soft shadows. Off restores the dark grid arena.
 rcl_clean_arena_help           Clean arena look: pale open floor, solid trails and soft shadows.
+rcl_scoreboard_help            Shows the scores as a panel: the server and map, each team with its score, and every player with score, ping and whether they are alive. Off brings the plain text table back.
+rcl_board_title_help           Scoreboard: what is played here, in the server's words, shown as the board's headline on RCL clients. Example: RCL_BOARD_TITLE Fortress
+rcl_board_info_help            Scoreboard: facts about the match, separated by commas, each shown on a plate of its own under the headline. Example: RCL_BOARD_INFO round 3 of 10, first to 100
+rcl_board_note_help            Scoreboard: one line of text shown under the list of players.
+rcl_board_columns_help         Scoreboard: the headings of the server's own columns, separated by commas (up to 5 are shown). The values come from RCL_BOARD_PLAYER. Example: RCL_BOARD_COLUMNS kills, deaths
+rcl_board_player_help          Scoreboard: sets a player's values for the server's own columns, in the order of RCL_BOARD_COLUMNS. Usage: RCL_BOARD_PLAYER <player> <value>, <value>, ...
+rcl_board_clear_help           Scoreboard: forgets every player's values set with RCL_BOARD_PLAYER.
+detail_clean_dark_text         Dark Clean Arena:
+detail_clean_dark_help         Draws the clean arena on pure black: no sky, no sun and no shadows, and text stays light. Does nothing while the clean arena is off.
 rcl_ui_font_help               Draw text with the Space Grotesk interface font. Off falls back to the classic fixed-width font.
