@@ -144,8 +144,9 @@ extern int sr_floorMirror;
 extern bool sr_cleanArena;
 extern int sr_antialias;                   //!< multisample count, applied at display init
 
-// The clean arena at night: the same open floor and solid trails on pure
-// black. No sky, no sun and so no shadows; text stays light.
+// The clean arena at night: the same open floor, solid trails and long
+// shadows under a low moon instead of the sun. The floor is a dark slate that
+// lifts towards a dim horizon, the sky goes black overhead; text stays light.
 extern bool sr_cleanDark;
 
 //! which arena is drawn: 0 the classic grid, 1 the pale clean arena, 2 the dark one.
@@ -154,7 +155,8 @@ int sr_CleanArenaLook();
 
 //! floor at the viewer's feet; also what the floor mirrors where nothing stands
 REAL const * sr_CleanFloorColor();
-extern const REAL sr_cleanShadowColor[3];  //!< shadows on the pale floor; the dark one has none
+REAL const * sr_CleanShadowColor();          //!< shadows on the floor
+REAL sr_CleanShadowStrength();              //!< how much more of a shadow the look needs than the pale arena's
 
 //! True while what is drawn lies straight on the clean arena's pale floor and
 //! sky, until something covers them (a menu) or the frame ends. Text drawn

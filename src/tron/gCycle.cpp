@@ -4861,12 +4861,8 @@ static void sg_RenderCleanWalls( eCamera const * camera, gNetPlayerWall * list, 
     {
         // shadows and the walls' sheen must not hide anything drawn later
         glDepthMask( GL_FALSE );
-        if ( !sr_cleanDark )
-        {
-            // nothing lights the dark arena from the side
-            sg_RenderWallOverlay( camera, list, cached, gNetPlayerWall::gWallRenderMode_Shadow );
-            RenderEnd();
-        }
+        sg_RenderWallOverlay( camera, list, cached, gNetPlayerWall::gWallRenderMode_Shadow );
+        RenderEnd();
         sg_RenderWallOverlay( camera, list, cached, gNetPlayerWall::gWallRenderMode_Sheen );
         RenderEnd();
     }
@@ -5533,7 +5529,7 @@ void gCycle::Render(const eCamera *cam){
         {
             // The clean arena's sun stands low: the cycle's shadow is a soft
             // patch that reaches away from it, like those of the walls.
-            if ( !blinking && sr_alphaBlend && !sr_cleanDark && ( !cam || cam->RenderingMain() ) )
+            if ( !blinking && sr_alphaBlend && ( !cam || cam->RenderingMain() ) )
             {
                 eCoord toSun;
                 REAL reach;
@@ -5552,9 +5548,12 @@ void gCycle::Render(const eCamera *cam){
                 glDisable(GL_CULL_FACE);
                 glDepthMask(GL_FALSE);
                 BeginTriangleFan();
-                glColor4f( sr_cleanShadowColor[0], sr_cleanShadowColor[1], sr_cleanShadowColor[2], .30f );
+                REAL const * const shade = sr_CleanShadowColor();
+                REAL depth = .30f * sr_CleanShadowStrength();
+                if ( depth > .85f ) depth = .85f;
+                glColor4f( shade[0], shade[1], shade[2], depth );
                 glVertex3f( centre.x, centre.y, .03f );
-                glColor4f( sr_cleanShadowColor[0], sr_cleanShadowColor[1], sr_cleanShadowColor[2], 0 );
+                glColor4f( shade[0], shade[1], shade[2], 0 );
                 static const int segments = 20;
                 for ( int i = 0; i <= segments; ++i )
                 {

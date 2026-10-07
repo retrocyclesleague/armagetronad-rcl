@@ -448,10 +448,16 @@ void se_CleanArenaSky( eCoord const & eye, REAL eyeHeight )
     static const int segments = 24;
     static const int rings = 11;
     static const REAL elevation[rings] = { -.5f, 0, 1, 2.5f, 6.5f, 8.5f, 10.5f, 12.5f, 20, 40, 90 };
-    static const unsigned char colour[rings][3] = {
+    static const unsigned char day[rings][3] = {
         { 212, 211, 213 }, { 212, 211, 213 }, { 215, 212, 214 }, { 219, 214, 215 },
         { 219, 214, 215 }, { 211, 213, 215 }, { 203, 212, 215 }, { 193, 210, 214 },
         { 184, 205, 213 }, { 174, 198, 211 }, { 166, 193, 210 } };
+    // night: a dim glow along the horizon that is gone a hand's width up
+    static const unsigned char night[rings][3] = {
+        { 40, 46, 58 }, { 40, 46, 58 }, { 42, 48, 61 }, { 44, 50, 64 },
+        { 40, 47, 61 }, { 34, 41, 55 }, { 29, 35, 48 }, { 24, 30, 42 },
+        { 16, 20, 30 }, { 9, 11, 17 }, { 4, 5, 8 } };
+    unsigned char const (* const colour)[3] = sr_cleanDark ? night : day;
 
     glDisable(GL_TEXTURE_2D);
     for ( int ring = 0; ring < rings - 1; ++ring )
@@ -482,11 +488,24 @@ void se_CleanArenaSky( eCoord const & eye, REAL eyeHeight )
 
     static const REAL haloRadius[] = { 0, 1.6f, 2.4f, 4, 7, 10, 14, 18, 24, 32 };
     static const REAL haloShare[]  = { .62f, .62f, .58f, .52f, .45f, .40f, .28f, .12f, .03f, 0 };
-    se_CleanArenaGlow( eye, eyeHeight, dx, dy, dz, haloRadius, haloShare, 10,
-                       1, .855f, .729f );
-
     static const REAL discRadius[] = { 0, 1.4f, 2.0f };
     static const REAL discShare[]  = { .95f, .95f, 0 };
+
+    if ( sr_cleanDark )
+    {
+        // the moon, where the sun would stand: a cold, thin halo and a
+        // disc that does not dazzle
+        static const REAL moonHalo[] = { .20f, .20f, .18f, .15f, .12f, .09f, .06f, .03f, .01f, 0 };
+        static const REAL moonDisc[] = { .80f, .80f, 0 };
+        se_CleanArenaGlow( eye, eyeHeight, dx, dy, dz, haloRadius, moonHalo, 10,
+                           .52f, .62f, .82f );
+        se_CleanArenaGlow( eye, eyeHeight, dx, dy, dz, discRadius, moonDisc, 3,
+                           .80f, .86f, .96f );
+        return;
+    }
+
+    se_CleanArenaGlow( eye, eyeHeight, dx, dy, dz, haloRadius, haloShare, 10,
+                       1, .855f, .729f );
     se_CleanArenaGlow( eye, eyeHeight, dx, dy, dz, discRadius, discShare, 3,
                        1, .969f, .910f );
 }
@@ -501,22 +520,22 @@ void se_CleanArenaFloor( eCoord const & centre, REAL eyeHeight, bool mirror )
     static const int segments = 48;
     static const int rings = 14;
     static const REAL radius[rings] = { 0, 1, 1.5f, 2, 3, 6, 7.6f, 10.6f, 17, 29, 57, 115, 290, 3000 };
-    static const unsigned char colour[rings][3] = {
+    static const unsigned char day[rings][3] = {
         { 177, 192, 205 }, { 177, 192, 205 }, { 177, 193, 205 }, { 178, 195, 205 },
         { 178, 198, 204 }, { 179, 200, 204 }, { 184, 201, 206 }, { 187, 202, 207 },
         { 192, 203, 208 }, { 197, 205, 209 }, { 203, 207, 211 }, { 207, 209, 212 },
         { 210, 210, 213 }, { 212, 211, 213 } };
+    // night: slate at the feet, lifting to the horizon's glow
+    static const unsigned char night[rings][3] = {
+        { 16, 19, 25 }, { 16, 19, 25 }, { 16, 19, 25 }, { 17, 20, 26 },
+        { 17, 21, 27 }, { 18, 22, 28 }, { 20, 24, 31 }, { 22, 26, 34 },
+        { 25, 30, 38 }, { 29, 34, 43 }, { 33, 38, 49 }, { 36, 42, 53 },
+        { 39, 45, 57 }, { 40, 46, 58 } };
+    unsigned char const (* const colour)[3] = sr_cleanDark ? night : day;
     static const REAL mirrored[rings] = { .30f, .30f, .30f, .30f, .30f, .24f, .20f, .15f, .08f, 0, 0, 0, 0, 0 };
 
     REAL const unit = eyeHeight > 4 ? eyeHeight : 4;
     REAL const * const floor = sr_CleanFloorColor();
-
-    // The dark floor is black as far as it goes, and so is the frame it is
-    // drawn into. It is only there to dim what it mirrors close by and to
-    // cover it further out.
-    bool const dark = sr_cleanDark;
-    if ( dark && !mirror )
-        return;
 
     glDisable(GL_TEXTURE_2D);
     for ( int ring = 0; ring < rings - 1; ++ring )
@@ -530,12 +549,6 @@ void se_CleanArenaFloor( eCoord const & centre, REAL eyeHeight, bool mirror )
             {
                 int const at = ring + edge;
                 REAL const alpha = mirror ? 1 - mirrored[at] : 1;
-                if ( dark )
-                {
-                    glColor4f( 0, 0, 0, alpha );
-                    glVertex2f( centre.x + c * radius[at] * unit, centre.y + s * radius[at] * unit );
-                    continue;
-                }
 
                 // What lies under the floor shows through by the share it
                 // mirrors; where nothing stands, that is the plain floor
@@ -565,6 +578,14 @@ void se_CleanArenaGlint( eCoord const & eye, REAL eyeHeight )
 
     static const REAL radius[] = { 0, 1.7f, 2.1f, 4, 6, 8, 10, 12, 14, 20 };
     static const REAL share[]  = { .50f, .50f, .39f, .35f, .27f, .19f, .135f, .07f, .04f, 0 };
+    if ( sr_cleanDark )
+    {
+        // the moon's: cold, and a fraction of the sun's
+        static const REAL faint[] = { .16f, .16f, .13f, .11f, .085f, .06f, .04f, .02f, .01f, 0 };
+        se_CleanArenaGlow( eye, eyeHeight, dx, dy, -dz, radius, faint, 10,
+                           .52f, .62f, .82f );
+        return;
+    }
     se_CleanArenaGlow( eye, eyeHeight, dx, dy, -dz, radius, share, 10,
                        1, .914f, .776f );
 }
@@ -608,9 +629,8 @@ void eGrid::display_simple( eCamera* cam, int viewer,bool floor,
     eCoord camPos = cam->CameraGlancePos();
     // eWallRim::Bound( camPos, 10 );
 
-    // the mirrored pass leaves the cleared floor colour as its backdrop;
-    // the dark arena's sky is the cleared frame
-    if ( sr_cleanArena && !sr_cleanDark && cam->RenderingMain() )
+    // the mirrored pass leaves the cleared floor colour as its backdrop
+    if ( sr_cleanArena && cam->RenderingMain() )
         se_CleanArenaSky( camPos, cam->CameraZ() );
 
     if (!sr_cleanArena && (sr_upperSky || se_BlackSky())){
@@ -658,7 +678,7 @@ void eGrid::display_simple( eCamera* cam, int viewer,bool floor,
         {
             // one pale, glossy floor to the horizon; no grid, no texture
             se_CleanArenaFloor( camPos, cam->CameraZ(), sr_alphaBlend && flooralpha < 1 );
-            if ( sr_alphaBlend && !sr_cleanDark )
+            if ( sr_alphaBlend )
                 se_CleanArenaGlint( camPos, cam->CameraZ() );
             floorDetail = rFLOOR_OFF;
         }

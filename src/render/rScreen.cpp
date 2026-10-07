@@ -1079,7 +1079,6 @@ bool sr_cleanArena=true;
 static tConfItem<bool> sr_cleanArenaConf("RCL_CLEAN_ARENA", sr_cleanArena);
 bool sr_cleanDark=false;
 static tConfItem<bool> sr_cleanDarkConf("RCL_ARENA_DARK", sr_cleanDark);
-const REAL sr_cleanShadowColor[3] = { .20f, .27f, .36f };
 bool sr_cleanInk=false;
 
 int sr_CleanArenaLook()
@@ -1090,8 +1089,22 @@ int sr_CleanArenaLook()
 REAL const * sr_CleanFloorColor()
 {
     static const REAL pale[3] = { .694f, .753f, .804f };
+    static const REAL dark[3] = { .063f, .075f, .098f };    // 16, 19, 25: slate, not black
+    return sr_cleanDark ? dark : pale;
+}
+
+REAL const * sr_CleanShadowColor()
+{
+    static const REAL pale[3] = { .20f, .27f, .36f };
     static const REAL dark[3] = { 0, 0, 0 };
     return sr_cleanDark ? dark : pale;
+}
+
+REAL sr_CleanShadowStrength()
+{
+    // There is little to take away from a floor that dark; a shadow has to
+    // take most of it to be seen at all.
+    return sr_cleanDark ? 3.4f : 1;
 }
 
 static double sr_cleanArenaLastDrawn = -100;

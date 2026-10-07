@@ -987,10 +987,11 @@ void sg_CleanShadow( const eCoord &p1, const eCoord &p2, REAL h1, REAL h2, REAL 
     eCoord const o1 = toSun * ( -reach * h1 ), o2 = toSun * ( -reach * h2 );
     eCoord const c1 = p1 + o1 * sg_cleanShadowCore, c2 = p2 + o2 * sg_cleanShadowCore;
     eCoord const e1 = p1 + o1, e2 = p2 + o2;
-    REAL const a = sg_cleanShadowAlpha * alpha;
+    REAL const a = sg_cleanShadowAlpha * sr_CleanShadowStrength() * alpha;
+    REAL const * const shade = sr_CleanShadowColor();
 
     // even over most of its reach, thinning out towards the far edge
-    glColor4f( sr_cleanShadowColor[0], sr_cleanShadowColor[1], sr_cleanShadowColor[2], a );
+    glColor4f( shade[0], shade[1], shade[2], a );
     glVertex3f( p1.x, p1.y, sg_cleanShadowRise );
     glVertex3f( p2.x, p2.y, sg_cleanShadowRise );
     glVertex3f( c2.x, c2.y, sg_cleanShadowRise );
@@ -998,7 +999,7 @@ void sg_CleanShadow( const eCoord &p1, const eCoord &p2, REAL h1, REAL h2, REAL 
 
     glVertex3f( c1.x, c1.y, sg_cleanShadowRise );
     glVertex3f( c2.x, c2.y, sg_cleanShadowRise );
-    glColor4f( sr_cleanShadowColor[0], sr_cleanShadowColor[1], sr_cleanShadowColor[2], 0 );
+    glColor4f( shade[0], shade[1], shade[2], 0 );
     glVertex3f( e2.x, e2.y, sg_cleanShadowRise );
     glVertex3f( e1.x, e1.y, sg_cleanShadowRise );
 }
@@ -1117,8 +1118,8 @@ void sg_CleanTip( gCleanTipPoint * point, int points, REAL r, REAL g, REAL b, RE
         eCoord toSun;
         REAL reach;
         se_CleanArenaSun( toSun, reach );
-        REAL const a = sg_cleanShadowAlpha * alpha;
-        REAL const * const c = sr_cleanShadowColor;
+        REAL const a = sg_cleanShadowAlpha * sr_CleanShadowStrength() * alpha;
+        REAL const * const c = sr_CleanShadowColor();
         for ( int i = 0; i + 1 < points; ++i )
         {
             gCleanTipPoint const & p = point[i];
