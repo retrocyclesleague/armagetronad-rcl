@@ -27,13 +27,18 @@ Workflow: `.github/workflows/build-client.yml`
 
 Manual dispatch: Actions → **build-client** → Run workflow.
 
+For the current Windows product line on macOS, use `rcl/ui-brief` and follow
+[macOS release instructions](MACOS_RELEASE.md). Developer ID signing and Apple
+notarization require the documented certificate and credentials; branch artifacts
+are explicitly marked `-adhoc` development builds.
+
 ## Local build
 
 ```bash
 # macOS
 bash build-macos.sh
 CLIENT_BIN=src/armagetronad_main bash scripts/smoke-client.sh
-bash scripts/package-macos-app.sh
+bash scripts/package-macos-app.sh --adhoc
 # Run: dist/Retrocycles RCL.app
 
 # Linux

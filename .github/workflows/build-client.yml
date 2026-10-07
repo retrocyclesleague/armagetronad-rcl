@@ -7,6 +7,11 @@ on:
   pull_request:
     branches: [main, 'hack-0.2.8-sty\+ct\+ap', "rcl/**"]
   workflow_dispatch:
+    inputs:
+      sign_macos:
+        description: 'Developer ID sign and notarize macOS (Apple secrets required)'
+        type: boolean
+        default: false
 
 jobs:
   validate-ref:
@@ -44,19 +49,34 @@ jobs:
             EXPECTED_VERSION="$EXPECTED_VERSION" \
             bash scripts/smoke-client.sh
 
-      - name: Package macOS app
+      - name: Package macOS development app
+        if: github.ref_type != 'tag' && !inputs.sign_macos
         run: |
           VERSION="$(sh batch/make/version .)"
           bash scripts/package-macos-app.sh \
+            --adhoc \
             --binary src/armagetronad_main \
             --version "$VERSION" \
             --bundle-build "$GITHUB_RUN_NUMBER" \
             --out-dir dist
 
+      - name: Sign and notarize macOS release
+        if: github.ref_type == 'tag' || inputs.sign_macos
+        env:
+          RCL_CERTIFICATE_P12: ${{ secrets.RCL_MACOS_CERTIFICATE_P12 }}
+          RCL_CERTIFICATE_PASSWORD: ${{ secrets.RCL_MACOS_CERTIFICATE_PASSWORD }}
+          RCL_SIGNING_IDENTITY: ${{ secrets.RCL_MACOS_SIGNING_IDENTITY }}
+          RCL_APPLE_ID: ${{ secrets.RCL_APPLE_ID }}
+          RCL_APPLE_TEAM_ID: ${{ secrets.RCL_APPLE_TEAM_ID }}
+          RCL_APPLE_APP_PASSWORD: ${{ secrets.RCL_APPLE_APP_PASSWORD }}
+        run: bash scripts/ci-sign-macos.sh
+
       - uses: actions/upload-artifact@v4
         with:
           name: client-macos-arm64
-          path: dist/Retrocycles-RCL-*-macos-arm64.zip*
+          path: |
+            dist/Retrocycles-RCL-*-macos-arm64*.zip*
+            dist/notary-result.json
 
   build-linux:
     needs: validate-ref

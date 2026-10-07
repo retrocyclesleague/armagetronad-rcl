@@ -3,7 +3,7 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 [--binary PATH] [--out-dir DIR] [--version VERSION] [--bundle-build NUMBER]" >&2
+  echo "Usage: $0 [--binary PATH] [--out-dir DIR] [--version VERSION] [--bundle-build NUMBER] [--adhoc | --sign | --notarize]" >&2
   exit 1
 }
 
@@ -12,9 +12,14 @@ BINARY="${ROOT}/src/armagetronad_main"
 OUT_DIR="${ROOT}/dist"
 VERSION=""
 BUNDLE_BUILD=""
+ADHOC=true
+NOTARIZE=false
 
 while test $# -gt 0; do
   case "$1" in
+    --adhoc) ADHOC=true; shift ;;
+    --sign) ADHOC=false; shift ;;
+    --notarize) NOTARIZE=true; ADHOC=false; shift ;;
     --binary) BINARY="$2"; shift 2 ;;
     --out-dir) OUT_DIR="$2"; shift 2 ;;
     --version) VERSION="$2"; shift 2 ;;
@@ -28,7 +33,7 @@ if test ! -x "$BINARY"; then
   exit 1
 fi
 if test -z "$VERSION"; then
-  VERSION="$(tr -d '\n' < "${ROOT}/major_version")"
+  VERSION="$(sh "${ROOT}/batch/make/version" "$ROOT")"
 fi
 case "$VERSION" in
   ''|*[!0-9A-Za-z.+_-]*)
@@ -36,6 +41,10 @@ case "$VERSION" in
     exit 1
     ;;
 esac
+
+if ! strings "$BINARY" | grep -F -- "$VERSION" >/dev/null; then
+  echo "Build ID mismatch: binary does not contain $VERSION. Rebuild before packaging." >&2; exit 1
+fi
 
 BUNDLE_SHORT_VERSION="$(printf '%s\n' "$VERSION" | sed -nE 's/^([0-9]+\.[0-9]+\.[0-9]+).*$/\1/p')"
 if test -z "$BUNDLE_SHORT_VERSION"; then
@@ -56,39 +65,34 @@ case "$BUNDLE_BUILD" in
 esac
 
 SOURCE_REPOSITORY="https://github.com/retrocyclesleague/armagetronad-rcl"
-SOURCE_REVISION="${RCL_SOURCE_REF:-${GITHUB_SHA:-}}"
-if test -z "$SOURCE_REVISION" && command -v git >/dev/null 2>&1; then
-  if test -n "$(git -C "$ROOT" status --porcelain --untracked-files=normal 2>/dev/null)"; then
-    echo "error: refusing to label a dirty tree as exact corresponding source; commit it or set RCL_SOURCE_REF" >&2
-    exit 1
-  fi
-  SOURCE_REVISION="$(git -C "$ROOT" rev-parse --verify HEAD 2>/dev/null || true)"
+SOURCE_REVISION="$(git -C "$ROOT" rev-parse HEAD)"
+DIRTY="$(git -C "$ROOT" status --porcelain --untracked-files=normal)"
+if ! $ADHOC && test -n "$DIRTY"; then
+  echo 'Developer ID packaging requires committed source.' >&2; exit 1
 fi
-if test -z "$SOURCE_REVISION"; then
-  echo "error: exact source revision unavailable; set RCL_SOURCE_REF to the published commit or tag" >&2
-  exit 1
-fi
-case "$SOURCE_REVISION" in
-  *[!0-9A-Za-z._/+:-]*)
-    echo "error: source revision contains characters unsafe for Info.plist: $SOURCE_REVISION" >&2
-    exit 1
-    ;;
-esac
-SOURCE_URL="${SOURCE_REPOSITORY}/tree/${SOURCE_REVISION}"
-
-SDL_IMAGE="${ROOT}/_deps/lib/libSDL_image-1.2.0.dylib"
-SDL_COMPAT="/opt/homebrew/opt/sdl12-compat/lib/libSDL-1.2.0.dylib"
-SDL2="/opt/homebrew/opt/sdl2/lib/libSDL2-2.0.0.dylib"
-LIBPNG="/opt/homebrew/opt/libpng/lib/libpng16.16.dylib"
-ICON="${ROOT}/MacOS/Armagetron Advanced.icns"
-
-for dependency in "$SDL_IMAGE" "$SDL_COMPAT" "$SDL2" "$LIBPNG" "$ICON"; do
-  if test ! -f "$dependency"; then
-    echo "error: required macOS bundle dependency not found: $dependency" >&2
+ARCH="$(lipo -archs "$BINARY")"
+case "$ARCH" in arm64|x86_64) ;; *) echo 'Build a single architecture; universal packaging is not supported yet.' >&2; exit 1;; esac
+FINAL_APP="${OUT_DIR}/Retrocycles RCL.app"
+SUFFIX=""
+if $ADHOC; then SUFFIX=-adhoc; fi
+ARCHIVE="${OUT_DIR}/Retrocycles-RCL-${VERSION}-macos-${ARCH}${SUFFIX}.zip"
+for output in "$FINAL_APP" "$ARCHIVE" "${ARCHIVE}.sha256" "$OUT_DIR/notary-result.json"; do
+  if test -e "$output"; then
+    echo "error: output already exists; choose a fresh output directory: $output" >&2
     exit 1
   fi
 done
+if $NOTARIZE; then
+  ! $ADHOC || { echo 'Ad-hoc builds cannot be notarized.' >&2; exit 1; }
+  : "${RCL_NOTARY_PROFILE:?Set a notarytool keychain profile}"
+fi
+SOURCE_URL="${SOURCE_REPOSITORY}/tree/${SOURCE_REVISION}"
 
+BREW_PREFIX="$(brew --prefix)"
+SDL2="$(brew --prefix sdl2)/lib/libSDL2-2.0.0.dylib"
+# Existing Macs may retain classic SDL2 under its former Homebrew formula.
+test -f "$SDL2" || SDL2="$BREW_PREFIX/opt/sdl2/lib/libSDL2-2.0.0.dylib"
+ICON="${ROOT}/resources/brand/rcl.icns"
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
 
@@ -98,15 +102,11 @@ MACOS="${CONTENTS}/MacOS"
 FRAMEWORKS="${CONTENTS}/Frameworks"
 RESOURCES="${CONTENTS}/Resources"
 DOCUMENTATION="${RESOURCES}/Documentation"
-FINAL_APP="${OUT_DIR}/Retrocycles RCL.app"
 mkdir -p "$MACOS" "$FRAMEWORKS" "$RESOURCES" "$DOCUMENTATION"
 
 cp "$BINARY" "${MACOS}/armagetronad"
 chmod +x "${MACOS}/armagetronad"
-cp "$SDL_IMAGE" "${FRAMEWORKS}/libSDL_image-1.2.0.dylib"
-cp "$SDL_COMPAT" "${FRAMEWORKS}/libSDL-1.2.0.dylib"
-cp "$SDL2" "${FRAMEWORKS}/libSDL2-2.0.0.dylib"
-cp "$LIBPNG" "${FRAMEWORKS}/libpng16.16.dylib"
+python3 "$ROOT/scripts/bundle-macos-libs.py" "${MACOS}/armagetronad" "$FRAMEWORKS" "$SDL2"
 cp "$ICON" "${RESOURCES}/Retrocycles RCL.icns"
 
 for document in COPYING.txt README-RCL.md THIRD_PARTY_NOTICES.md; do
@@ -120,7 +120,7 @@ done
 cat > "${DOCUMENTATION}/SOURCE_INFO.txt" <<EOF
 Retrocycles RCL build ID: ${VERSION}
 Source repository: ${SOURCE_REPOSITORY}
-Exact source revision: ${SOURCE_REVISION}
+Source base revision: ${SOURCE_REVISION}
 Corresponding source: ${SOURCE_URL}
 EOF
 
@@ -136,7 +136,8 @@ for required_file in \
   models/cycle_body.mod \
   resource/included/map.dtd \
   sound/cyclrun.wav \
-  textures/font_rcl.png \
+  textures/ui/space-grotesk.fnt \
+  replays/menu_fort.rclreplay \
   textures/floor.png \
   textures/title.png; do
   if test ! -f "${RESOURCES}/${required_file}"; then
@@ -145,20 +146,8 @@ for required_file in \
   fi
 done
 
-cat > "${MACOS}/retrocycles-rcl" <<'EOF'
-#!/bin/sh
-set -eu
-RCL_CONTENTS=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-RCL_PROFILE="${HOME}/Library/Application Support/Retrocycles RCL Client"
-mkdir -p "$RCL_PROFILE"
-
-exec "${RCL_CONTENTS}/MacOS/armagetronad" \
-  --datadir "${RCL_CONTENTS}/Resources" \
-  --configdir "${RCL_CONTENTS}/Resources/config" \
-  --userdatadir "$RCL_PROFILE" \
-  "$@"
-EOF
-chmod +x "${MACOS}/retrocycles-rcl"
+clang -arch "$ARCH" -O2 -Wall -Wextra "$ROOT/scripts/macos-launcher.c" -o "${MACOS}/retrocycles-rcl"
+MINIMUM_MACOS="$(python3 "$ROOT/scripts/macos_bundle_minimum.py" "$CONTENTS")"
 
 cat > "${CONTENTS}/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -177,6 +166,7 @@ cat > "${CONTENTS}/Info.plist" <<EOF
   <key>CFBundleVersion</key><string>${BUNDLE_BUILD}</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.games</string>
   <key>NSHighResolutionCapable</key><true/>
+  <key>LSMinimumSystemVersion</key><string>${MINIMUM_MACOS}</string>
   <key>RCLBuildID</key><string>${VERSION}</string>
   <key>RCLSourceRevision</key><string>${SOURCE_REVISION}</string>
   <key>RCLSourceURL</key><string>${SOURCE_URL}</string>
@@ -184,33 +174,32 @@ cat > "${CONTENTS}/Info.plist" <<EOF
 </plist>
 EOF
 
-install_name_tool \
-  -change "$SDL_IMAGE" '@executable_path/../Frameworks/libSDL_image-1.2.0.dylib' \
-  -change "$SDL_COMPAT" '@executable_path/../Frameworks/libSDL-1.2.0.dylib' \
-  -change "$LIBPNG" '@executable_path/../Frameworks/libpng16.16.dylib' \
-  "${MACOS}/armagetronad"
-
-install_name_tool \
-  -id '@rpath/libSDL_image-1.2.0.dylib' \
-  -change "$SDL_COMPAT" '@loader_path/libSDL-1.2.0.dylib' \
-  -change "$LIBPNG" '@loader_path/libpng16.16.dylib' \
-  "${FRAMEWORKS}/libSDL_image-1.2.0.dylib"
-install_name_tool -id '@rpath/libSDL-1.2.0.dylib' \
-  "${FRAMEWORKS}/libSDL-1.2.0.dylib"
-install_name_tool -id '@rpath/libSDL2-2.0.0.dylib' \
-  "${FRAMEWORKS}/libSDL2-2.0.0.dylib"
-install_name_tool -id '@rpath/libpng16.16.dylib' \
-  "${FRAMEWORKS}/libpng16.16.dylib"
-
-if otool -L "${MACOS}/armagetronad" "${FRAMEWORKS}"/*.dylib | \
-    grep -E '/Users/|/opt/homebrew/' >/dev/null; then
-  echo "error: bundle still contains a machine-local dynamic library path" >&2
-  otool -L "${MACOS}/armagetronad" "${FRAMEWORKS}"/*.dylib >&2
-  exit 1
+if $ADHOC; then
+  printf 'Development build; ad-hoc signature, no Apple notarization.\n' >> "$DOCUMENTATION/SOURCE_INFO.txt"
+  if test -n "$DIRTY"; then
+    printf 'Local changes present; revision identifies the base source.\n' >> "$DOCUMENTATION/SOURCE_INFO.txt"
+    git -C "$ROOT" diff --binary HEAD > "$DOCUMENTATION/LOCAL_CHANGES.patch"
+  fi
+  bash "$ROOT/scripts/sign-macos-app.sh" "$APP" --adhoc
+else
+  bash "$ROOT/scripts/sign-macos-app.sh" "$APP"
 fi
-
-codesign --force --deep --sign - "$APP"
-codesign --verify --deep --strict "$APP"
+python3 "$ROOT/scripts/verify-macos-app.py" "$APP"
+if $NOTARIZE; then
+  mkdir -p "$OUT_DIR"
+  ditto -c -k --keepParent "$APP" "$STAGE/submission.zip"
+  NOTARY_ARGS=()
+  if test -n "${RCL_NOTARY_KEYCHAIN:-}"; then NOTARY_ARGS+=(--keychain "$RCL_NOTARY_KEYCHAIN"); fi
+  xcrun notarytool submit "$STAGE/submission.zip" --keychain-profile "$RCL_NOTARY_PROFILE" "${NOTARY_ARGS[@]}" --wait --output-format json > "$OUT_DIR/notary-result.json"
+  python3 - "$OUT_DIR/notary-result.json" <<'PYNOTARY'
+import json, sys
+if json.load(open(sys.argv[1])).get('status') != 'Accepted':
+    raise SystemExit('Notarization rejected; inspect notary-result.json and retrieve submission log.')
+PYNOTARY
+  xcrun stapler staple "$APP"
+  xcrun stapler validate "$APP"
+  spctl --assess --type execute --verbose "$APP"
+fi
 plutil -lint "${CONTENTS}/Info.plist" >/dev/null
 
 mkdir -p "$OUT_DIR"
@@ -220,7 +209,6 @@ if test -e "$FINAL_APP"; then
 fi
 cp -R "$APP" "$FINAL_APP"
 
-ARCHIVE="${OUT_DIR}/Retrocycles-RCL-${VERSION}-macos-arm64.zip"
 if test -e "$ARCHIVE" || test -e "${ARCHIVE}.sha256"; then
   echo "error: output archive already exists; move or remove it first: $ARCHIVE" >&2
   exit 1
