@@ -2201,6 +2201,9 @@ sound_menu_help                Volume and sound quality.
 
 sound_menu_volume_text         Volume:
 sound_menu_volume_help         How loud the game is. 1 is the level its sounds were balanced for; 0 is silent.
+sound_menu_volume_watching_text While Watching:
+sound_menu_volume_watching_help How much of that level the game keeps while you only watch it: out of the round, or spectating. 1 is no difference, 0 is silence until you are back in.
+sound_volume_watching_help     The share of SOUND_VOLUME the game is played at while this machine's players only watch: dead for the rest of the round, or spectating. Default 0.5.
 
 sound_menu_sources_text        Sound Sources:
 sound_menu_sources_help        About how many cycles and explosions are mixed at once. With more around than that, the quietest are left out, each as a whole; what the camera follows is always heard.

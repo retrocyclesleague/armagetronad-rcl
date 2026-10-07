@@ -1492,6 +1492,11 @@ void sg_RclControlsPage()
         delete ic[i];
 }
 
+uMenuItem * sg_NewArenaLookItem( uMenu * menu )
+{
+    return tNEW( gArenaLookItem )( menu );
+}
+
 // the window, and the look and cost of the arena
 void sg_RclDisplayPage()
 {
@@ -1517,8 +1522,6 @@ void sg_RclDisplayPage()
     mirror.NewChoice("$detail_floor_mirror_obj_text","$detail_floor_mirror_obj_help",rMIRROR_OBJECTS);
     mirror.NewChoice("$detail_floor_mirror_ow_text","$detail_floor_mirror_ow_help",rMIRROR_WALLS);
     mirror.NewChoice("$detail_floor_mirror_ev_text","$detail_floor_mirror_ev_help",rMIRROR_ALL);
-
-    gArenaLookItem arena( &menu );
 
     uMenuItemSelection<int> aa
     (&menu,
@@ -1552,12 +1555,16 @@ void sg_RclDisplayPage()
      "$screen_fullscreen_help",
      currentScreensetting.fullscreen);
 
+    // first on the page: it is what most people come here for
+    gArenaLookItem arena( &menu );
+
     menu.Enter();
 }
 #else
 void sg_RclPlayerPage(){}
 void sg_RclControlsPage(){}
 void sg_RclDisplayPage(){}
+uMenuItem * sg_NewArenaLookItem( uMenu * ){ return 0; }
 #endif
 
 static uActionGlobal con_input( "CONSOLE_INPUT" );

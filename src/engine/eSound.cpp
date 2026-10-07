@@ -42,6 +42,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <string.h>
 #include <math.h>
 #include <vector>
+#include <atomic>
 #include "eGrid.h"
 #include "tException.h"
 
@@ -116,6 +117,19 @@ static tConfItem<int> ss("SOUND_SOURCES",sound_sources);
 // how loud the whole mix is; 1 is the level the sounds were balanced for
 static REAL sound_volume=1;
 static tConfItem<REAL> sv("SOUND_VOLUME",sound_volume);
+
+// The share of that level the game is played at while this machine's players
+// only watch it: dead for the rest of the round, or spectating. What happens
+// on the grid is somebody else's then, and it should not be as loud as one's
+// own cycle was.
+static REAL sound_volume_watching=.5f;
+static tConfItem<REAL> svw("SOUND_VOLUME_WATCHING",sound_volume_watching);
+static std::atomic<bool> se_watching( false );
+
+void se_SoundWatching( bool watching )
+{
+    se_watching.store( watching, std::memory_order_relaxed );
+}
 static REAL loudness_thresh=0;
 static int real_sound_sources=0;
 
@@ -314,7 +328,25 @@ void fill_audio(void *udata, Uint8 *stream, int len)
     REAL volume = sound_volume;
     if ( !( volume > 0 ) ) volume = 0;
     if ( volume > 2 ) volume = 2;
-    float const gain = 3.0f * volume;
+
+    // Down to the watching level and back in steps too small to hear, a
+    // third of a second or so for the whole way.
+    static float watchGain = 1;
+    {
+        float target = 1;
+        if ( se_watching.load( std::memory_order_relaxed ) )
+        {
+            target = sound_volume_watching;
+            if ( !( target > 0 ) ) target = 0;
+            if ( target > 1 ) target = 1;
+        }
+        float const step = .03f;
+        if ( watchGain < target )
+            watchGain = watchGain + step < target ? watchGain + step : target;
+        else if ( watchGain > target )
+            watchGain = watchGain - step > target ? watchGain - step : target;
+    }
+    float const gain = 3.0f * volume * watchGain;
 
     // onto whatever is in the stream already (music, where there is any)
     short * const out = reinterpret_cast< short * >( stream );
@@ -1339,6 +1371,11 @@ static uSelectEntry<int> be(bm_men,
                             "$sound_menu_buffer_vhigh_text",
                             "$sound_menu_buffer_vhigh_help",
                             2);
+
+static uMenuItemReal volume_watching_men
+(&Sound_menu,"$sound_menu_volume_watching_text",
+ "$sound_menu_volume_watching_help",
+ sound_volume_watching,0,1,.05f);
 
 // the last item added is the menu's first row
 static uMenuItemReal volume_men

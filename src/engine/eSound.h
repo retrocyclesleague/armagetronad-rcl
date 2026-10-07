@@ -41,6 +41,11 @@ void se_SoundExit();
 //void se_SoundLock();
 //void se_SoundUnlock();
 void se_SoundPause(bool p);
+
+//! Tells the mixer whether this machine's players are only watching the game:
+//! out of the round, or spectators. While they are, the game is played at
+//! SOUND_VOLUME_WATCHING of its level. Cheap; call it every frame.
+void se_SoundWatching( bool watching );
 void se_SoundMenu();
 
 //! locks sound while in existence.

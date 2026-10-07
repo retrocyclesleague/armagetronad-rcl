@@ -251,6 +251,17 @@ static void sg_FrameLogNote()
         }
     }
     rSysDep::FrameLogNote( time, inPlay );
+
+    // The game is quieter for whoever only watches it. Not at once: a
+    // player's own end is still theirs to hear in full. And not before a
+    // round is under way, when nobody is alive yet and the countdown is
+    // for everyone.
+    static double lastInPlay = 0;
+    double const now = tSysTimeFloat();
+    bool const round = se_mainGameTimer && time > 0 && !uMenu::MenuActive();
+    if ( inPlay || !round )
+        lastInPlay = now;
+    se_SoundWatching( round && now - lastInPlay > 1.2 );
 }
 
 static rPerFrameTask sg_frameLogNoteTask( &sg_FrameLogNote );
@@ -4153,6 +4164,9 @@ void MainMenu(bool ingame){
     // ---- settings ----
     std::vector< uMenuItem * > settingsRows;
 #ifndef DEDICATED
+    // The arena's look comes first. It is the setting people open this
+    // page for, and it was three levels down where nobody found it.
+    settingsRows.push_back( sg_NewArenaLookItem( &Settings ) );
     // who is signed in is told by the status line at the main menu's foot
     if ( !ingame )
         settingsRows.push_back( tNEW( gRclAccountItem )( &Settings ) );
