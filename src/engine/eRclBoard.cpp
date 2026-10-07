@@ -212,8 +212,16 @@ namespace eRclBoard
                 return;
             }
 
-            // says what is wrong itself if it finds nobody, or more than one
-            ePlayerNetID const * player = ePlayerNetID::FindPlayerByName( name, 0 );
+            // A script knows players by the names the ladder log gives them:
+            // that name, exactly, comes first. Then the lax search an admin
+            // typing a name expects, which says what is wrong itself if it
+            // finds nobody, or more than one.
+            ePlayerNetID const * player = 0;
+            for ( int i = se_PlayerNetIDs.Len() - 1; i >= 0 && !player; --i )
+                if ( se_PlayerNetIDs( i )->GetLogName() == name )
+                    player = se_PlayerNetIDs( i );
+            if ( !player )
+                player = ePlayerNetID::FindPlayerByName( name, 0 );
             if ( !player )
                 return;
 

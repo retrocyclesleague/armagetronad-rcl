@@ -33,11 +33,11 @@ RCL_BOARD_PLAYER Linux 3, 1, 0:42
 
 Rules:
 
-- `<player>` is one word and is found the way `KICK` finds a player: by screen
-  name (case and decoration ignored, a unique part of it is enough), then by
-  log name, which is what a script reads in the ladder log. A name that fits
-  nobody, or more than one player, prints the usual complaint on the server's
-  console and changes nothing.
+- `<player>` is one word. A player whose log name it is, exactly, is taken
+  first: that is the name a script reads in the ladder log, and the one to
+  use. Failing that it is looked up the way `KICK` looks a player up, by
+  screen name (case and decoration ignored, a unique part of it is enough).
+  A name that fits nobody, or more than one player, changes nothing.
 - A player's values stay until they are set again, until `RCL_BOARD_CLEAR`, or
   until the player leaves. Nothing is reset at the end of a round or a match:
   the script decides.
