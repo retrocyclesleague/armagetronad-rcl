@@ -983,21 +983,23 @@ REAL sg_CleanFaceLight( const eCoord &outward )
 // daylight: a little darker at the foot, where less of the sky reaches, and
 // its top catches the sky as well as the sun. On the dark floor it is a light
 // with nothing around it to shade it, and a maze of them, one wall behind the
-// other, ran together into one slab of colour. There each wall is dark at its
-// foot and ends in a pale edge, so every one of them is a band of its own
-// with a line where it stops.
-static REAL sg_cleanDarkFoot = .46f;
+// other, ran together into one slab of colour. There each wall dims towards
+// its foot and pales towards its top, so the top of one stands out against
+// the foot of the one behind it. Both are gradients and neither is strong:
+// the light on this floor is soft, and a hard pale line along every wall was
+// louder than anything else on it.
+static REAL sg_cleanDarkFoot = .72f;
 static tConfItem< REAL > sg_cleanDarkFootConf( "RCL_ARENA_DARK_WALL_FOOT", sg_cleanDarkFoot );
-static REAL sg_cleanDarkEdge = .5f;
+static REAL sg_cleanDarkEdge = .24f;
 static tConfItem< REAL > sg_cleanDarkEdgeConf( "RCL_ARENA_DARK_WALL_EDGE", sg_cleanDarkEdge );
-static REAL sg_cleanDarkEdgeHeight = .16f;
+static REAL sg_cleanDarkEdgeHeight = .40f;
 static tConfItem< REAL > sg_cleanDarkEdgeHeightConf( "RCL_ARENA_DARK_WALL_EDGE_HEIGHT", sg_cleanDarkEdgeHeight );
 
 struct gCleanTone
 {
     REAL foot;      // how bright a face is at the floor, against higher up
-    REAL edgeFrom;  // the share of a face's height at which its pale edge begins; 1 for none
-    REAL edge;      // how far towards white the edge goes
+    REAL edgeFrom;  // the share of a face's height from which it pales towards the top; 1 for not at all
+    REAL edge;      // how far towards white it has gone at the top
     REAL sky;       // and how far the top does
 };
 
@@ -1042,15 +1044,18 @@ void sg_CleanFace( gCleanTone const & look, REAL light, REAL alpha,
     if ( !( look.edgeFrom < 1 ) )
         return;
 
-    // the pale edge, which the shade takes less of than the face under it
+    // paler from there to the top, which the shade takes less of than the
+    // face under it
     REAL const lit = ( 1 + light ) * REAL( .5 );
+    glColor4f( paint1[0] * light, paint1[1] * light, paint1[2] * light, alpha );
+    glVertex3f( x1, y1, m1 );
     glColor4f( ( paint1[0] + ( 1 - paint1[0] ) * look.edge ) * lit, ( paint1[1] + ( 1 - paint1[1] ) * look.edge ) * lit,
                ( paint1[2] + ( 1 - paint1[2] ) * look.edge ) * lit, alpha );
-    glVertex3f( x1, y1, m1 );
     glVertex3f( x1, y1, h1 );
     glColor4f( ( paint2[0] + ( 1 - paint2[0] ) * look.edge ) * lit, ( paint2[1] + ( 1 - paint2[1] ) * look.edge ) * lit,
                ( paint2[2] + ( 1 - paint2[2] ) * look.edge ) * lit, alpha );
     glVertex3f( x2, y2, h2 );
+    glColor4f( paint2[0] * light, paint2[1] * light, paint2[2] * light, alpha );
     glVertex3f( x2, y2, m2 );
 }
 
@@ -1093,11 +1098,15 @@ void sg_CleanSheen( const eCoord &p1, const eCoord &p2, REAL h1, REAL h2,
     eCoord const side( -along.y, along.x );
     sr_CleanPaint( r, g, b );
 
+    // what the floor shows first is the wall's foot, as dim as that is; the
+    // brighter wall above it lies deeper, where the mirror has faded
+    REAL const foot = sg_CleanTone().foot;
+
     for ( int sign = -1; sign <= 1; sign += 2 )
     {
         eCoord const o = side * REAL( sign );
         REAL const light = sg_CleanFaceLight( o );
-        glColor4f( r * light, g * light, b * light, sg_cleanSheen * alpha );
+        glColor4f( r * light * foot, g * light * foot, b * light * foot, sg_cleanSheen * alpha );
         glVertex3f( p1.x + o.x, p1.y + o.y, 0 );
         glVertex3f( p2.x + o.x, p2.y + o.y, 0 );
         glColor4f( r * light, g * light, b * light, 0 );
@@ -1241,10 +1250,12 @@ void sg_CleanTip( gCleanTipPoint * point, int points, REAL r, REAL g, REAL b, RE
 
             if ( sheen )
             {
-                // the face again, under the floor, fading with depth
+                // the face again, under the floor, fading with depth: its
+                // foot first, as dim as that is
+                REAL const low = light * look.foot;
                 for ( int k = 0; k < 2; ++k )
                 {
-                    glColor4f( tone[k][0] * light, tone[k][1] * light, tone[k][2] * light, sg_cleanSheen * alpha );
+                    glColor4f( tone[k][0] * low, tone[k][1] * low, tone[k][2] * low, sg_cleanSheen * alpha );
                     glVertex3f( at[k].x, at[k].y, 0 );
                 }
                 for ( int k = 1; k >= 0; --k )

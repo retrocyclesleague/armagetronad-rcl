@@ -117,6 +117,9 @@ protected:
     bool   spectatorFly_;       //!< the camera was handed to the watcher for this stretch of watching
     double spectatorSince_;     //!< when the watcher last had a cycle in play, or -1
     double spectatorLast_;      //!< when the flight was last stepped
+    bool   spectatorWaySet_;    //!< the way the flight travels has been taken from the view
+    eCoord spectatorWay_;       //!< the way the flight travels, which is not always where the view looks
+    REAL   spectatorWayRise_;   //!< and how steeply up or down
 
     void SpectatorFly();        //!< hands a watcher their own free camera and flies it
 
