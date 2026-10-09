@@ -48,6 +48,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "tMath.h"
 #include "eNetGameObject.h"
 #include "nObserver.h"
+#include "eRectangle.h"
+#include "uMenu.h"
+#include "uInput.h"
+#include "tSysTime.h"
 
 // camera visibility settings
 static REAL se_hitCacheSpeed = 1; // the speed the hit cache for external visibility targets recovers from hits
@@ -341,7 +345,236 @@ static void se_SetWatchedObject( eCamera * cam, eGameObject * obj )
     }
 }
 
+// ---- watching without a cycle of one's own ----
+// Whoever has no cycle in the round, a spectator or a player who is out of it,
+// gets a camera of their own instead of a seat behind somebody else: free,
+// a little above the middle of the arena, and flown the way a game character
+// is walked. W A S D move it, with W and S going where it looks, up or down
+// included; Space and X take it straight up and down; Shift is faster. The
+// view turns with the mouse while its right button is held. SWITCH_VIEW still
+// leaves for the other views, which follow the players.
+static bool se_spectatorFly = true;
+static tConfItem< bool > se_spectatorFlyConf( "CAMERA_SPECTATOR_FREE", se_spectatorFly );
+static REAL se_spectatorFlySpeed = 60;          // arena units a second
+static tConfItem< REAL > se_spectatorFlySpeedConf( "CAMERA_SPECTATOR_SPEED", se_spectatorFlySpeed );
+static REAL se_spectatorMouse = .0025f;         // radians a pixel of mouse travel
+static tConfItem< REAL > se_spectatorMouseConf( "CAMERA_SPECTATOR_MOUSE", se_spectatorMouse );
+
+// Where the watcher last left their camera, and in which arena. Every round
+// brings a new camera object; the place a watcher flew to should outlast it.
+namespace
+{
+struct eSpectatorPose
+{
+    bool valid;
+    eCoord low, high, pos, dir;
+    REAL z, rise;
+};
+eSpectatorPose se_spectatorPose = { false, eCoord(), eCoord(), eCoord(), eCoord( 0, 1 ), 0, 0 };
+
+// The watcher went on to one of the views that follow players. That choice
+// stands for the rounds after it, until they come back to the free view.
+bool se_spectatorElsewhere = false;
+
+// The mouse while its right button turns the view: hidden and held, so a drag
+// goes on past the edge of the screen and the pointer is where it was after.
+bool se_spectatorAimHeld = false;
+bool se_spectatorAimSettle = false;
+int  se_spectatorAimCursor = 1;
+
+void se_SpectatorAim( bool hold )
+{
+#ifndef DEDICATED
+    if ( uMenu::MenuActive() )
+    {
+        // A menu takes the mouse for itself and, closing, puts back what it
+        // found, which is the held mouse. Undone once it has closed.
+        if ( se_spectatorAimHeld )
+        {
+            se_spectatorAimHeld = false;
+            se_spectatorAimSettle = true;
+        }
+        return;
+    }
+
+    if ( se_spectatorAimSettle || ( se_spectatorAimHeld && !hold ) )
+    {
+        se_spectatorAimSettle = se_spectatorAimHeld = false;
+        SDL_ShowCursor( se_spectatorAimCursor );
+        SDL_WM_GrabInput( su_mouseGrab ? SDL_GRAB_ON : SDL_GRAB_OFF );
+    }
+
+    if ( hold && !se_spectatorAimHeld )
+    {
+        se_spectatorAimHeld = true;
+        se_spectatorAimCursor = SDL_ShowCursor( SDL_QUERY );
+        SDL_ShowCursor( SDL_DISABLE );
+        SDL_WM_GrabInput( SDL_GRAB_ON );
+    }
+#endif
+}
+}
+
+void eCamera::SpectatorFly()
+{
+#ifndef DEDICATED
+    double const now = tSysTimeFloat();
+    bool const own = bool( netPlayer ) && InterestingToWatch( netPlayer->Object() );
+
+    if ( own || !se_spectatorFly || !cameraMain_ || !localPlayer )
+    {
+        se_SpectatorAim( false );
+        spectatorFly_ = false;
+        spectatorSince_ = -1;
+        spectatorLast_ = now;
+        return;
+    }
+
+    // Out of the round. Whoever just lost their cycle sees how that ended
+    // first. A spectator is up at once. A player whose cycle is not there
+    // yet, as at the very start of a round, is given the moment it takes.
+    if ( spectatorSince_ < 0 )
+        spectatorSince_ = now;
+    bool const fell = bool( netPlayer ) && netPlayer->Object();
+    bool const spectator = !netPlayer || netPlayer->IsSpectating();
+    eRectangle const & bounds = eWallRim::GetBounds();
+    if ( !spectatorFly_ && !uMenu::MenuActive() && now - spectatorSince_ >= ( fell ? 2.0 : spectator ? 0.0 : 1.0 ) )
+    {
+        spectatorFly_ = true;
+
+        eSpectatorPose const & last = se_spectatorPose;
+        if ( se_spectatorElsewhere )
+        {
+            // they would rather follow the players: the camera stays as it is
+        }
+        else if ( last.valid && ( last.low - bounds.GetLow() ).NormSquared() < 1 &&
+             ( last.high - bounds.GetHigh() ).NormSquared() < 1 )
+        {
+            mode = CAMERA_FREE;
+
+            // where it was left, if this is the arena it was left in
+            pos = last.pos;
+            dir = last.dir;
+            z = last.z;
+            rise = last.rise;
+        }
+        else
+        {
+            mode = CAMERA_FREE;
+
+            // a little above the middle of the arena, looking along it and down
+            eCoord const size = bounds.GetHigh() - bounds.GetLow();
+            REAL const span = size.x > size.y ? size.x : size.y;
+            if ( span > 0 && span < 1E+6 )
+            {
+                pos = ( bounds.GetLow() + bounds.GetHigh() ) * REAL( .5 );
+                z = span * REAL( .08 );
+                if ( z < 20 ) z = 20;
+                if ( z > 60 ) z = 60;
+            }
+            dir = eCoord( 0, 1 );
+            rise = REAL( -.35 );
+        }
+        glancingForward = glancingBack = glancingLeft = glancingRight = false;
+        glanceSmooth = glanceSmoothAbs = 0;
+        glanceDir_ = eCoord( 1, 0 );
+        lastPos = pos;
+
+        // said once: nothing on the screen gives these keys away
+        static bool told = false;
+        if ( !told && mode == CAMERA_FREE )
+        {
+            told = true;
+            con << tOutput( "$camera_spectator_free_hint" );
+        }
+    }
+
+    REAL dt = REAL( now - spectatorLast_ );
+    spectatorLast_ = now;
+    if ( dt < 0 ) dt = 0;
+    if ( dt > REAL( .1 ) ) dt = REAL( .1 );
+
+    if ( spectatorFly_ )
+        se_spectatorElsewhere = ( mode != CAMERA_FREE );
+
+    // the watcher chose another view, or is typing or in a menu
+    if ( !spectatorFly_ || mode != CAMERA_FREE || uMenu::MenuActive() )
+    {
+        se_SpectatorAim( false );
+        return;
+    }
+
+    // remembered as it is flown
+    eSpectatorPose & keep = se_spectatorPose;
+    keep.valid = true;
+    keep.low = bounds.GetLow();
+    keep.high = bounds.GetHigh();
+
+    int mouseX = 0, mouseY = 0;
+    Uint8 const buttons = SDL_GetRelativeMouseState( &mouseX, &mouseY );
+    bool const aiming = ( buttons & SDL_BUTTON( SDL_BUTTON_RIGHT ) ) != 0;
+    bool const was = se_spectatorAimHeld;
+    se_SpectatorAim( aiming );
+    if ( aiming != was )
+        mouseX = mouseY = 0;    // what moved before the button went down is not a drag
+    if ( aiming && ( mouseX || mouseY ) )
+    {
+        REAL const turn = -mouseX * se_spectatorMouse;
+        dir = dir.Turn( eCoord( cos( turn ), sin( turn ) ) );
+        REAL const length = sqrt( dir.NormSquared() );
+        if ( length > 0 )
+            dir = dir * ( 1 / length );
+
+        REAL pitch = atan( rise ) - mouseY * se_spectatorMouse;
+        if ( pitch > REAL( 1.45 ) ) pitch = REAL( 1.45 );
+        if ( pitch < REAL( -1.45 ) ) pitch = REAL( -1.45 );
+        rise = tan( pitch );
+    }
+
+    Uint8 const * const keys = SDL_GetKeyState( NULL );
+    if ( !keys )
+        return;
+    REAL const ahead = REAL( keys[SDLK_w] ? 1 : 0 ) - REAL( keys[SDLK_s] ? 1 : 0 );
+    REAL const left  = REAL( keys[SDLK_a] ? 1 : 0 ) - REAL( keys[SDLK_d] ? 1 : 0 );
+    REAL const up    = REAL( keys[SDLK_SPACE] ? 1 : 0 ) - REAL( keys[SDLK_x] ? 1 : 0 );
+    if ( ahead != 0 || left != 0 || up != 0 )
+    {
+        REAL step = se_spectatorFlySpeed * dt;
+        if ( keys[SDLK_LSHIFT] || keys[SDLK_RSHIFT] )
+            step *= 3;
+
+        // where the camera looks, as a direction in space
+        REAL const level = 1 / sqrt( 1 + rise * rise );
+        pos = pos + dir * ( ahead * level * step ) + dir.Turn( eCoord( 0, 1 ) ) * ( left * step );
+        z += ( ahead * rise * level + up ) * step;
+        if ( z < 1 ) z = 1;
+        if ( z > 300 ) z = 300;
+
+        // not off into the void: over the arena or the ground around it
+        eCoord const size = bounds.GetHigh() - bounds.GetLow();
+        REAL const margin = ( size.x > size.y ? size.x : size.y ) * REAL( .5 );
+        if ( margin > 0 && margin < 1E+6 )
+        {
+            if ( pos.x < bounds.GetLow().x - margin ) pos.x = bounds.GetLow().x - margin;
+            if ( pos.x > bounds.GetHigh().x + margin ) pos.x = bounds.GetHigh().x + margin;
+            if ( pos.y < bounds.GetLow().y - margin ) pos.y = bounds.GetLow().y - margin;
+            if ( pos.y > bounds.GetHigh().y + margin ) pos.y = bounds.GetHigh().y + margin;
+        }
+        userCameraControl += 1;
+    }
+
+    keep.pos = pos;
+    keep.dir = dir;
+    keep.z = z;
+    keep.rise = rise;
+#endif
+}
+
 void eCamera::MyInit(){
+    spectatorFly_ = false;
+    spectatorSince_ = -1;
+    spectatorLast_ = 0;
+
     if (localPlayer){
         if (cameraMain_) mode = localPlayer->startCamera; //PENDING:
         fov=localPlayer->startFOV;
@@ -1191,8 +1424,10 @@ void eCamera::Bound( REAL dt, eCoord & pos )
     if (z<.1)
         z=.1;
 
-    // don't waste time on the internal cameras, they don't need clamping
-    if(mode!=CAMERA_IN && mode !=CAMERA_SMART_IN )
+    // Don't waste time on the internal cameras, they don't need clamping.
+    // A watcher's own free camera is not pushed about to keep some cycle in
+    // view either: it goes where it is flown.
+    if(mode!=CAMERA_IN && mode !=CAMERA_SMART_IN && !( spectatorFly_ && mode == CAMERA_FREE ) )
     {
         // the following is only meaningful if there is an active camera object
         if ( Center() )
@@ -1343,6 +1578,11 @@ void eCamera::Render(){
     if (!sr_glOut)
         return;
     displaying=true;
+
+    // Without a cycle of their own, the player has a camera of their own.
+    // Flown here and not in the time step: that only runs while the game's
+    // clock does, and a watcher should not freeze between rounds.
+    SpectatorFly();
 
     se_cameraRise=rise;
     se_cameraZ=z;

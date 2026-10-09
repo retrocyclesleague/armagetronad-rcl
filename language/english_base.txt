@@ -4281,6 +4281,13 @@ detail_antialias_on_help       Samples per pixel. Higher is smoother and costs m
 detail_clean_arena_text        Clean Arena:
 detail_clean_arena_help        A pale, glossy open floor under a low sun: no grid and no rim walls, solid trails that cast long soft shadows. Off restores the dark grid arena.
 rcl_clean_arena_help           Clean arena look: pale open floor, solid trails and soft shadows.
+rcl_arena_dark_wall_foot_help          In the dark arena, how bright a wall is at the floor against higher up (0 to 1). Lower makes walls standing one behind the other easier to tell apart.
+rcl_arena_dark_wall_edge_help          In the dark arena, how far towards white the edge along the top of a wall goes (0 to 1). 0 for no edge.
+rcl_arena_dark_wall_edge_height_help   In the dark arena, the share of a wall's height its pale top edge takes (0 to 1).
+camera_spectator_free_hint     0x9aa0a6Free camera: W A S D to fly (Space up, X down, Shift faster), hold the right mouse button to look around. Your view key goes back to following players.\n
+camera_spectator_free_help     While you have no cycle in the round (spectating, or out of it), give you a free camera a little above the middle of the arena, flown with W A S D and the right mouse button. Off keeps the camera behind other players.
+camera_spectator_speed_help    How fast the spectator's free camera flies, in arena units a second.
+camera_spectator_mouse_help    How far the spectator's free camera turns for mouse travel, in radians a pixel.
 rcl_scoreboard_help            Shows the scores as a panel: the server and map, each team with its score, and every player with score, ping and whether they are alive. Off brings the plain text table back.
 rcl_board_title_help           Scoreboard: what is played here, in the server's words, shown as the board's headline on RCL clients. Example: RCL_BOARD_TITLE Fortress
 rcl_board_info_help            Scoreboard: facts about the match, separated by commas, each shown on a plate of its own under the headline. Example: RCL_BOARD_INFO round 3 of 10, first to 100

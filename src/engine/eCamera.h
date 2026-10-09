@@ -113,6 +113,13 @@ protected:
 
     eCoord Glance( eCoord const & in, eCoord const & glanceDir ) const;
 
+    // watching without a cycle of one's own (see SpectatorFly)
+    bool   spectatorFly_;       //!< the camera was handed to the watcher for this stretch of watching
+    double spectatorSince_;     //!< when the watcher last had a cycle in play, or -1
+    double spectatorLast_;      //!< when the flight was last stepped
+
+    void SpectatorFly();        //!< hands a watcher their own free camera and flies it
+
     void Bound( REAL dt ); //!< make sure the camera is inside the arena and has clear line of sight
     void Bound( REAL dt, eCoord & pos ); //!< make sure pos is inside the arena and has clear line of sight
 

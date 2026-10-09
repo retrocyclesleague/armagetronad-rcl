@@ -979,6 +979,81 @@ REAL sg_CleanFaceLight( const eCoord &outward )
     return sg_cleanShade + ( 1 - sg_cleanShade ) * facing;
 }
 
+// How a wall is toned up its height. On the pale floor it is paint in
+// daylight: a little darker at the foot, where less of the sky reaches, and
+// its top catches the sky as well as the sun. On the dark floor it is a light
+// with nothing around it to shade it, and a maze of them, one wall behind the
+// other, ran together into one slab of colour. There each wall is dark at its
+// foot and ends in a pale edge, so every one of them is a band of its own
+// with a line where it stops.
+static REAL sg_cleanDarkFoot = .46f;
+static tConfItem< REAL > sg_cleanDarkFootConf( "RCL_ARENA_DARK_WALL_FOOT", sg_cleanDarkFoot );
+static REAL sg_cleanDarkEdge = .5f;
+static tConfItem< REAL > sg_cleanDarkEdgeConf( "RCL_ARENA_DARK_WALL_EDGE", sg_cleanDarkEdge );
+static REAL sg_cleanDarkEdgeHeight = .16f;
+static tConfItem< REAL > sg_cleanDarkEdgeHeightConf( "RCL_ARENA_DARK_WALL_EDGE_HEIGHT", sg_cleanDarkEdgeHeight );
+
+struct gCleanTone
+{
+    REAL foot;      // how bright a face is at the floor, against higher up
+    REAL edgeFrom;  // the share of a face's height at which its pale edge begins; 1 for none
+    REAL edge;      // how far towards white the edge goes
+    REAL sky;       // and how far the top does
+};
+
+REAL sg_CleanShare( REAL share )
+{
+    return share > 0 ? ( share < 1 ? share : 1 ) : 0;
+}
+
+gCleanTone sg_CleanTone()
+{
+    gCleanTone tone = { .88f, 1, 0, .10f };
+    if ( sr_cleanDark )
+    {
+        tone.foot = sg_CleanShare( sg_cleanDarkFoot );
+        tone.edge = sg_CleanShare( sg_cleanDarkEdge );
+        if ( tone.edge > 0 )
+            tone.edgeFrom = 1 - sg_CleanShare( sg_cleanDarkEdgeHeight );
+        if ( tone.sky < tone.edge )
+            tone.sky = tone.edge;
+    }
+    return tone;
+}
+
+// One face of a wall: from the floor under two points up to the height the
+// wall has at each of them, in the paint it has there.
+void sg_CleanFace( gCleanTone const & look, REAL light, REAL alpha,
+                   REAL x1, REAL y1, REAL h1, REAL const * paint1,
+                   REAL x2, REAL y2, REAL h2, REAL const * paint2 )
+{
+    REAL const low = light * look.foot;
+    REAL const m1 = h1 * look.edgeFrom, m2 = h2 * look.edgeFrom;
+
+    glColor4f( paint1[0] * low, paint1[1] * low, paint1[2] * low, alpha );
+    glVertex3f( x1, y1, 0 );
+    glColor4f( paint1[0] * light, paint1[1] * light, paint1[2] * light, alpha );
+    glVertex3f( x1, y1, m1 );
+    glColor4f( paint2[0] * light, paint2[1] * light, paint2[2] * light, alpha );
+    glVertex3f( x2, y2, m2 );
+    glColor4f( paint2[0] * low, paint2[1] * low, paint2[2] * low, alpha );
+    glVertex3f( x2, y2, 0 );
+
+    if ( !( look.edgeFrom < 1 ) )
+        return;
+
+    // the pale edge, which the shade takes less of than the face under it
+    REAL const lit = ( 1 + light ) * REAL( .5 );
+    glColor4f( ( paint1[0] + ( 1 - paint1[0] ) * look.edge ) * lit, ( paint1[1] + ( 1 - paint1[1] ) * look.edge ) * lit,
+               ( paint1[2] + ( 1 - paint1[2] ) * look.edge ) * lit, alpha );
+    glVertex3f( x1, y1, m1 );
+    glVertex3f( x1, y1, h1 );
+    glColor4f( ( paint2[0] + ( 1 - paint2[0] ) * look.edge ) * lit, ( paint2[1] + ( 1 - paint2[1] ) * look.edge ) * lit,
+               ( paint2[2] + ( 1 - paint2[2] ) * look.edge ) * lit, alpha );
+    glVertex3f( x2, y2, h2 );
+    glVertex3f( x2, y2, m2 );
+}
+
 void sg_CleanShadow( const eCoord &p1, const eCoord &p2, REAL h1, REAL h2, REAL alpha )
 {
     eCoord toSun;
@@ -1047,20 +1122,14 @@ void sg_CleanSolid( const eCoord &p1, const eCoord &p2, REAL h1, REAL h2,
     eCoord const a = p1 - along;
     eCoord const c = p2 + along;
 
-    // slightly darker towards the floor, where less of the sky reaches
-    static const REAL foot = .88f;
+    gCleanTone const look = sg_CleanTone();
+    REAL const paint[3] = { r, g, b };
 
     for ( int sign = -1; sign <= 1; sign += 2 )
     {
         eCoord const o = side * REAL( sign );
-        REAL const light = sg_CleanFaceLight( o );
-        glColor4f( r * light * foot, g * light * foot, b * light * foot, alpha );
-        glVertex3f( a.x + o.x, a.y + o.y, 0 );
-        glColor4f( r * light, g * light, b * light, alpha );
-        glVertex3f( a.x + o.x, a.y + o.y, h1 );
-        glVertex3f( c.x + o.x, c.y + o.y, h2 );
-        glColor4f( r * light * foot, g * light * foot, b * light * foot, alpha );
-        glVertex3f( c.x + o.x, c.y + o.y, 0 );
+        sg_CleanFace( look, sg_CleanFaceLight( o ), alpha,
+                      a.x + o.x, a.y + o.y, h1, paint, c.x + o.x, c.y + o.y, h2, paint );
     }
 
     // ends
@@ -1068,18 +1137,11 @@ void sg_CleanSolid( const eCoord &p1, const eCoord &p2, REAL h1, REAL h2,
     {
         eCoord const & at = end ? c : a;
         REAL const height = end ? h2 : h1;
-        REAL const light = sg_CleanFaceLight( end ? along : along * REAL( -1 ) );
-        glColor4f( r * light * foot, g * light * foot, b * light * foot, alpha );
-        glVertex3f( at.x - side.x, at.y - side.y, 0 );
-        glColor4f( r * light, g * light, b * light, alpha );
-        glVertex3f( at.x - side.x, at.y - side.y, height );
-        glVertex3f( at.x + side.x, at.y + side.y, height );
-        glColor4f( r * light * foot, g * light * foot, b * light * foot, alpha );
-        glVertex3f( at.x + side.x, at.y + side.y, 0 );
+        sg_CleanFace( look, sg_CleanFaceLight( end ? along : along * REAL( -1 ) ), alpha,
+                      at.x - side.x, at.y - side.y, height, paint, at.x + side.x, at.y + side.y, height, paint );
     }
 
-    // the top catches the sky as well as the sun
-    static const REAL sky = .10f;
+    REAL const sky = look.sky;
     glColor4f( r + ( 1 - r ) * sky, g + ( 1 - g ) * sky, b + ( 1 - b ) * sky, alpha );
     glVertex3f( a.x - side.x, a.y - side.y, h1 );
     glVertex3f( a.x + side.x, a.y + side.y, h1 );
@@ -1164,9 +1226,8 @@ void sg_CleanTip( gCleanTipPoint * point, int points, REAL r, REAL g, REAL b, RE
         for ( int c = 0; c < 3; ++c )
             paint[i][c] = base[c] + ( 1 - base[c] ) * point[i].fresh;
 
-    // slightly darker towards the floor, where less of the sky reaches; the
-    // top catches the sky as well as the sun
-    static const REAL foot = .88f, sky = .10f;
+    gCleanTone const look = sg_CleanTone();
+    REAL const sky = look.sky;
     for ( int i = 0; i + 1 < points; ++i )
     {
         gCleanTipPoint const * const end[2] = { &point[i], &point[i + 1] };
@@ -1194,17 +1255,8 @@ void sg_CleanTip( gCleanTipPoint * point, int points, REAL r, REAL g, REAL b, RE
                 continue;
             }
 
-            // the face: foot and top at the one end, top and foot at the other
-            for ( int k = 0; k < 2; ++k )
-            {
-                for ( int corner = 0; corner < 2; ++corner )
-                {
-                    bool const top = ( corner != k );
-                    REAL const shade = top ? light : light * foot;
-                    glColor4f( tone[k][0] * shade, tone[k][1] * shade, tone[k][2] * shade, alpha );
-                    glVertex3f( at[k].x, at[k].y, top ? end[k]->height : 0 );
-                }
-            }
+            sg_CleanFace( look, light, alpha, at[0].x, at[0].y, end[0]->height, tone[0],
+                          at[1].x, at[1].y, end[1]->height, tone[1] );
         }
 
         if ( sheen )
@@ -1230,14 +1282,8 @@ void sg_CleanTip( gCleanTipPoint * point, int points, REAL r, REAL g, REAL b, RE
         gCleanTipPoint const & p = point[e ? points - 1 : 0];
         REAL const * const tone = paint[e ? points - 1 : 0];
         eCoord const o = side * p.width;
-        REAL const light = sg_CleanFaceLight( e ? along : along * REAL( -1 ) );
-        glColor4f( tone[0] * light * foot, tone[1] * light * foot, tone[2] * light * foot, alpha );
-        glVertex3f( p.at.x - o.x, p.at.y - o.y, 0 );
-        glColor4f( tone[0] * light, tone[1] * light, tone[2] * light, alpha );
-        glVertex3f( p.at.x - o.x, p.at.y - o.y, p.height );
-        glVertex3f( p.at.x + o.x, p.at.y + o.y, p.height );
-        glColor4f( tone[0] * light * foot, tone[1] * light * foot, tone[2] * light * foot, alpha );
-        glVertex3f( p.at.x + o.x, p.at.y + o.y, 0 );
+        sg_CleanFace( look, sg_CleanFaceLight( e ? along : along * REAL( -1 ) ), alpha,
+                      p.at.x - o.x, p.at.y - o.y, p.height, tone, p.at.x + o.x, p.at.y + o.y, p.height, tone );
     }
 
     // The pale line down the spine of the arrow the cycle is drawn as runs on
