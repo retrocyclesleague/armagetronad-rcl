@@ -299,6 +299,30 @@ public:
 void su_InputConfig(int player);
 void su_InputConfigCamera(int player);
 void su_InputConfigGlobal();
+
+// ---- the watcher's keys ----
+// What flies the free camera of a player without a cycle. They are a table of
+// their own and not binds like the rest: a key holds one bind, and the same
+// key is meant to be free to turn a cycle and to fly this camera.
+enum uSpectatorKey
+{
+    uSpectatorKey_Forward,
+    uSpectatorKey_Back,
+    uSpectatorKey_TurnLeft,
+    uSpectatorKey_TurnRight,
+    uSpectatorKey_Left,
+    uSpectatorKey_Right,
+    uSpectatorKey_Up,
+    uSpectatorKey_Down,
+    uSpectatorKey_Fast,
+    uSpectatorKey_Look,
+    uSpectatorKey_Steer,
+    uSpectatorKey_Count
+};
+bool su_SpectatorKeyDown( uSpectatorKey key );          //!< is the key or mouse button set for this held right now?
+char const * su_SpectatorKeyName( uSpectatorKey key ); //!< what that key or button is called
+void su_InputConfigSpectator();                         //!< the menu that sets them
+
 bool su_HandleEvent(SDL_Event &e, bool delayed );	// handle event during gameplay
 
 //! If the key has a global job (taking a screenshot, switching to fullscreen),

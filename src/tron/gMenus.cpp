@@ -1482,6 +1482,10 @@ void sg_RclControlsPage()
                              "$player_camera_input_help",
                              &su_InputConfigCamera,0);
 
+    uMenuItemFunction sk(&menu,"$rcl_spectator_keys_text",
+                         "$rcl_spectator_keys_help",
+                         &su_InputConfigSpectator);
+
     uMenuItemFunctionInt inc(&menu,"$rcl_cycle_keys_text",
                              "$player_input_help",
                              &su_InputConfig,0);

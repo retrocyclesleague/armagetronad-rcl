@@ -357,14 +357,21 @@ static void se_SetWatchedObject( eCamera * cam, eGameObject * obj )
 // buttons held fly forward. W and S go along the way, up or down included,
 // Q and E across it, and A and D turn, or go across it as well while the
 // right button steers. Space and X take the camera straight up and down, as
-// on a flying mount; Shift is faster, which is ours. SWITCH_VIEW still leaves
-// for the other views, which follow the players.
+// on a flying mount; Shift is faster, which is ours. Those are the keys it
+// starts with: they are the watcher's own set (uSpectatorKey), apart from the
+// binds that drive a cycle, so one key can do both jobs. For that reason
+// nothing counts for a moment after a cycle is lost, and whatever is held
+// when the moment ends must be let go first: a player's hands are still
+// playing when the cycle goes. SWITCH_VIEW still leaves for the other views,
+// which follow the players.
 static bool se_spectatorFly = true;
 static tConfItem< bool > se_spectatorFlyConf( "CAMERA_SPECTATOR_FREE", se_spectatorFly );
 static REAL se_spectatorFlySpeed = 60;          // arena units a second
 static tConfItem< REAL > se_spectatorFlySpeedConf( "CAMERA_SPECTATOR_SPEED", se_spectatorFlySpeed );
 static REAL se_spectatorMouse = .0025f;         // radians a pixel of mouse travel
 static const REAL se_spectatorTurn = 3.1416f;   // radians a second A and D turn by: half a turn, as there
+static REAL se_spectatorDelay = .75f;           // seconds after a cycle is lost before the watcher's keys count
+static tConfItem< REAL > se_spectatorDelayConf( "CAMERA_SPECTATOR_DELAY", se_spectatorDelay );
 static tConfItem< REAL > se_spectatorMouseConf( "CAMERA_SPECTATOR_MOUSE", se_spectatorMouse );
 
 // Where the watcher last left their camera, and in which arena. Every round
@@ -448,6 +455,8 @@ void eCamera::SpectatorFly()
     if ( !spectatorFly_ && ( fell || !uMenu::MenuActive() ) && now - spectatorSince_ >= ( fell || spectator ? 0.0 : 1.0 ) )
     {
         spectatorFly_ = true;
+        spectatorLockUntil_ = fell ? now + se_spectatorDelay : 0;
+        spectatorHeldOver_ = fell ? ~0u : 0u;
 
         eSpectatorPose const & last = se_spectatorPose;
         if ( fell )
@@ -504,7 +513,11 @@ void eCamera::SpectatorFly()
         if ( !told && mode == CAMERA_FREE )
         {
             told = true;
-            con << tOutput( "$camera_spectator_free_hint" );
+            tOutput hint;
+            for ( int i = 0; i < 8; ++i )
+                hint.SetTemplateParameter( i + 1, su_SpectatorKeyName( static_cast< uSpectatorKey >( i ) ) );
+            hint << "$camera_spectator_free_hint";
+            con << hint;
         }
     }
 
@@ -539,12 +552,27 @@ void eCamera::SpectatorFly()
     keep.low = bounds.GetLow();
     keep.high = bounds.GetHigh();
 
+    // What is held, as the flight takes it: nothing during the moment after
+    // a cycle was lost, and nothing that has been down since.
+    bool held[ uSpectatorKey_Count ];
+    bool const locked = now < spectatorLockUntil_;
+    for ( int i = 0; i < uSpectatorKey_Count; ++i )
+    {
+        unsigned const bit = 1u << i;
+        bool const down = su_SpectatorKeyDown( static_cast< uSpectatorKey >( i ) );
+        if ( !down )
+            spectatorHeldOver_ &= ~bit;
+        else if ( locked )
+            spectatorHeldOver_ |= bit;
+        held[ i ] = down && !locked && !( spectatorHeldOver_ & bit );
+    }
+
     // The mouse. A drag with either button turns the view; the right button
     // takes the way the camera travels along with it.
     int mouseX = 0, mouseY = 0;
-    Uint8 const buttons = SDL_GetRelativeMouseState( &mouseX, &mouseY );
-    bool const look = ( buttons & SDL_BUTTON( SDL_BUTTON_LEFT ) ) != 0;
-    bool const steer = ( buttons & SDL_BUTTON( SDL_BUTTON_RIGHT ) ) != 0;
+    SDL_GetRelativeMouseState( &mouseX, &mouseY );
+    bool const look = held[ uSpectatorKey_Look ];
+    bool const steer = held[ uSpectatorKey_Steer ];
     bool const was = se_spectatorAimHeld;
     se_SpectatorAim( look || steer );
     if ( ( look || steer ) != was )
@@ -568,17 +596,13 @@ void eCamera::SpectatorFly()
         spectatorWayRise_ = rise;
     }
 
-    Uint8 const * const keys = SDL_GetKeyState( NULL );
-    if ( !keys )
-        return;
-
-    // The keys. Both mouse buttons count as W.
-    REAL ahead = REAL( keys[SDLK_w] ? 1 : 0 ) - REAL( keys[SDLK_s] ? 1 : 0 );
+    // The keys. Both mouse buttons count as forward.
+    REAL ahead = REAL( held[ uSpectatorKey_Forward ] ? 1 : 0 ) - REAL( held[ uSpectatorKey_Back ] ? 1 : 0 );
     if ( look && steer )
         ahead = 1;
-    REAL left = REAL( keys[SDLK_q] ? 1 : 0 ) - REAL( keys[SDLK_e] ? 1 : 0 );
-    REAL const turning = REAL( keys[SDLK_a] ? 1 : 0 ) - REAL( keys[SDLK_d] ? 1 : 0 );
-    REAL const up = REAL( keys[SDLK_SPACE] ? 1 : 0 ) - REAL( keys[SDLK_x] ? 1 : 0 );
+    REAL left = REAL( held[ uSpectatorKey_Left ] ? 1 : 0 ) - REAL( held[ uSpectatorKey_Right ] ? 1 : 0 );
+    REAL const turning = REAL( held[ uSpectatorKey_TurnLeft ] ? 1 : 0 ) - REAL( held[ uSpectatorKey_TurnRight ] ? 1 : 0 );
+    REAL const up = REAL( held[ uSpectatorKey_Up ] ? 1 : 0 ) - REAL( held[ uSpectatorKey_Down ] ? 1 : 0 );
     if ( steer )
     {
         left += turning;
@@ -608,7 +632,7 @@ void eCamera::SpectatorFly()
     if ( ahead != 0 || left != 0 || up != 0 )
     {
         REAL step = se_spectatorFlySpeed * dt;
-        if ( keys[SDLK_LSHIFT] || keys[SDLK_RSHIFT] )
+        if ( held[ uSpectatorKey_Fast ] )
             step *= 3;
 
         // the way, as a direction in space
@@ -644,6 +668,8 @@ void eCamera::MyInit(){
     spectatorLast_ = 0;
     spectatorWaySet_ = false;
     spectatorWayRise_ = 0;
+    spectatorLockUntil_ = 0;
+    spectatorHeldOver_ = 0;
 
     if (localPlayer){
         if (cameraMain_) mode = localPlayer->startCamera; //PENDING:

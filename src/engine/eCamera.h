@@ -117,6 +117,8 @@ protected:
     bool   spectatorFly_;       //!< the camera was handed to the watcher for this stretch of watching
     double spectatorSince_;     //!< when the watcher last had a cycle in play, or -1
     double spectatorLast_;      //!< when the flight was last stepped
+    double spectatorLockUntil_; //!< until when the watcher's keys count for nothing: the moment after a cycle is lost
+    unsigned spectatorHeldOver_; //!< those of the watcher's keys that have been down since then and must be let go first
     bool   spectatorWaySet_;    //!< the way the flight travels has been taken from the view
     eCoord spectatorWay_;       //!< the way the flight travels, which is not always where the view looks
     REAL   spectatorWayRise_;   //!< and how steeply up or down

@@ -591,6 +591,163 @@ void su_InputConfigGlobal(){
     s_InputConfigGeneric(-1,s_globalActions,"$input_items_global");
 }
 
+// ---- the watcher's keys (see uInput.h) ----
+namespace
+{
+struct uSpectatorKeyEntry
+{
+    char const * label;     // what the menu calls it
+    char const * help;      // and says it does
+    int sym;                // the key or mouse button, in the numbers binds use; 0 for none
+};
+
+// as in World of Warcraft: W and S, A and D to turn, Q and E to the side,
+// Space and X up and down, the left mouse button to look, the right to steer
+uSpectatorKeyEntry su_spectatorKeys[ uSpectatorKey_Count ] =
+{
+    { "$spectator_key_forward_text",    "$spectator_key_forward_help",    SDLK_w },
+    { "$spectator_key_back_text",       "$spectator_key_back_help",       SDLK_s },
+    { "$spectator_key_turn_left_text",  "$spectator_key_turn_left_help",  SDLK_a },
+    { "$spectator_key_turn_right_text", "$spectator_key_turn_right_help", SDLK_d },
+    { "$spectator_key_left_text",       "$spectator_key_left_help",       SDLK_q },
+    { "$spectator_key_right_text",      "$spectator_key_right_help",      SDLK_e },
+    { "$spectator_key_up_text",         "$spectator_key_up_help",         SDLK_SPACE },
+    { "$spectator_key_down_text",       "$spectator_key_down_help",       SDLK_x },
+    { "$spectator_key_fast_text",       "$spectator_key_fast_help",       SDLK_LSHIFT },
+    { "$spectator_key_look_text",       "$spectator_key_look_help",       SDLK_MOUSE_BUTTON_1 },
+    { "$spectator_key_steer_text",      "$spectator_key_steer_help",      SDLK_MOUSE_BUTTON_3 }
+};
+
+tConfItem< int > su_spectatorKeyForwardConf( "SPECTATOR_KEY_FORWARD", su_spectatorKeys[ uSpectatorKey_Forward ].sym );
+tConfItem< int > su_spectatorKeyBackConf( "SPECTATOR_KEY_BACK", su_spectatorKeys[ uSpectatorKey_Back ].sym );
+tConfItem< int > su_spectatorKeyTurnLeftConf( "SPECTATOR_KEY_TURN_LEFT", su_spectatorKeys[ uSpectatorKey_TurnLeft ].sym );
+tConfItem< int > su_spectatorKeyTurnRightConf( "SPECTATOR_KEY_TURN_RIGHT", su_spectatorKeys[ uSpectatorKey_TurnRight ].sym );
+tConfItem< int > su_spectatorKeyLeftConf( "SPECTATOR_KEY_LEFT", su_spectatorKeys[ uSpectatorKey_Left ].sym );
+tConfItem< int > su_spectatorKeyRightConf( "SPECTATOR_KEY_RIGHT", su_spectatorKeys[ uSpectatorKey_Right ].sym );
+tConfItem< int > su_spectatorKeyUpConf( "SPECTATOR_KEY_UP", su_spectatorKeys[ uSpectatorKey_Up ].sym );
+tConfItem< int > su_spectatorKeyDownConf( "SPECTATOR_KEY_DOWN", su_spectatorKeys[ uSpectatorKey_Down ].sym );
+tConfItem< int > su_spectatorKeyFastConf( "SPECTATOR_KEY_FAST", su_spectatorKeys[ uSpectatorKey_Fast ].sym );
+tConfItem< int > su_spectatorKeyLookConf( "SPECTATOR_KEY_LOOK", su_spectatorKeys[ uSpectatorKey_Look ].sym );
+tConfItem< int > su_spectatorKeySteerConf( "SPECTATOR_KEY_STEER", su_spectatorKeys[ uSpectatorKey_Steer ].sym );
+
+// a row that shows one of them and takes the next key or mouse button for it
+class uMenuItemSpectatorKey: public uMenuItem
+{
+    uSpectatorKeyEntry & entry_;
+    bool active_;
+public:
+    uMenuItemSpectatorKey( uMenu * menu, uSpectatorKeyEntry & entry )
+            :uMenuItem( menu, tOutput( entry.help ) ), entry_( entry ), active_( false ){
+    }
+
+    virtual ~uMenuItemSpectatorKey(){}
+
+    virtual void Render(REAL x,REAL y,REAL alpha=1,bool selected=0){
+        tString label;
+        label << tOutput( entry_.label );
+        DisplayText(REAL(x-.02),y,label,selected,alpha,1);
+
+        tString s;
+        if ( active_ )
+            s << tOutput("$input_press_any_key");
+        else if ( entry_.sym > 0 && entry_.sym < SDLK_NEWLAST )
+            s << keyname( entry_.sym );
+        else
+            s << tOutput("$input_items_unbound");
+        DisplayText(REAL(x+.02),y,s,selected,alpha,-1);
+    }
+
+    virtual void Enter(){
+        active_ = true;
+    }
+
+    virtual int Control(){return uRclTheme::Control_Binding;}
+
+#ifndef DEDICATED
+    virtual bool Event(SDL_Event &e){
+        switch (e.type){
+        case SDL_MOUSEMOTION:
+            // while a key is being taken, the row keeps the selection
+            return active_;
+        case SDL_MOUSEBUTTONDOWN:
+            if ( !active_ )
+                return false;
+            active_ = false;
+            if ( e.button.button >= 1 && e.button.button <= MOUSE_BUTTONS )
+                entry_.sym = SDLK_MOUSE_BUTTON_1 + e.button.button - 1;
+            return true;
+        case SDL_KEYDOWN:
+            if ( !active_ )
+            {
+                if ( e.key.keysym.sym == SDLK_DELETE || e.key.keysym.sym == SDLK_BACKSPACE )
+                {
+                    entry_.sym = 0;
+                    return true;
+                }
+                return false;
+            }
+            active_ = false;
+            if ( e.key.keysym.sym != SDLK_ESCAPE )
+                entry_.sym = e.key.keysym.sym;
+            return true;
+        default:
+            return false;
+        }
+    }
+#endif
+
+    virtual tString Help(){
+        tString ret;
+        ret << helpText << "\n";
+        ret << tOutput("$input_item_help");
+        return ret;
+    }
+};
+}
+
+bool su_SpectatorKeyDown( uSpectatorKey key )
+{
+#ifndef DEDICATED
+    if ( key < 0 || key >= uSpectatorKey_Count )
+        return false;
+    int const sym = su_spectatorKeys[ key ].sym;
+    if ( sym <= 0 )
+        return false;
+    if ( sym < SDLK_LAST )
+    {
+        int count = 0;
+        Uint8 const * const keys = SDL_GetKeyState( &count );
+        return keys && sym < count && keys[ sym ];
+    }
+    if ( sym >= SDLK_MOUSE_BUTTON_1 && sym < SDLK_MOUSE_BUTTON_1 + MOUSE_BUTTONS )
+        return ( SDL_GetMouseState( NULL, NULL ) & SDL_BUTTON( sym - SDLK_MOUSE_BUTTON_1 + 1 ) ) != 0;
+#endif
+    return false;
+}
+
+char const * su_SpectatorKeyName( uSpectatorKey key )
+{
+    if ( key < 0 || key >= uSpectatorKey_Count )
+        return "";
+    int const sym = su_spectatorKeys[ key ].sym;
+    return sym > 0 && sym < SDLK_NEWLAST ? keyname( sym ) : "-";
+}
+
+void su_InputConfigSpectator()
+{
+    uMenu menu( "$spectator_keys_menu_text" );
+
+    uMenuItemSpectatorKey * items[ uSpectatorKey_Count ];
+    for ( int i = 0; i < uSpectatorKey_Count; ++i )
+        items[ i ] = new uMenuItemSpectatorKey( &menu, su_spectatorKeys[ i ] );
+
+    menu.ReverseItems();
+    menu.Enter();
+
+    for ( int i = uSpectatorKey_Count - 1; i >= 0; --i )
+        delete items[ i ];
+}
+
 
 REAL mouse_sensitivity=REAL(.1);
 REAL key_sensitivity=40;
