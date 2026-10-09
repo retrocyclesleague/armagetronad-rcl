@@ -430,6 +430,11 @@ static void sr_SetGLAttributes( int rDepth, int gDepth, int bDepth, int zDepth )
     SDL_GL_SetAttribute( SDL_GL_DEPTH_SIZE, zDepth );
     SDL_GL_SetAttribute( SDL_GL_DOUBLEBUFFER, 1 );
 
+    // The clean arena gathers its shadows in the picture's alpha channel
+    // before it darkens the floor by them, so one is asked for. Without it
+    // the shadows are drawn the plain way.
+    SDL_GL_SetAttribute( SDL_GL_ALPHA_SIZE, 8 );
+
 #if SDL_VERSION_ATLEAST(1, 2, 6)
     {
         int const samples = sr_antialias > 1 ? ( sr_antialias > 16 ? 16 : sr_antialias ) : 0;
@@ -748,6 +753,17 @@ static bool lowlevel_sr_InitDisplay(){
             }
         }
 #endif
+
+        // Likewise the alpha channel: asked for first, and done without
+        // where the mode set fails for it.
+        if ( !sr_screen )
+        {
+            sr_screen = SDL_SetVideoMode( sr_screenWidth, sr_screenHeight, CD, attrib );
+            if ( !sr_screen )
+            {
+                SDL_GL_SetAttribute( SDL_GL_ALPHA_SIZE, 0 );
+            }
+        }
 
         // only reinit the screen if the desktop res detection hasn't left us
         // with a perfectly good one.

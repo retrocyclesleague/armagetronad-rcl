@@ -357,6 +357,8 @@ void paint_sr_lowerSky(eGrid *grid, int viewer,bool sr_upperSky, eCoord const & 
 
 // ---- the clean arena: an open, glossy plane under a low sun ----
 
+void (*se_cleanGroundShadows)( eGrid * grid, eCamera const * camera ) = 0;
+
 void se_CleanArenaSun( eCoord & toSun, REAL & reach )
 {
     // The bearing is fixed in the arena and lies off the grid axes, so walls
@@ -864,7 +866,13 @@ void eGrid::display_simple( eCamera* cam, int viewer,bool floor,
     }
 
     if (gameObjects)
+    {
+        // the floor is done; the shadows go on it before anything stands there
+        if ( sr_cleanArena && sr_alphaBlend && se_cleanGroundShadows && cam->RenderingMain() )
+            (*se_cleanGroundShadows)( this, cameras(viewer) );
+
         eGameObject::RenderAll(this, cameras(viewer));
+    }
 
     eDebugLine::Render();
 #ifdef DEBUG

@@ -57,6 +57,13 @@ bool se_BlackSky();
 //! the clean arena's sun: the direction over the floor towards it, and how
 //! far a shadow reaches for every unit of height that throws it
 void se_CleanArenaSun( eCoord & toSun, REAL & reach );
+
+class eGrid;
+class eCamera;
+//! Clean arena: called for a view once its floor and the markings on it are
+//! drawn and before anything that stands on the floor is. Whoever draws the
+//! walls sets it, to lay all their shadows on the floor in one pass.
+extern void (*se_cleanGroundShadows)( eGrid * grid, eCamera const * camera );
 void se_FloorColor(REAL& r, REAL& g, REAL &b);
 
 void se_MakeColorValid(REAL& r, REAL & g, REAL& b, REAL f);

@@ -42,6 +42,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "eSound.h"
 #include "eGrid.h"
 #include "eFloor.h"
+#include "eRectangle.h"
 #include "gSparks.h"
 #include "gExplosion.h"
 #include "gSvgOutput.h"
@@ -2274,6 +2275,13 @@ public:
         eReferencableGameObject::OnRemoveFromGame();
     }
 #endif
+    //! the shadows of the cycle's walls alone (see sg_CleanGroundShadows)
+    void RenderShadows( eCamera const * camera )
+    {
+        if ( cycle_ )
+            cycle_->displayList_.RenderShadows( camera, cycle_ );
+    }
+
 private:
     virtual void Render( eCamera const * camera )
     {
@@ -4708,6 +4716,7 @@ gCycleWallsDisplayListManager::gCycleWallsDisplayListManager()
     , wallsWithDisplayListMinDistance_(0)
     , wallsInDisplayList_(0)
     , glowIntensity_(0)
+    , shadowsUnited_(-1)
 {
 }
 
@@ -4782,8 +4791,9 @@ void gCycleWallsDisplayListManager::RenderAllWithDisplayList( eCamera const * ca
     }
 
     // the set of walls in the list is about to change; the glow list of the
-    // old set goes with it
+    // old set goes with it, and the list of their shadows
     glowDisplayList_.Clear(0);
+    shadowDisplayList_.Clear(0);
 
     // remove and render walls without display list
     run = wallsWithDisplayList_;
@@ -4849,6 +4859,11 @@ void gCycleWallsDisplayListManager::RenderAllWithDisplayList( eCamera const * ca
 bool sg_HideCyclesWalls = false;
 static tConfItem<bool> sg_HideCyclesWallsConf("HIDE_CYCLES_WALLS", sg_HideCyclesWalls);
 
+// Clean arena: this frame, every wall's shadow has been laid on the floor in
+// one pass before the walls (sg_CleanGroundShadows), so no cycle draws its
+// own.
+static bool sg_cleanShadowsUnited = false;
+
 static void sg_RenderWallOverlay( eCamera const * camera, gNetPlayerWall * list, bool cached,
                                   gNetPlayerWall::gWallRenderMode mode );
 
@@ -4861,8 +4876,11 @@ static void sg_RenderCleanWalls( eCamera const * camera, gNetPlayerWall * list, 
     {
         // shadows and the walls' sheen must not hide anything drawn later
         glDepthMask( GL_FALSE );
-        sg_RenderWallOverlay( camera, list, cached, gNetPlayerWall::gWallRenderMode_Shadow );
-        RenderEnd();
+        if ( !sg_cleanShadowsUnited )
+        {
+            sg_RenderWallOverlay( camera, list, cached, gNetPlayerWall::gWallRenderMode_Shadow );
+            RenderEnd();
+        }
         sg_RenderWallOverlay( camera, list, cached, gNetPlayerWall::gWallRenderMode_Sheen );
         RenderEnd();
     }
@@ -4950,6 +4968,130 @@ void gCycleWallsDisplayListManager::RenderAll( eCamera const * camera, gCycle * 
     RenderEnd();
 }
 
+void gCycleWallsDisplayListManager::RenderShadows( eCamera const * camera, gCycle * cycle )
+{
+    // Which walls are finished and cached is settled when the walls
+    // themselves are drawn, later in the frame; here the two lists are as the
+    // last frame left them, and every wall is in one of them.
+    if ( sg_HideCyclesWalls )
+    {
+        sg_RenderWallOverlay( camera, wallsWithDisplayList_, false, gNetPlayerWall::gWallRenderMode_Shadow );
+    }
+    else if ( wallsWithDisplayList_ && !shadowDisplayList_.Call() )
+    {
+        rDisplayListFiller filler( shadowDisplayList_ );
+        sg_RenderWallOverlay( camera, wallsWithDisplayList_, true, gNetPlayerWall::gWallRenderMode_Shadow );
+        RenderEnd();
+    }
+    sg_RenderWallOverlay( camera, wallList_, false, gNetPlayerWall::gWallRenderMode_Shadow );
+    RenderEnd();
+}
+
+// ---- clean arena: every wall's shadow on the floor, once ----
+// Shadows are see-through, and drawn wall by wall they add up: where two
+// walls shade the same spot it came out twice as dark, every corner had a
+// darker patch and the floor inside a maze went black. So they are not drawn
+// onto the floor one by one. Before anything stands on the floor, all of them
+// are gathered in the picture's own alpha channel, where the darkest keeps a
+// spot and the others add nothing to it, and the floor is then darkened once
+// by what was gathered. That takes a picture with an alpha channel and a way
+// to keep the larger of two values; where either is missing, each cycle draws
+// its shadows with its walls as before.
+#ifndef GL_MAX
+#define GL_MAX 0x8008
+#endif
+#ifndef GL_FUNC_ADD
+#define GL_FUNC_ADD 0x8006
+#endif
+
+namespace
+{
+#ifdef WIN32
+typedef void ( __stdcall * gBlendEquation )( GLenum );
+#else
+typedef void ( * gBlendEquation )( GLenum );
+#endif
+gBlendEquation sg_blendEquation = 0;
+bool sg_blendEquationLooked = false;
+
+// a new screen mode can mean a new driver context
+void sg_BlendEquationForget()
+{
+    sg_blendEquationLooked = false;
+    sg_blendEquation = 0;
+}
+rCallbackAfterScreenModeChange sg_blendEquationForget( &sg_BlendEquationForget );
+
+void sg_CleanGroundShadows( eGrid * grid, eCamera const * camera )
+{
+    sg_cleanShadowsUnited = false;
+    if ( !grid || !camera || !sr_cleanArena || !sr_alphaBlend )
+        return;
+
+    if ( !sg_blendEquationLooked )
+    {
+        sg_blendEquationLooked = true;
+        sg_blendEquation = reinterpret_cast< gBlendEquation >( SDL_GL_GetProcAddress( "glBlendEquation" ) );
+    }
+    GLint alphaBits = 0;
+    glGetIntegerv( GL_ALPHA_BITS, &alphaBits );
+
+    if ( !sg_blendEquation || alphaBits < 4 )
+        return;
+    sg_cleanShadowsUnited = true;
+
+    RenderEnd();
+    glPushAttrib( GL_COLOR_BUFFER_BIT | GL_CURRENT_BIT | GL_DEPTH_BUFFER_BIT | GL_ENABLE_BIT | GL_TEXTURE_BIT );
+    glDisable( GL_DEPTH_TEST );
+    glDepthMask( GL_FALSE );
+    glDisable( GL_ALPHA_TEST );
+    glDisable( GL_TEXTURE_2D );
+    glDisable( GL_LIGHTING );
+    glDisable( GL_CULL_FACE );
+
+    // nothing gathered yet
+    glColorMask( GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE );
+    glClearColor( 0, 0, 0, 0 );
+    glClear( GL_COLOR_BUFFER_BIT );
+
+    // every wall's shadow, the darkest keeping each spot
+    glEnable( GL_BLEND );
+    (*sg_blendEquation)( GL_MAX );
+    tList< eGameObject > const & objects = grid->GameObjects();
+    for ( int i = objects.Len() - 1; i >= 0; --i )
+    {
+        gCycleWallRenderer * const walls = dynamic_cast< gCycleWallRenderer * >( objects( i ) );
+        if ( walls )
+            walls->RenderShadows( camera );
+    }
+    RenderEnd();
+
+    // and the floor darkened by that, once: the arena and the ground a
+    // shadow can reach around it
+    (*sg_blendEquation)( GL_FUNC_ADD );
+    glColorMask( GL_TRUE, GL_TRUE, GL_TRUE, GL_FALSE );
+    glBlendFunc( GL_DST_ALPHA, GL_ONE_MINUS_DST_ALPHA );
+    REAL const * const shade = sr_CleanShadowColor();
+    eRectangle const & bounds = eWallRim::GetBounds();
+    static const REAL margin = 60, rise = .012f;
+    glColor4f( shade[0], shade[1], shade[2], 1 );
+    BeginQuads();
+    glVertex3f( bounds.GetLow().x - margin, bounds.GetLow().y - margin, rise );
+    glVertex3f( bounds.GetHigh().x + margin, bounds.GetLow().y - margin, rise );
+    glVertex3f( bounds.GetHigh().x + margin, bounds.GetHigh().y + margin, rise );
+    glVertex3f( bounds.GetLow().x - margin, bounds.GetHigh().y + margin, rise );
+    RenderEnd();
+
+    glPopAttrib();
+}
+
+struct gCleanGroundShadowsSet
+{
+    gCleanGroundShadowsSet(){ se_cleanGroundShadows = &sg_CleanGroundShadows; }
+};
+gCleanGroundShadowsSet sg_cleanGroundShadowsSet;
+}
+
 void gCycleWallsDisplayListManager::RenderAll( eCamera const * camera, gCycle * cycle )
 {
     // The lists hold the passes of one look, not of all three. A negative
@@ -4960,6 +5102,13 @@ void gCycleWallsDisplayListManager::RenderAll( eCamera const * camera, gCycle * 
     {
         Clear( 0 );
         glowIntensity_ = -look;
+    }
+
+    // nor do they hold the shadows both ways
+    if ( shadowsUnited_ != int( sg_cleanShadowsUnited ) )
+    {
+        Clear( 0 );
+        shadowsUnited_ = int( sg_cleanShadowsUnited );
     }
 
     // render everything you can with a display list

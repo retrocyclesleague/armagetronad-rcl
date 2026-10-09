@@ -1,5 +1,32 @@
 # Dev log
 
+## 2026-10-09 - a free camera for whoever is out of the round, walls that read in a maze, shadows laid once
+
+Jamie, over one evening of playing each build: "the default spectator mode should be free cam a little bit above the center. wow controls wasd free fly right click drag aim"; with a picture of a dense maze in the dark arena, "the trail visibility could be improve"; on the first take of that, "it doesnt quite reflect right and its a bit too dramatic we need to keep with the soft lighting nature of the grid"; "when you die it should just put you in this camera view immediately exactly where you died and in the direction you are looking"; "wow style is left click drag look around right click drag is like look it up pls"; and "the shadows double up and take a while to resolve and we need seperate keybinds for spectator and player and we need a debounce or a delay or something so when you die you dont immediately start flying around if your player input configuration and spectator input configuration both map q for example".
+
+**The watcher's camera** (`eCamera::SpectatorFly`, called from `eCamera::Render` so it does not stop between rounds; `CAMERA_SPECTATOR_FREE`, on).
+
+- A player whose cycle goes has the main camera in `CAMERA_FREE` that same frame, from the pose it had; a glance held at that moment is taken into it. The cockpit views are no longer pushed back on death for that player (`handOver` in `eCamera::Timestep`). A spectator with no cycle starts a little above the middle of the arena, or where they last left the camera in an arena of the same bounds. `Bound` leaves this camera where it is flown; it stays over the arena and half its width around it, between 1 and 300 up.
+- Mouse and keys follow World of Warcraft. The look button turns the view and leaves the way the camera travels; the steer button turns that way with the view; both held fly forward. Forward and back go along the way, up or down included; turn left and right turn it (half a turn a second) and go sideways instead while steering; sidestep, up, down. Faster (three times) is ours. While a button is held the pointer is hidden and grabbed: the Windows package runs SDL 1.2 calls on SDL 2, where that pair is what makes mouse travel relative, so a drag does not end at the edge of the screen. `se_SpectatorAim` undoes it, also after a menu opened mid-drag.
+- **Its keys are a table of their own** (`uSpectatorKey`, `su_SpectatorKeyDown` in `uInput.cpp`; `SPECTATOR_KEY_*` in the user's settings; Settings / Controls / Spectator Keys). They are not binds: a key holds one bind, and the same key is meant to be free to turn a cycle and to fly this camera.
+- **After a death nothing counts for `CAMERA_SPECTATOR_DELAY` (0.75 s), and whatever is down when that ends must be let go first** (`spectatorLockUntil_`, `spectatorHeldOver_`).
+- SWITCH_VIEW still leaves for the views that follow players; a spectator who did so is not put back into the free view the next round.
+
+**Dark arena walls** (`sg_CleanTone`, `sg_CleanFace` in `gWall.cpp`). A wall there was one flat colour from floor to top, and a maze of them ran together. Each face now dims to 72% at its foot and pales by 24% towards white over its top 40%, both as gradients; the top is as pale as the faces end. The first take (46% and a hard pale band) was the "too dramatic" one. The floor's mirror of a wall starts at the foot's tone. `RCL_ARENA_DARK_WALL_FOOT`, `_EDGE`, `_EDGE_HEIGHT`. The pale arena is as it was.
+
+**Shadows laid once** (`sg_CleanGroundShadows` in `gCycle.cpp`, called through `se_cleanGroundShadows` from `eGrid::display_simple` after the floor and its markings and before the game objects). Shadows are see-through and were drawn wall by wall, so where two fell on one spot it was twice as dark: a patch at every corner, and the floor inside a maze near black. Now all of them are first gathered in the frame's alpha channel with the larger value kept (`glBlendEquation( GL_MAX )`), and the floor is then darkened once by what was gathered (`GL_DST_ALPHA`). The video mode asks for an alpha channel (`rScreen.cpp`, dropped again if the mode set fails for it); where there is none, or no `glBlendEquation`, each cycle draws its shadows with its walls as before. The walls with a display list keep a list of their shadows (`shadowDisplayList_`).
+
+Checked on Windows (RTX 3090, the off-screen test window):
+- A spectator from the first frame starts above the arena; forward flies, turn turns.
+- In practice with three AIs the player rode into the rim with the forward key held down from before: the view stayed exactly where it was while the others played on (pictures 0.3 s apart identical in the arena's part of the frame for nine seconds and more), and moved after the key was let go and pressed again. Both arenas.
+- The Spectator Keys page shows the eleven rows and takes a new key.
+- Shadows: the same stack of walls seen from above, last package against this build. Dark arena: bare floor 19, one shadow 9; before, 0.12% to 0.27% of the frame at 4 (two shadows); after, nothing under 9, and the share at 9 up by about what was at 4. One wall's shadow reads the same before and after in both arenas (9 dark, 171 pale against a floor of 189).
+
+Not checked:
+- **The mouse.** Messages posted to an unfocused window do not reach SDL's relative mouse, so no drag was made by the tests; Jamie flew the build with the right button before the look/steer split and the key table.
+- Online, with other people's walls and zones; frame time; the dedicated server and the Linux and macOS builds of these commits (CI has not run on them: not pushed).
+- What "take a while to resolve" was. A log of the client's own unconfirmed walls on a live practice server showed none being drawn after they were replaced, so nothing was drawn twice over time there. Shadows that add up are gone whatever their cause; a shadow in the wrong place for a moment would not be.
+
 ## 2026-10-07 - a dark arena, a scoreboard panel, quick turns that are not a tune
 
 Jamie: "dark mode. its too bright for some users. i like the pure black", "a much better scoreboard. moving towards a dynamic scoreboard world where the tab shows the server information in a much richer way" (with a picture of a console shooter's board: where the game is, each team with a large score, one row per player, the viewer's own row outlined), and, while playing with music on, "the binds too quick are too melodic".
