@@ -163,6 +163,14 @@ REAL sr_CleanShadowStrength();              //!< how much more of a shadow the l
 //! meanwhile has its light colours darkened to ink. Never set in the dark one.
 extern bool sr_cleanInk;
 
+//! True for a frame in which the clean arena's shadows are gathered and laid
+//! on the floor in one pass (gCycle.cpp). Shadow sheets may then lie over one
+//! another freely: the darkest keeps a spot and the others add nothing.
+extern bool sr_cleanShadowsOnce;
+
+//! The clean arena's shadows drawn soft (RCL_SHADOW_SOFT): see gWall.cpp.
+extern bool sr_cleanShadowSoft;
+
 //! says that the clean arena is being drawn into the current frame
 void sr_CleanArenaDrawn();
 

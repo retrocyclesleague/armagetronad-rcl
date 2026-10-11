@@ -158,7 +158,7 @@ private:
     rDisplayList                    displayList_;                   //!< combined display list
     rDisplayList                    glowDisplayList_;               //!< trail glow of the same walls
     rDisplayList                    shadowDisplayList_;             //!< clean arena: the shadows of the same walls, when those are laid in a pass of their own
-    int                             shadowsUnited_;                 //!< whether glowDisplayList_ was built without the shadows (-1: not built yet)
+    int                             shadowsUnited_;                 //!< how the lists hold shadows: 1 if they are laid in a pass of their own, plus 2 if they are soft (-1: not built yet)
     REAL                            glowIntensity_;                 //!< glow intensity glowDisplayList_ was built with; negative while the lists hold the clean arena's walls
     REAL                            wallsWithDisplayListMinDistance_; //!< minimal distance of the walls with display list
     int                             wallsInDisplayList_;            //!< number of walls in the current display list

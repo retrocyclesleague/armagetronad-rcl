@@ -1096,6 +1096,9 @@ static tConfItem<bool> sr_cleanArenaConf("RCL_CLEAN_ARENA", sr_cleanArena);
 bool sr_cleanDark=false;
 static tConfItem<bool> sr_cleanDarkConf("RCL_ARENA_DARK", sr_cleanDark);
 bool sr_cleanInk=false;
+bool sr_cleanShadowsOnce=false;
+bool sr_cleanShadowSoft=true;
+static tConfItem<bool> sr_cleanShadowSoftConf("RCL_SHADOW_SOFT", sr_cleanShadowSoft);
 
 int sr_CleanArenaLook()
 {

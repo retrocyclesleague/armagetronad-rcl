@@ -1059,16 +1059,122 @@ void sg_CleanFace( gCleanTone const & look, REAL light, REAL alpha,
     glVertex3f( x2, y2, m2 );
 }
 
+// Soft shadows. A wall's shadow used to be one flat sheet with hard corners,
+// even over two thirds of its reach: seen from above, a second set of shapes
+// on the floor. Soft, it is darkest at the wall's foot and thins out all the
+// way, it fades past the ends of the wall instead of stopping there, and a
+// narrow dark band hugs the foot on both sides, which is what sets a wall on
+// the floor. All of that overlaps from piece to piece, so it is only drawn in
+// a frame whose shadows are gathered and laid once (sr_cleanShadowsOnce).
+// RCL_SHADOW_SOFT (sr_cleanShadowSoft) turns it off.
+
+// at the foot it is this much darker than the flat sheet was
+static const REAL sg_softFoot = 1.3f;
+// the share of the reach where the first, steeper stretch ends, and what is left of it there
+static const REAL sg_softNear = .36f, sg_softNearLeft = .5f;
+// how far past a wall's end it fades, and how wide the band at the foot is, in wall heights
+static const REAL sg_softEnd = .55f, sg_softContact = .34f;
+// the band at the foot, against the sheet at the foot
+static const REAL sg_softContactShare = .8f;
+
+bool sg_CleanShadowIsSoft()
+{
+    return sr_cleanShadowSoft && sr_cleanShadowsOnce;
+}
+
+// the soft sheet of one stretch of wall, and the band at its foot
+void sg_CleanSoftShadow( const eCoord &p1, const eCoord &p2, REAL h1, REAL h2, REAL a, REAL const * shade, bool ends )
+{
+    eCoord toSun;
+    REAL reach;
+    se_CleanArenaSun( toSun, reach );
+    eCoord const delta = p2 - p1;
+    REAL const length = sqrt( delta.NormSquared() );
+    if ( !( length > 0 ) )
+        return;
+    eCoord const along = delta * ( 1 / length );
+    eCoord const across( -along.y, along.x );
+
+    REAL const a0 = a * sg_softFoot, a1 = a0 * sg_softNearLeft;
+    eCoord const o1 = toSun * ( -reach * h1 ), o2 = toSun * ( -reach * h2 );
+    eCoord const c1 = p1 + o1 * sg_softNear, c2 = p2 + o2 * sg_softNear;
+    eCoord const e1 = p1 + o1, e2 = p2 + o2;
+    REAL const z = sg_cleanShadowRise;
+
+    // the sheet: steeply thinner at first, then gently out to nothing
+    glColor4f( shade[0], shade[1], shade[2], a0 );
+    glVertex3f( p1.x, p1.y, z );
+    glVertex3f( p2.x, p2.y, z );
+    glColor4f( shade[0], shade[1], shade[2], a1 );
+    glVertex3f( c2.x, c2.y, z );
+    glVertex3f( c1.x, c1.y, z );
+
+    glVertex3f( c1.x, c1.y, z );
+    glVertex3f( c2.x, c2.y, z );
+    glColor4f( shade[0], shade[1], shade[2], 0 );
+    glVertex3f( e2.x, e2.y, z );
+    glVertex3f( e1.x, e1.y, z );
+
+    // past the two ends, fading along the wall. Level pieces only: padded, a
+    // sloping sheet's far edge would bend.
+    if ( ends )
+    {
+        for ( int end = 0; end < 2; ++end )
+        {
+            REAL const h = end ? h2 : h1;
+            eCoord const u = along * ( ( end ? 1 : -1 ) * sg_softEnd * h );
+            eCoord const & p = end ? p2 : p1;
+            eCoord const & c = end ? c2 : c1;
+            eCoord const & e = end ? e2 : e1;
+
+            glColor4f( shade[0], shade[1], shade[2], a0 );
+            glVertex3f( p.x, p.y, z );
+            glColor4f( shade[0], shade[1], shade[2], a1 );
+            glVertex3f( c.x, c.y, z );
+            glColor4f( shade[0], shade[1], shade[2], 0 );
+            glVertex3f( c.x + u.x, c.y + u.y, z );
+            glVertex3f( p.x + u.x, p.y + u.y, z );
+
+            glColor4f( shade[0], shade[1], shade[2], a1 );
+            glVertex3f( c.x, c.y, z );
+            glColor4f( shade[0], shade[1], shade[2], 0 );
+            glVertex3f( e.x, e.y, z );
+            glVertex3f( e.x + u.x, e.y + u.y, z );
+            glVertex3f( c.x + u.x, c.y + u.y, z );
+        }
+    }
+
+    // the band at the foot, on both sides
+    REAL const band = a0 * sg_softContactShare;
+    for ( int sign = -1; sign <= 1; sign += 2 )
+    {
+        eCoord const w1 = across * ( sign * sg_softContact * h1 ), w2 = across * ( sign * sg_softContact * h2 );
+        glColor4f( shade[0], shade[1], shade[2], band );
+        glVertex3f( p1.x, p1.y, z );
+        glVertex3f( p2.x, p2.y, z );
+        glColor4f( shade[0], shade[1], shade[2], 0 );
+        glVertex3f( p2.x + w2.x, p2.y + w2.y, z );
+        glVertex3f( p1.x + w1.x, p1.y + w1.y, z );
+    }
+}
+
 void sg_CleanShadow( const eCoord &p1, const eCoord &p2, REAL h1, REAL h2, REAL alpha )
 {
     eCoord toSun;
     REAL reach;
     se_CleanArenaSun( toSun, reach );
+    REAL const a = sg_cleanShadowAlpha * sr_CleanShadowStrength() * alpha;
+    REAL const * const shade = sr_CleanShadowColor();
+
+    if ( sg_CleanShadowIsSoft() )
+    {
+        sg_CleanSoftShadow( p1, p2, h1, h2, a, shade, h1 == h2 );
+        return;
+    }
+
     eCoord const o1 = toSun * ( -reach * h1 ), o2 = toSun * ( -reach * h2 );
     eCoord const c1 = p1 + o1 * sg_cleanShadowCore, c2 = p2 + o2 * sg_cleanShadowCore;
     eCoord const e1 = p1 + o1, e2 = p2 + o2;
-    REAL const a = sg_cleanShadowAlpha * sr_CleanShadowStrength() * alpha;
-    REAL const * const shade = sr_CleanShadowColor();
 
     // even over most of its reach, thinning out towards the far edge
     glColor4f( shade[0], shade[1], shade[2], a );
@@ -1195,6 +1301,11 @@ void sg_CleanTip( gCleanTipPoint * point, int points, REAL r, REAL g, REAL b, RE
         {
             gCleanTipPoint const & p = point[i];
             gCleanTipPoint const & q = point[i + 1];
+            if ( sg_CleanShadowIsSoft() )
+            {
+                sg_CleanSoftShadow( p.at, q.at, p.height, q.height, a, c, false );
+                continue;
+            }
             eCoord const o1 = toSun * ( -reach * p.height ), o2 = toSun * ( -reach * q.height );
             eCoord const c1 = p.at + o1 * sg_cleanShadowCore, c2 = q.at + o2 * sg_cleanShadowCore;
             eCoord const e1 = p.at + o1, e2 = q.at + o2;

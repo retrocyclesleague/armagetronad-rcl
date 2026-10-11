@@ -4859,10 +4859,9 @@ void gCycleWallsDisplayListManager::RenderAllWithDisplayList( eCamera const * ca
 bool sg_HideCyclesWalls = false;
 static tConfItem<bool> sg_HideCyclesWallsConf("HIDE_CYCLES_WALLS", sg_HideCyclesWalls);
 
-// Clean arena: this frame, every wall's shadow has been laid on the floor in
-// one pass before the walls (sg_CleanGroundShadows), so no cycle draws its
-// own.
-static bool sg_cleanShadowsUnited = false;
+// Clean arena: in a frame where every wall's shadow has been laid on the floor
+// in one pass before the walls (sg_CleanGroundShadows, which sets
+// sr_cleanShadowsOnce), no cycle draws its own.
 
 static void sg_RenderWallOverlay( eCamera const * camera, gNetPlayerWall * list, bool cached,
                                   gNetPlayerWall::gWallRenderMode mode );
@@ -4876,7 +4875,7 @@ static void sg_RenderCleanWalls( eCamera const * camera, gNetPlayerWall * list, 
     {
         // shadows and the walls' sheen must not hide anything drawn later
         glDepthMask( GL_FALSE );
-        if ( !sg_cleanShadowsUnited )
+        if ( !sr_cleanShadowsOnce )
         {
             sg_RenderWallOverlay( camera, list, cached, gNetPlayerWall::gWallRenderMode_Shadow );
             RenderEnd();
@@ -5024,7 +5023,7 @@ rCallbackAfterScreenModeChange sg_blendEquationForget( &sg_BlendEquationForget )
 
 void sg_CleanGroundShadows( eGrid * grid, eCamera const * camera )
 {
-    sg_cleanShadowsUnited = false;
+    sr_cleanShadowsOnce = false;
     if ( !grid || !camera || !sr_cleanArena || !sr_alphaBlend )
         return;
 
@@ -5038,7 +5037,7 @@ void sg_CleanGroundShadows( eGrid * grid, eCamera const * camera )
 
     if ( !sg_blendEquation || alphaBits < 4 )
         return;
-    sg_cleanShadowsUnited = true;
+    sr_cleanShadowsOnce = true;
 
     RenderEnd();
     glPushAttrib( GL_COLOR_BUFFER_BIT | GL_CURRENT_BIT | GL_DEPTH_BUFFER_BIT | GL_ENABLE_BIT | GL_TEXTURE_BIT );
@@ -5104,11 +5103,12 @@ void gCycleWallsDisplayListManager::RenderAll( eCamera const * camera, gCycle * 
         glowIntensity_ = -look;
     }
 
-    // nor do they hold the shadows both ways
-    if ( shadowsUnited_ != int( sg_cleanShadowsUnited ) )
+    // nor do they hold the shadows both ways, or of both kinds
+    int const shadows = ( sr_cleanShadowsOnce ? 1 : 0 ) + ( sr_cleanShadowSoft ? 2 : 0 );
+    if ( shadowsUnited_ != shadows )
     {
         Clear( 0 );
-        shadowsUnited_ = int( sg_cleanShadowsUnited );
+        shadowsUnited_ = shadows;
     }
 
     // render everything you can with a display list
