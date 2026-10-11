@@ -2282,6 +2282,13 @@ public:
             cycle_->displayList_.RenderShadows( camera, cycle_ );
     }
 
+    //! and the floor's mirror image of them alone
+    void RenderSheen( eCamera const * camera )
+    {
+        if ( cycle_ )
+            cycle_->displayList_.RenderSheen( camera, cycle_ );
+    }
+
 private:
     virtual void Render( eCamera const * camera )
     {
@@ -4794,6 +4801,7 @@ void gCycleWallsDisplayListManager::RenderAllWithDisplayList( eCamera const * ca
     // old set goes with it, and the list of their shadows
     glowDisplayList_.Clear(0);
     shadowDisplayList_.Clear(0);
+    sheenDisplayList_.Clear(0);
 
     // remove and render walls without display list
     run = wallsWithDisplayList_;
@@ -4861,7 +4869,9 @@ static tConfItem<bool> sg_HideCyclesWallsConf("HIDE_CYCLES_WALLS", sg_HideCycles
 
 // Clean arena: in a frame where every wall's shadow has been laid on the floor
 // in one pass before the walls (sg_CleanGroundShadows, which sets
-// sr_cleanShadowsOnce), no cycle draws its own.
+// sr_cleanShadowsOnce), no cycle draws its own. The same pass draws what the
+// floor mirrors of the walls, and says so here.
+static bool sg_cleanSheenOnce = false;
 
 static void sg_RenderWallOverlay( eCamera const * camera, gNetPlayerWall * list, bool cached,
                                   gNetPlayerWall::gWallRenderMode mode );
@@ -4880,8 +4890,11 @@ static void sg_RenderCleanWalls( eCamera const * camera, gNetPlayerWall * list, 
             sg_RenderWallOverlay( camera, list, cached, gNetPlayerWall::gWallRenderMode_Shadow );
             RenderEnd();
         }
-        sg_RenderWallOverlay( camera, list, cached, gNetPlayerWall::gWallRenderMode_Sheen );
-        RenderEnd();
+        if ( !sg_cleanSheenOnce )
+        {
+            sg_RenderWallOverlay( camera, list, cached, gNetPlayerWall::gWallRenderMode_Sheen );
+            RenderEnd();
+        }
     }
     glDepthMask( GL_TRUE );
     sg_RenderWallOverlay( camera, list, cached, gNetPlayerWall::gWallRenderMode_Solid );
@@ -4986,6 +4999,23 @@ void gCycleWallsDisplayListManager::RenderShadows( eCamera const * camera, gCycl
     RenderEnd();
 }
 
+void gCycleWallsDisplayListManager::RenderSheen( eCamera const * camera, gCycle * cycle )
+{
+    // as RenderShadows, for what the floor mirrors
+    if ( sg_HideCyclesWalls )
+    {
+        sg_RenderWallOverlay( camera, wallsWithDisplayList_, false, gNetPlayerWall::gWallRenderMode_Sheen );
+    }
+    else if ( wallsWithDisplayList_ && !sheenDisplayList_.Call() )
+    {
+        rDisplayListFiller filler( sheenDisplayList_ );
+        sg_RenderWallOverlay( camera, wallsWithDisplayList_, true, gNetPlayerWall::gWallRenderMode_Sheen );
+        RenderEnd();
+    }
+    sg_RenderWallOverlay( camera, wallList_, false, gNetPlayerWall::gWallRenderMode_Sheen );
+    RenderEnd();
+}
+
 // ---- clean arena: every wall's shadow on the floor, once ----
 // Shadows are see-through, and drawn wall by wall they add up: where two
 // walls shade the same spot it came out twice as dark, every corner had a
@@ -5021,11 +5051,63 @@ void sg_BlendEquationForget()
 }
 rCallbackAfterScreenModeChange sg_blendEquationForget( &sg_BlendEquationForget );
 
+// What the floor mirrors of the walls. Each mirrored face is see-through and
+// fades with depth; drawn one after another, a wall's two faces, the pieces it
+// is made of and the walls behind it all showed through one another and added
+// up into bright streaks and a murky box under every wall. So the mirror is
+// drawn in two goes: first only into the depth buffer, which leaves the
+// nearest mirrored face at every spot, then in colour where it is that face.
+// Everything real is drawn after it and stands in front of it.
+void sg_CleanGroundSheen( eGrid * grid, eCamera const * camera )
+{
+    RenderEnd();
+    glPushAttrib( GL_COLOR_BUFFER_BIT | GL_CURRENT_BIT | GL_DEPTH_BUFFER_BIT | GL_ENABLE_BIT | GL_POLYGON_BIT | GL_TEXTURE_BIT );
+    glDisable( GL_ALPHA_TEST );
+    glDisable( GL_TEXTURE_2D );
+    glDisable( GL_LIGHTING );
+    glDisable( GL_CULL_FACE );
+    glEnable( GL_DEPTH_TEST );
+    glDepthFunc( GL_LEQUAL );
+    glEnable( GL_BLEND );
+    glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+
+    tList< eGameObject > const & objects = grid->GameObjects();
+    for ( int pass = 0; pass < 2; ++pass )
+    {
+        if ( pass == 0 )
+        {
+            glDepthMask( GL_TRUE );
+            glColorMask( GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE );
+        }
+        else
+        {
+            // the same faces again; a hair nearer, so each passes against itself
+            glDepthMask( GL_FALSE );
+            glColorMask( GL_TRUE, GL_TRUE, GL_TRUE, GL_FALSE );
+            glEnable( GL_POLYGON_OFFSET_FILL );
+            glPolygonOffset( 0, -2 );
+        }
+        for ( int i = objects.Len() - 1; i >= 0; --i )
+        {
+            gCycleWallRenderer * const walls = dynamic_cast< gCycleWallRenderer * >( objects( i ) );
+            if ( walls )
+                walls->RenderSheen( camera );
+        }
+        RenderEnd();
+    }
+
+    glPopAttrib();
+}
+
 void sg_CleanGroundShadows( eGrid * grid, eCamera const * camera )
 {
     sr_cleanShadowsOnce = false;
+    sg_cleanSheenOnce = false;
     if ( !grid || !camera || !sr_cleanArena || !sr_alphaBlend )
         return;
+
+    sg_cleanSheenOnce = true;
+    sg_CleanGroundSheen( grid, camera );
 
     if ( !sg_blendEquationLooked )
     {
@@ -5104,7 +5186,7 @@ void gCycleWallsDisplayListManager::RenderAll( eCamera const * camera, gCycle * 
     }
 
     // nor do they hold the shadows both ways, or of both kinds
-    int const shadows = ( sr_cleanShadowsOnce ? 1 : 0 ) + ( sr_cleanShadowSoft ? 2 : 0 );
+    int const shadows = ( sr_cleanShadowsOnce ? 1 : 0 ) + ( sr_cleanShadowSoft ? 2 : 0 ) + ( sg_cleanSheenOnce ? 4 : 0 );
     if ( shadowsUnited_ != shadows )
     {
         Clear( 0 );

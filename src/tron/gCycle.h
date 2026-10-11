@@ -141,6 +141,9 @@ public:
 
     //! clean arena: the shadows of all walls and nothing else, for the pass that lays every shadow on the floor once
     void RenderShadows( eCamera const * camera, gCycle * cycle );
+
+    //! clean arena: the walls as the floor mirrors them and nothing else, for the pass that shows the nearest of them once
+    void RenderSheen( eCamera const * camera, gCycle * cycle );
     bool Walls() const
     {
         return wallList_ || wallsWithDisplayList_;
@@ -151,6 +154,7 @@ public:
         displayList_.Clear( inhibit );
         glowDisplayList_.Clear( inhibit );
         shadowDisplayList_.Clear( inhibit );
+        sheenDisplayList_.Clear( inhibit );
     }
 private:
     gNetPlayerWall *                wallList_;                      //!< linked list of all walls
@@ -158,6 +162,7 @@ private:
     rDisplayList                    displayList_;                   //!< combined display list
     rDisplayList                    glowDisplayList_;               //!< trail glow of the same walls
     rDisplayList                    shadowDisplayList_;             //!< clean arena: the shadows of the same walls, when those are laid in a pass of their own
+    rDisplayList                    sheenDisplayList_;              //!< clean arena: the same walls as the floor mirrors them, when that has a pass of its own
     int                             shadowsUnited_;                 //!< how the lists hold shadows: 1 if they are laid in a pass of their own, plus 2 if they are soft (-1: not built yet)
     REAL                            glowIntensity_;                 //!< glow intensity glowDisplayList_ was built with; negative while the lists hold the clean arena's walls
     REAL                            wallsWithDisplayListMinDistance_; //!< minimal distance of the walls with display list

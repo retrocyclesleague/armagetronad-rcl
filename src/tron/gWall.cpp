@@ -953,9 +953,12 @@ static const REAL sg_cleanShadowAlpha = .15f;
 static const REAL sg_cleanShadowRise = .012f;
 // the share of its reach over which a shadow is even, before it thins out
 static const REAL sg_cleanShadowCore = .68f;
-// how much of a wall the floor mirrors at its foot, and how far down the
-// mirrored wall can still be made out, in wall heights
-static const REAL sg_cleanSheen = .30f;
+// How much of a wall the floor mirrors at its foot, and how far down the
+// mirrored wall can still be made out, in wall heights. The mirror shows one
+// face at any spot now (see sg_CleanGroundSheen in gCycle.cpp); while a
+// wall's two faces still showed through each other, .30 each came to about
+// this much.
+static const REAL sg_cleanSheen = .48f;
 static const REAL sg_cleanSheenDepth = .8f;
 // faces turned away from the sun, against those turned towards it
 static const REAL sg_cleanShade = .68f;
