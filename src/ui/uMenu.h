@@ -85,10 +85,12 @@ protected:
     int                  hiddenRow_;        //!< index of that row while it is not shown, else -1
     tString              footnote_;         //!< quiet status text at the foot of the menu
 
-    REAL YPos(int num);
+    virtual REAL YPos(int num);             //!< where a row lies; a menu with rows of its own sizes says so here
 #ifndef DEDICATED
     virtual REAL ItemDrawY(int itemIndex);
     virtual REAL ItemRowHalf(int itemIndex);
+    //! whether the pointer's x is over the row: rows that share a height stand side by side
+    virtual bool ItemContainsX(int itemIndex, REAL mouseX){ (void)itemIndex; (void)mouseX; return true; }
     int ItemAt(REAL mouseX, REAL mouseY);
     void ApplyTheme();                      //!< gives the theme this menu's layout and takes the list's place from it
     void Back();                            //!< what Escape does
@@ -190,6 +192,8 @@ public:
 
     //! Sets what plays those. The menus know nothing of audio themselves.
     static void SetSoundFunc( SoundFunc * func );
+    //! plays one, for a menu that moves its own selection
+    static void MenuSound( Sound sound );
 protected:
     //! handles a key press
     virtual void HandleEvent( SDL_Event event );
@@ -286,6 +290,9 @@ public:
     int GetID(){return idnum;}
 
     virtual bool IsSelectable(){return true;};
+
+    //! true for a row that draws its own surface; the menu then leaves the shared one out
+    virtual bool OwnsRow(){return false;}
 
     //! The menu's primary action is its one filled accent row.
     void SetPrimary(bool primary){primary_ = primary;}

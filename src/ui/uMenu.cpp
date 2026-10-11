@@ -289,7 +289,8 @@ int uMenu::ItemAt(REAL mouseX, REAL mouseY)
         // Match the render loop's visibility test, even when a subclass draws
         // an item at a transformed Y coordinate (the server browser does).
         const REAL layoutY = YPos(i);
-        if (layoutY <= menuBot || layoutY >= menuTop || !items[i]->IsSelectable())
+        if (layoutY <= menuBot || layoutY >= menuTop || !items[i]->IsSelectable() ||
+            !ItemContainsX(i, mouseX))
             continue;
 
         const REAL distance = fabsf(mouseY - ItemDrawY(i));
@@ -373,6 +374,11 @@ static uMenu::SoundFunc * su_menuSoundFunc = NULL;
 void uMenu::SetSoundFunc( SoundFunc * func )
 {
     su_menuSoundFunc = func;
+}
+
+void uMenu::MenuSound( Sound sound )
+{
+    su_MenuSound( sound );
 }
 
 static void su_MenuSound( uMenu::Sound sound )
@@ -724,8 +730,9 @@ void uMenu::OnEnter(){
                     REAL const y = ItemDrawY(i);
                     uRclTheme::BeginRow(y, i == selected, item->IsPrimary(),
                                         item->Control());
-                    uRclTheme::DrawRow(alpha, item->ControlOn(),
-                                       item->ControlFraction());
+                    if (!item->OwnsRow())
+                        uRclTheme::DrawRow(alpha, item->ControlOn(),
+                                           item->ControlFraction());
                     item->Render(center + slide, y, alpha, i == selected);
                 }
 

@@ -121,6 +121,11 @@ void sg_EnterGame( nNetState enter_state );
 void sg_HostGame();
 void sg_HostGameMenu();
 
+//! What the client itself knows of a server the league runs, from where it is
+//! and the port it listens on: false if it is not one. kind is "practice" or
+//! "pickup" (or empty), mode what is played there, region the city.
+bool sg_RclServerFacts( tString const & host, unsigned int port, tString & kind, tString & mode, tString & region );
+
 // runs a single player game
 void sg_SinglePlayerGame();
 

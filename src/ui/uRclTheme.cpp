@@ -644,7 +644,7 @@ namespace uRclTheme
         REAL const hintY = Y( LogicalHeight() - 22 );
         if ( layout_ == Layout_Wide )
             Text( left, hintY, sizeHint, weightRegular, textSecondary, .8f * alpha,
-                  "enter join  \xb7  left/right sort  \xb7  r refresh  \xb7  b bookmark  \xb7  esc back",
+                  "enter join  \xb7  arrows move  \xb7  tab sort  \xb7  v view  \xb7  r refresh  \xb7  b bookmark  \xb7  esc back",
                   -1, W( LogicalWidth() - 2 * MarginPx() - 260 ) );
         else if ( layout_ != Layout_Home )
             Text( left, hintY, sizeHint, weightRegular, textSecondary, .55f * alpha, "esc back" );

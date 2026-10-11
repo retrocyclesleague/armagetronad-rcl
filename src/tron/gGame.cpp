@@ -3698,6 +3698,78 @@ static void sg_RclMaybeAutoQueue()
     }
 }
 }
+
+bool sg_RclServerFacts( tString const & host, unsigned int port, tString & kind, tString & mode, tString & region )
+{
+    std::string name( static_cast< char const * >( host ) );
+    std::transform( name.begin(), name.end(), name.begin(), ::tolower );
+
+    // The league's entry points and their cities. A server that gives the
+    // master servers no name of its own is listed by its number, so each
+    // entry point's number is looked up once and counts as well.
+    struct gRclHome
+    {
+        char const * host;
+        char const * region;
+        std::string address;
+    };
+    static gRclHome homes[] =
+    {
+        { "retrocyclesleague.com",    "london",    std::string() },
+        { "de.retrocyclesleague.com", "frankfurt", std::string() },
+        { "us.retrocyclesleague.com", "new york",  std::string() },
+        { "au.retrocyclesleague.com", "sydney",    std::string() }
+    };
+    static bool looked = false;
+    if ( !looked )
+    {
+        looked = true;
+        for ( size_t i = 0; i < sizeof( homes ) / sizeof( homes[0] ); ++i )
+        {
+            nAddress address;
+            address.SetHostname( homes[i].host );
+            std::string const number( static_cast< char const * >( address.GetAddress() ) );
+            if ( !number.empty() && number != "0.0.0.0" )
+                homes[i].address = number;
+        }
+    }
+
+    int found = -1;
+    for ( size_t i = 0; i < sizeof( homes ) / sizeof( homes[0] ) && found < 0; ++i )
+        if ( name == homes[i].host || ( !homes[i].address.empty() && name == homes[i].address ) )
+            found = int( i );
+    if ( found >= 0 )
+    {
+        region = homes[ found ].region;
+    }
+    else
+    {
+        // any other name under the league's; its city is not known here
+        static const std::string home( ".retrocyclesleague.com" );
+        if ( name.size() <= home.size() || name.compare( name.size() - home.size(), home.size(), home ) != 0 )
+            return false;
+    }
+
+    for ( size_t i = 0; i < sizeof( sg_rclPractice ) / sizeof( sg_rclPractice[0] ); ++i )
+    {
+        if ( port == sg_rclPractice[i].port || ( sg_rclPractice[i].port2 && port == sg_rclPractice[i].port2 ) )
+        {
+            kind = "practice";
+            std::string label( sg_rclPractice[i].label );
+            std::transform( label.begin(), label.end(), label.begin(), ::tolower );
+            mode = label.c_str();
+        }
+    }
+    for ( size_t i = 0; i < sizeof( sg_rclPickup ) / sizeof( sg_rclPickup[0] ); ++i )
+    {
+        if ( port == sg_rclPickup[i].port )
+        {
+            kind = "pickup";
+            mode = sg_rclPickup[i].name;
+        }
+    }
+    return true;
+}
 #endif
 
 
