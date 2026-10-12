@@ -58,6 +58,12 @@ bool se_BlackSky();
 //! far a shadow reaches for every unit of height that throws it
 void se_CleanArenaSun( eCoord & toSun, REAL & reach );
 
+//! The clean arena's backdrop for a scene that is not a game (the menu's
+//! replay): its sky, its floor and the sun's glint on it, around an eye over
+//! the given spot at the given height. The camera has to be set; depth is
+//! neither read nor written.
+void se_CleanArenaBackdrop( eCoord const & eye, REAL eyeHeight );
+
 class eGrid;
 class eCamera;
 //! Clean arena: called for a view once its floor and the markings on it are

@@ -231,7 +231,8 @@ static void MenuBackground(){
     // it shows at startup, lies over it.
     if (gMenuReplay::Render())
     {
-        uRclTheme::NoteSceneBehind();
+        // the match behind the menus is the picture; it is hardly held back
+        uRclTheme::NoteSceneBehind( .10f );
         gLogo::Display();
         return;
     }

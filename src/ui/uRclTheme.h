@@ -135,7 +135,10 @@ namespace uRclTheme
                     REAL alpha );
 
     // ---- drawing a menu frame, in this order ----
-    void NoteSceneBehind();     //!< a live scene (game or replay) was drawn behind the menu this frame
+    //! A live scene (game or replay) was drawn behind the menu this frame. hold
+    //! is how far it is held back where the menu leaves it in view: 0 not at all,
+    //! 1 covered.
+    void NoteSceneBehind( REAL hold = .62f );
     void DrawBackground( REAL alpha );
     void DrawChrome( tString const & title, tString const & footnote, REAL alpha );
 

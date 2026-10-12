@@ -296,4 +296,18 @@ private:
 extern tList<gNetPlayerWall> sg_netPlayerWalls;
 extern tList<gNetPlayerWall> sg_netPlayerWallsGridded;
 
+#ifndef DEDICATED
+// The clean arena's own drawing, for a scene that is not a game (the menu's
+// replay).
+
+//! one straight piece of wall in one of the look's passes (0 its shadow, 1
+//! what the floor mirrors of it, 2 the wall itself), between BeginQuads() and
+//! RenderEnd()
+void sg_CleanWallPiece( eCoord const & p1, eCoord const & p2, REAL h1, REAL h2,
+                        REAL r, REAL g, REAL b, REAL alpha, int pass );
+
+//! the marking on the floor that stands for the arena's rim, along one edge of it
+void sg_CleanRimMarking( eCoord const & a, eCoord const & b );
+#endif
+
 #endif

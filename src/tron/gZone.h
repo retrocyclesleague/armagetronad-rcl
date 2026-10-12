@@ -1005,4 +1005,10 @@ tArray<gCheckpointZoneHack *> sg_GetCheckpointZones();
 extern bool sg_deathZoneRotation;
 extern REAL sg_deathZoneRotationSpeed;
 
+//! The clean arena's painted zone for a scene that is not a game (the menu's
+//! replay): a fortress zone's ring at a place, turned by an angle. strength
+//! fades it, 1 being a zone that is fully there.
+void sg_RenderCleanZoneAt( eCoord const & pos, REAL radius, REAL turn,
+                           REAL red, REAL green, REAL blue, REAL strength );
+
 #endif

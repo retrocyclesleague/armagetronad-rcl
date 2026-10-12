@@ -95,6 +95,7 @@ namespace uRclTheme
 
         bool sceneNoted_ = false;   // set while a frame is drawn
         bool sceneBehind_ = false;  // what the frame being drawn has behind it
+        REAL sceneHold_ = .62f;     // how far that scene is held back
 
 #ifndef DEDICATED
         REAL PixelW() { return sr_renderWidth > 0 ? REAL(sr_renderWidth) : 1920.0f; }
@@ -264,7 +265,11 @@ namespace uRclTheme
         return line;
     }
 
-    void NoteSceneBehind() { sceneNoted_ = true; }
+    void NoteSceneBehind( REAL hold )
+    {
+        sceneNoted_ = true;
+        sceneHold_ = hold < 0 ? 0 : ( hold > 1 ? 1 : hold );
+    }
 
 #ifndef DEDICATED
 
@@ -577,7 +582,7 @@ namespace uRclTheme
 
         // The scene behind is held back so it cannot compete with the text.
         if ( sceneBehind_ )
-            Rect( -1, 1, 1, -1, canvas, .62f * alpha );
+            Rect( -1, 1, 1, -1, canvas, sceneHold_ * alpha );
         else
             Rect( -1, 1, 1, -1, canvas, 1 );
 

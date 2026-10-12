@@ -442,5 +442,26 @@ extern REAL sg_cycleRespawnZoneRadius, sg_cycleRespawnZoneGrowth;
 
 extern bool sg_HideCycles, sg_HideCyclesWalls;
 
+#ifndef DEDICATED
+// The clean arena's own drawing, for a scene that is not a game (the menu's
+// replay). See sg_CleanGroundShadows in gCycle.cpp for what the passes do.
+
+//! Starts gathering shadows: until sg_CleanShadowsEnd, shadow sheets drawn go
+//! into the frame's alpha channel, the darkest keeping each spot. False (and
+//! nothing started) where that cannot be done; shadows are then drawn plainly.
+bool sg_CleanShadowsBegin();
+//! lays what was gathered on the floor, once, over the given stretch of it
+void sg_CleanShadowsEnd( REAL lowX, REAL lowY, REAL highX, REAL highY );
+
+//! What the floor mirrors is drawn twice, the same faces each time: pass 0
+//! leaves only the nearest of them at every spot, pass 1 colours that one.
+void sg_CleanSheenBegin( int pass );
+void sg_CleanSheenEnd();
+
+//! the arrow a cycle is in the clean arena, at a place and heading, and the soft shadow under it
+void sg_RenderCleanCycleAt( eCoord const & pos, eCoord const & dir, REAL r, REAL g, REAL b );
+void sg_RenderCleanCycleShadowAt( eCoord const & pos, eCoord const & dir );
+#endif
+
 #endif
 

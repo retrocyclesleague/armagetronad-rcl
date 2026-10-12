@@ -232,59 +232,60 @@ static tSettingItem<REAL> sg_arenaWallShadowNearConf("ARENA_WALL_SHADOW_NEAR",sg
 static REAL sg_arenaWallShadowDist = 100.0;
 static tSettingItem<REAL> sg_arenaWallShadowDistConf("ARENA_WALL_SHADOW_DIST",sg_arenaWallShadowDist);
 
+// The clean arena is an open plane. Its boundary still kills, so it is marked
+// on the floor: a fine line, and bold white dashes along it.
+void sg_CleanRimMarking( eCoord const & a, eCoord const & b )
+{
+    eCoord const delta = b - a;
+    REAL const length = sqrt( delta.NormSquared() );
+    if ( !( length > 0 ) )
+        return;
+
+    static const REAL rise = .02f, fine = .06f, bold = .36f, period = 28;
+    eCoord const along = delta * ( 1 / length );
+    eCoord const across( -along.y, along.x );
+
+    RenderEnd();
+    glDisable(GL_TEXTURE_2D);
+    // shadows fall over the marking, so it must not hide them
+    glDepthMask(GL_FALSE);
+    BeginQuads();
+
+    // on black, white at full strength would be the brightest
+    // thing in the frame; there the marking is a quiet grey
+    REAL const strength = sr_cleanDark ? .45f : 1;
+
+    eCoord side = across * fine;
+    glColor4f( .98f, 1, 1, .55f * strength );
+    glVertex3f( a.x - side.x, a.y - side.y, rise );
+    glVertex3f( b.x - side.x, b.y - side.y, rise );
+    glVertex3f( b.x + side.x, b.y + side.y, rise );
+    glVertex3f( a.x + side.x, a.y + side.y, rise );
+
+    // as many dashes as fit, as long as the gaps between them
+    int const dashes = length > period ? int( length / period + .5f ) : 1;
+    REAL const step = length / dashes;
+    side = across * bold;
+    glColor4f( .98f, 1, 1, strength );
+    for ( int i = 0; i < dashes; ++i )
+    {
+        eCoord const from = a + along * ( ( i + .25f ) * step );
+        eCoord const to   = a + along * ( ( i + .75f ) * step );
+        glVertex3f( from.x - side.x, from.y - side.y, rise );
+        glVertex3f( to.x - side.x,   to.y - side.y,   rise );
+        glVertex3f( to.x + side.x,   to.y + side.y,   rise );
+        glVertex3f( from.x + side.x, from.y + side.y, rise );
+    }
+
+    RenderEnd();
+    glDepthMask(GL_TRUE);
+}
+
 void gWallRim::RenderReal(const eCamera *cam){
     if ( sr_cleanArena )
     {
-        // The arena is an open plane. Its boundary still kills, so it is
-        // marked on the floor: a fine line, and bold white dashes along it.
         if ( Edge() )
-        {
-            const eCoord & a = EndPoint(0);
-            const eCoord & b = EndPoint(1);
-            eCoord const delta = b - a;
-            REAL const length = sqrt( delta.NormSquared() );
-            if ( length > 0 )
-            {
-                static const REAL rise = .02f, fine = .06f, bold = .36f, period = 28;
-                eCoord const along = delta * ( 1 / length );
-                eCoord const across( -along.y, along.x );
-
-                RenderEnd();
-                glDisable(GL_TEXTURE_2D);
-                // shadows fall over the marking, so it must not hide them
-                glDepthMask(GL_FALSE);
-                BeginQuads();
-
-                // on black, white at full strength would be the brightest
-                // thing in the frame; there the marking is a quiet grey
-                REAL const strength = sr_cleanDark ? .45f : 1;
-
-                eCoord side = across * fine;
-                glColor4f( .98f, 1, 1, .55f * strength );
-                glVertex3f( a.x - side.x, a.y - side.y, rise );
-                glVertex3f( b.x - side.x, b.y - side.y, rise );
-                glVertex3f( b.x + side.x, b.y + side.y, rise );
-                glVertex3f( a.x + side.x, a.y + side.y, rise );
-
-                // as many dashes as fit, as long as the gaps between them
-                int const dashes = length > period ? int( length / period + .5f ) : 1;
-                REAL const step = length / dashes;
-                side = across * bold;
-                glColor4f( .98f, 1, 1, strength );
-                for ( int i = 0; i < dashes; ++i )
-                {
-                    eCoord const from = a + along * ( ( i + .25f ) * step );
-                    eCoord const to   = a + along * ( ( i + .75f ) * step );
-                    glVertex3f( from.x - side.x, from.y - side.y, rise );
-                    glVertex3f( to.x - side.x,   to.y - side.y,   rise );
-                    glVertex3f( to.x + side.x,   to.y + side.y,   rise );
-                    glVertex3f( from.x + side.x, from.y + side.y, rise );
-                }
-
-                RenderEnd();
-                glDepthMask(GL_TRUE);
-            }
-        }
+            sg_CleanRimMarking( EndPoint(0), EndPoint(1) );
         return;
     }
 
@@ -1441,6 +1442,23 @@ void sg_TrailGlowPlane( const eCoord &p1, const eCoord &p2,
     glVertex3f( p2.x + offset.x, p2.y + offset.y, top );
     glVertex3f( p2.x + offset.x, p2.y + offset.y, bottom );
 }
+}
+
+void sg_CleanWallPiece( eCoord const & p1, eCoord const & p2, REAL h1, REAL h2,
+                        REAL r, REAL g, REAL b, REAL alpha, int pass )
+{
+    switch ( pass )
+    {
+    case 0:
+        sg_CleanShadow( p1, p2, h1, h2, alpha );
+        break;
+    case 1:
+        sg_CleanSheen( p1, p2, h1, h2, r, g, b, alpha );
+        break;
+    default:
+        sg_CleanSolid( p1, p2, h1, h2, r, g, b, alpha );
+        break;
+    }
 }
 
 void gNetPlayerWall::RenderList(bool list, gWallRenderMode renderMode ){

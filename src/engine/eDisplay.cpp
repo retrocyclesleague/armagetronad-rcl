@@ -593,6 +593,28 @@ void se_CleanArenaGlint( eCoord const & eye, REAL eyeHeight )
 }
 }
 
+void se_CleanArenaBackdrop( eCoord const & eye, REAL eyeHeight )
+{
+    RenderEnd();
+    glPushAttrib( GL_COLOR_BUFFER_BIT | GL_CURRENT_BIT | GL_DEPTH_BUFFER_BIT | GL_ENABLE_BIT | GL_TEXTURE_BIT );
+    glDisable( GL_DEPTH_TEST );
+    glDepthMask( GL_FALSE );
+    glDisable( GL_CULL_FACE );
+    glDisable( GL_LIGHTING );
+    glDisable( GL_ALPHA_TEST );
+    glDisable( GL_TEXTURE_2D );
+    glEnable( GL_BLEND );
+    glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+
+    se_CleanArenaSky( eye, eyeHeight );
+    se_CleanArenaFloor( eye, eyeHeight, false );
+    if ( sr_alphaBlend )
+        se_CleanArenaGlint( eye, eyeHeight );
+
+    RenderEnd();
+    glPopAttrib();
+}
+
 void eGrid::display_simple( eCamera* cam, int viewer,bool floor,
                             bool sr_upperSky,bool sr_lowerSky,
                             REAL flooralpha,

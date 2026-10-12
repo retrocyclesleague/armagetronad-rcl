@@ -5058,7 +5058,7 @@ rCallbackAfterScreenModeChange sg_blendEquationForget( &sg_BlendEquationForget )
 // drawn in two goes: first only into the depth buffer, which leaves the
 // nearest mirrored face at every spot, then in colour where it is that face.
 // Everything real is drawn after it and stands in front of it.
-void sg_CleanGroundSheen( eGrid * grid, eCamera const * camera )
+void sg_SheenBegin( int pass )
 {
     RenderEnd();
     glPushAttrib( GL_COLOR_BUFFER_BIT | GL_CURRENT_BIT | GL_DEPTH_BUFFER_BIT | GL_ENABLE_BIT | GL_POLYGON_BIT | GL_TEXTURE_BIT );
@@ -5071,43 +5071,46 @@ void sg_CleanGroundSheen( eGrid * grid, eCamera const * camera )
     glEnable( GL_BLEND );
     glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 
+    if ( pass == 0 )
+    {
+        glDepthMask( GL_TRUE );
+        glColorMask( GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE );
+    }
+    else
+    {
+        // the same faces again; a hair nearer, so each passes against itself
+        glDepthMask( GL_FALSE );
+        glColorMask( GL_TRUE, GL_TRUE, GL_TRUE, GL_FALSE );
+        glEnable( GL_POLYGON_OFFSET_FILL );
+        glPolygonOffset( 0, -2 );
+    }
+}
+
+void sg_SheenEnd()
+{
+    RenderEnd();
+    glPopAttrib();
+}
+
+void sg_CleanGroundSheen( eGrid * grid, eCamera const * camera )
+{
     tList< eGameObject > const & objects = grid->GameObjects();
     for ( int pass = 0; pass < 2; ++pass )
     {
-        if ( pass == 0 )
-        {
-            glDepthMask( GL_TRUE );
-            glColorMask( GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE );
-        }
-        else
-        {
-            // the same faces again; a hair nearer, so each passes against itself
-            glDepthMask( GL_FALSE );
-            glColorMask( GL_TRUE, GL_TRUE, GL_TRUE, GL_FALSE );
-            glEnable( GL_POLYGON_OFFSET_FILL );
-            glPolygonOffset( 0, -2 );
-        }
+        sg_SheenBegin( pass );
         for ( int i = objects.Len() - 1; i >= 0; --i )
         {
             gCycleWallRenderer * const walls = dynamic_cast< gCycleWallRenderer * >( objects( i ) );
             if ( walls )
                 walls->RenderSheen( camera );
         }
-        RenderEnd();
+        sg_SheenEnd();
     }
-
-    glPopAttrib();
 }
 
-void sg_CleanGroundShadows( eGrid * grid, eCamera const * camera )
+bool sg_ShadowsBegin()
 {
     sr_cleanShadowsOnce = false;
-    sg_cleanSheenOnce = false;
-    if ( !grid || !camera || !sr_cleanArena || !sr_alphaBlend )
-        return;
-
-    sg_cleanSheenOnce = true;
-    sg_CleanGroundSheen( grid, camera );
 
     if ( !sg_blendEquationLooked )
     {
@@ -5118,7 +5121,7 @@ void sg_CleanGroundShadows( eGrid * grid, eCamera const * camera )
     glGetIntegerv( GL_ALPHA_BITS, &alphaBits );
 
     if ( !sg_blendEquation || alphaBits < 4 )
-        return;
+        return false;
     sr_cleanShadowsOnce = true;
 
     RenderEnd();
@@ -5135,9 +5138,46 @@ void sg_CleanGroundShadows( eGrid * grid, eCamera const * camera )
     glClearColor( 0, 0, 0, 0 );
     glClear( GL_COLOR_BUFFER_BIT );
 
-    // every wall's shadow, the darkest keeping each spot
+    // every shadow from here on, the darkest keeping each spot
     glEnable( GL_BLEND );
     (*sg_blendEquation)( GL_MAX );
+    return true;
+}
+
+void sg_ShadowsEnd( REAL lowX, REAL lowY, REAL highX, REAL highY )
+{
+    RenderEnd();
+
+    // the floor darkened by what was gathered, once
+    (*sg_blendEquation)( GL_FUNC_ADD );
+    glColorMask( GL_TRUE, GL_TRUE, GL_TRUE, GL_FALSE );
+    glBlendFunc( GL_DST_ALPHA, GL_ONE_MINUS_DST_ALPHA );
+    REAL const * const shade = sr_CleanShadowColor();
+    static const REAL rise = .012f;
+    glColor4f( shade[0], shade[1], shade[2], 1 );
+    BeginQuads();
+    glVertex3f( lowX, lowY, rise );
+    glVertex3f( highX, lowY, rise );
+    glVertex3f( highX, highY, rise );
+    glVertex3f( lowX, highY, rise );
+    RenderEnd();
+
+    glPopAttrib();
+}
+
+void sg_CleanGroundShadows( eGrid * grid, eCamera const * camera )
+{
+    sr_cleanShadowsOnce = false;
+    sg_cleanSheenOnce = false;
+    if ( !grid || !camera || !sr_cleanArena || !sr_alphaBlend )
+        return;
+
+    sg_cleanSheenOnce = true;
+    sg_CleanGroundSheen( grid, camera );
+
+    if ( !sg_ShadowsBegin() )
+        return;
+
     tList< eGameObject > const & objects = grid->GameObjects();
     for ( int i = objects.Len() - 1; i >= 0; --i )
     {
@@ -5145,25 +5185,12 @@ void sg_CleanGroundShadows( eGrid * grid, eCamera const * camera )
         if ( walls )
             walls->RenderShadows( camera );
     }
-    RenderEnd();
 
-    // and the floor darkened by that, once: the arena and the ground a
-    // shadow can reach around it
-    (*sg_blendEquation)( GL_FUNC_ADD );
-    glColorMask( GL_TRUE, GL_TRUE, GL_TRUE, GL_FALSE );
-    glBlendFunc( GL_DST_ALPHA, GL_ONE_MINUS_DST_ALPHA );
-    REAL const * const shade = sr_CleanShadowColor();
+    // over the arena and the ground a shadow can reach around it
     eRectangle const & bounds = eWallRim::GetBounds();
-    static const REAL margin = 60, rise = .012f;
-    glColor4f( shade[0], shade[1], shade[2], 1 );
-    BeginQuads();
-    glVertex3f( bounds.GetLow().x - margin, bounds.GetLow().y - margin, rise );
-    glVertex3f( bounds.GetHigh().x + margin, bounds.GetLow().y - margin, rise );
-    glVertex3f( bounds.GetHigh().x + margin, bounds.GetHigh().y + margin, rise );
-    glVertex3f( bounds.GetLow().x - margin, bounds.GetHigh().y + margin, rise );
-    RenderEnd();
-
-    glPopAttrib();
+    static const REAL margin = 60;
+    sg_ShadowsEnd( bounds.GetLow().x - margin, bounds.GetLow().y - margin,
+                   bounds.GetHigh().x + margin, bounds.GetHigh().y + margin );
 }
 
 struct gCleanGroundShadowsSet
@@ -5171,6 +5198,26 @@ struct gCleanGroundShadowsSet
     gCleanGroundShadowsSet(){ se_cleanGroundShadows = &sg_CleanGroundShadows; }
 };
 gCleanGroundShadowsSet sg_cleanGroundShadowsSet;
+}
+
+bool sg_CleanShadowsBegin()
+{
+    return sg_ShadowsBegin();
+}
+
+void sg_CleanShadowsEnd( REAL lowX, REAL lowY, REAL highX, REAL highY )
+{
+    sg_ShadowsEnd( lowX, lowY, highX, highY );
+}
+
+void sg_CleanSheenBegin( int pass )
+{
+    sg_SheenBegin( pass );
+}
+
+void sg_CleanSheenEnd()
+{
+    sg_SheenEnd();
 }
 
 void gCycleWallsDisplayListManager::RenderAll( eCamera const * camera, gCycle * cycle )
@@ -5386,6 +5433,88 @@ void sg_RenderCleanCycle( eCoord const & dir, gRealColor const & color )
 
     glPopAttrib();
 }
+}
+
+namespace
+{
+// The clean arena's sun stands low: the cycle's shadow is a soft patch that
+// reaches away from it, like those of the walls. In the cycle's own frame.
+void sg_CleanCycleShadow( eCoord const & dir )
+{
+    eCoord toSun;
+    REAL reach;
+    se_CleanArenaSun( toSun, reach );
+
+    // the reach of the arrow's height, in the cycle's own half-size frame
+    static const REAL height = .3f;
+    eCoord const fall = toSun * ( -reach * height * 2 );
+    eCoord const along( eCoord::F( fall, dir ), eCoord::F( fall, eCoord( -dir.y, dir.x ) ) );
+    REAL const length = sqrt( along.NormSquared() );
+    eCoord const e1 = length > 0 ? along * ( 1 / length ) : eCoord( 1, 0 );
+    eCoord const e2( -e1.y, e1.x );
+    eCoord const centre = eCoord( .4f, 0 ) + along * .5f;
+    REAL const reachHalf = length * .5f + 1.6f, widthHalf = 1.2f;
+
+    glDisable(GL_CULL_FACE);
+    glDepthMask(GL_FALSE);
+    BeginTriangleFan();
+    REAL const * const shade = sr_CleanShadowColor();
+    REAL depth = .30f * sr_CleanShadowStrength();
+    if ( depth > .85f ) depth = .85f;
+    glColor4f( shade[0], shade[1], shade[2], depth );
+    glVertex3f( centre.x, centre.y, .03f );
+    glColor4f( shade[0], shade[1], shade[2], 0 );
+    static const int segments = 20;
+    for ( int i = 0; i <= segments; ++i )
+    {
+        REAL const angle = i * ( 2 * M_PI / segments );
+        eCoord const rim = centre + e1 * ( cos( angle ) * reachHalf ) + e2 * ( sin( angle ) * widthHalf );
+        glVertex3f( rim.x, rim.y, .03f );
+    }
+    RenderEnd();
+    glDepthMask(GL_TRUE);
+    glEnable(GL_CULL_FACE);
+}
+
+// the frame a cycle is drawn in: at its place, half size, x ahead
+void sg_CleanCycleFrame( eCoord const & pos, eCoord const & dir )
+{
+    ModelMatrix();
+    glPushMatrix();
+    glTranslatef( pos.x, pos.y, 0 );
+    glScalef( .5f, .5f, .5f );
+    GLfloat m[4][4]={{dir.x,dir.y,0,0},
+                     {-dir.y,dir.x,0,0},
+                     {0,0,1,0},
+                     {0,0,0,1}};
+    glMultMatrixf(&m[0][0]);
+    glTranslatef( -1.5f, 0, 0 );
+}
+}
+
+void sg_RenderCleanCycleAt( eCoord const & pos, eCoord const & dir, REAL r, REAL g, REAL b )
+{
+    sg_CleanCycleFrame( pos, dir );
+    gRealColor color;
+    color.r = r;
+    color.g = g;
+    color.b = b;
+    sg_RenderCleanCycle( dir, color );
+    ModelMatrix();
+    glPopMatrix();
+}
+
+void sg_RenderCleanCycleShadowAt( eCoord const & pos, eCoord const & dir )
+{
+    sg_CleanCycleFrame( pos, dir );
+    RenderEnd();
+    glPushAttrib( GL_ENABLE_BIT | GL_DEPTH_BUFFER_BIT | GL_CURRENT_BIT );
+    glDisable( GL_LIGHTING );
+    glDisable( GL_TEXTURE_2D );
+    sg_CleanCycleShadow( dir );
+    glPopAttrib();
+    ModelMatrix();
+    glPopMatrix();
 }
 
 void gCycle::Render(const eCamera *cam){
@@ -5762,39 +5891,7 @@ void gCycle::Render(const eCamera *cam){
             // patch that reaches away from it, like those of the walls.
             if ( !blinking && sr_alphaBlend && ( !cam || cam->RenderingMain() ) )
             {
-                eCoord toSun;
-                REAL reach;
-                se_CleanArenaSun( toSun, reach );
-
-                // the reach of the arrow's height, in the cycle's own half-size frame
-                static const REAL height = .3f;
-                eCoord const fall = toSun * ( -reach * height * 2 );
-                eCoord const along( eCoord::F( fall, dir ), eCoord::F( fall, eCoord( -dir.y, dir.x ) ) );
-                REAL const length = sqrt( along.NormSquared() );
-                eCoord const e1 = length > 0 ? along * ( 1 / length ) : eCoord( 1, 0 );
-                eCoord const e2( -e1.y, e1.x );
-                eCoord const centre = eCoord( .4f, 0 ) + along * .5f;
-                REAL const reachHalf = length * .5f + 1.6f, widthHalf = 1.2f;
-
-                glDisable(GL_CULL_FACE);
-                glDepthMask(GL_FALSE);
-                BeginTriangleFan();
-                REAL const * const shade = sr_CleanShadowColor();
-                REAL depth = .30f * sr_CleanShadowStrength();
-                if ( depth > .85f ) depth = .85f;
-                glColor4f( shade[0], shade[1], shade[2], depth );
-                glVertex3f( centre.x, centre.y, .03f );
-                glColor4f( shade[0], shade[1], shade[2], 0 );
-                static const int segments = 20;
-                for ( int i = 0; i <= segments; ++i )
-                {
-                    REAL const angle = i * ( 2 * M_PI / segments );
-                    eCoord const rim = centre + e1 * ( cos( angle ) * reachHalf ) + e2 * ( sin( angle ) * widthHalf );
-                    glVertex3f( rim.x, rim.y, .03f );
-                }
-                RenderEnd();
-                glDepthMask(GL_TRUE);
-                glEnable(GL_CULL_FACE);
+                sg_CleanCycleShadow( dir );
             }
         }
         else if(!blinking && sr_floorDetail>rFLOOR_GRID && rTextureGroups::TextureMode[rTextureGroups::TEX_FLOOR]>0 && sr_alphaBlend){
