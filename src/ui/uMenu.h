@@ -198,6 +198,9 @@ protected:
     //! handles a key press
     virtual void HandleEvent( SDL_Event event );
 
+    //! draws what a menu shows besides its rows, after the theme's chrome
+    virtual void RenderExtras( REAL alpha ){ (void)alpha; }
+
     //! enters the menu; calls idle_func before rendering every frame
     virtual void OnEnter();
 

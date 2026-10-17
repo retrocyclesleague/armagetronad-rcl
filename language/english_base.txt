@@ -4282,6 +4282,7 @@ detail_clean_arena_text        Clean Arena:
 detail_clean_arena_help        A pale, glossy open floor under a low sun: no grid and no rim walls, solid trails that cast long soft shadows. Off restores the dark grid arena.
 rcl_clean_arena_help           Clean arena look: pale open floor, solid trails and soft shadows.
 server_browser_view_help               How the server browser shows servers: 0 as cards, 1 as a list.
+rcl_home_ladder_help                   Which league ladder the main menu shows: 0 TST, 1 Sumobar, 2 2s, 3 Fortress. Left and right change it there.
 server_browser_sort_help               The order of the server browser: 0 by players, 1 by ping, 2 by name.
 server_browser_hide_empty_help         Leaves servers nobody is on out of the server browser.
 server_browser_rcl_only_help           Shows only the league's own servers in the server browser.

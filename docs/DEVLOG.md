@@ -1,5 +1,18 @@
 # Dev log
 
+## 2026-10-17 - the league on the main menu: next event, last winner, the ladders
+
+Jamie: "now we need to revamp the home page to have a cleaner exp and integrate rcl more with leaderboards and events".
+
+- Beside the rail, on the right of the scene: an events card (the next event, its start in the player's own time, how long until it, sign-ups, a "sign up" button that opens the event's page on the site; under it the last event and who won it) and a ladder card (TST, Sumobar, 2s or Fortress: the top five with rank and rating, and the player's own row when they are signed in and on that ladder; left and right change the ladder, the tabs take clicks, "full board" opens the site's leaderboard). The ladder shown is kept (`RCL_HOME_LADDER`). A window too small for the cards keeps only the rail.
+- The data is the site's public API: `/api/events`, `/api/v1/leaderboard`, `/api/v1/sumobar/leaderboard`, `/api/v1/two-s/leaderboard` and `/api/hub/leaderboard/fortress?season=<this year>`. Asked on a thread of its own (`gLeague.cpp`) when the menu is open and what is known is older than five minutes (a minute after no answer at all); every good answer is kept in `var/league-*.json`, so the next start shows the cards from its first frame. The player is found on a ladder by their sign-in name or public name.
+- The site only answers over TLS, so the client now has HTTPS: `tHttps.cpp` uses the system's own, WinHTTP on Windows (system certificates and proxy) and libcurl elsewhere when configure finds it; without either the cards are not shown. `tJson.cpp` reads JSON (whole documents, depth at most 64). Names from the site are drawn as Latin-1, with control characters dropped and "0x" kept from starting a colour code; a name that cannot be shown falls back to its profile address.
+- `uMenu::RenderExtras( alpha )`: a menu can draw beside its rows after the chrome.
+
+Checked on Windows (off-screen test window, test profile not signed in): JSON and HTTPS against the live site and broken input (a self-signed certificate is refused, a capped body stops at its cap); the menu filled in within the first seconds, each ladder by left and right, the cache files written and the cards there at once on the next start. Not checked: a signed-in player's own row in the client (the matching is the same names the mock found Syn by), clicks by a hand, the buttons that open the browser, macOS and Linux (libcurl path not built here; CI installs libcurl on Linux now).
+
+Not in it: who is playing right now (the league's directory reports no players or online state at the moment; the master servers the browser asks are the place for it), pages of their own for the boards and events (drawn as proposals, not built).
+
 ## 2026-10-12 - the match behind the menus, played back right; a server browser of cards; soft shadows and a one-layer floor mirror
 
 Four things from Jamie's play of the builds of 9 October, each in his words.

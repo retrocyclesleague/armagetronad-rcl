@@ -93,7 +93,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             autoconf automake bison g++ libgl1-mesa-dev libglew-dev libpng-dev \
             libsdl-image1.2-dev libsdl-mixer1.2-dev libsdl1.2-dev libtool \
-            libxml2-dev libzthread-dev make pkg-config python3 wget
+            libcurl4-openssl-dev libxml2-dev libzthread-dev make pkg-config python3 wget
 
       - name: Build Linux client
         run: bash scripts/build-linux-client.sh

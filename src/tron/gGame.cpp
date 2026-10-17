@@ -88,6 +88,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <time.h>
 
 #include "gRotation.h"
+#include "gLeague.h"
 #include "nSocket.h"
 
 #ifdef KRAWALL_SERVER
@@ -4064,7 +4065,8 @@ static tString sg_RclStatusLine()
     return status;
 }
 
-// the main menu keeps its status line current while it is open
+// The main menu keeps its status line current while it is open, and out of
+// a game it has the league beside its rail: the next event, the ladders.
 class gMainMenu: public uMenu
 {
 public:
@@ -4078,7 +4080,31 @@ protected:
     {
         uMenu::OnRender();
         if ( status_ )
+        {
             SetFootnote( sg_RclStatusLine() );
+            gLeague::Poll();
+        }
+    }
+
+    virtual void RenderExtras( REAL alpha )
+    {
+        if ( status_ )
+            gLeague::DrawHome( alpha );
+    }
+
+    virtual void HandleEvent( SDL_Event event )
+    {
+        if ( status_ )
+        {
+            if ( event.type == SDL_KEYDOWN && gLeague::HomeKey( event.key.keysym.sym ) )
+                return;
+            if ( event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT &&
+                 sr_screenWidth > 0 && sr_screenHeight > 0 &&
+                 gLeague::HomeClick( 2.0f * event.button.x / sr_screenWidth - 1.0f,
+                                     1.0f - 2.0f * event.button.y / sr_screenHeight ) )
+                return;
+        }
+        uMenu::HandleEvent( event );
     }
 
 private:

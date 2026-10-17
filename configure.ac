@@ -708,6 +708,20 @@ if test "`${SDL_CONFIG} --libs | grep windows`" ; then
 fi
 
 dnl *************************************************
+dnl  HTTPS to the league's site: the system's own,
+dnl  WinHTTP on Windows, libcurl elsewhere if it is there
+dnl *************************************************
+
+if test "`${SDL_CONFIG} --libs | grep windows`" ; then
+	LIBS="$LIBS -lwinhttp -lshell32"
+elif test x$build_regular = xtrue; then
+	AC_CHECK_HEADER(curl/curl.h,
+		[AC_CHECK_LIB(curl, curl_easy_init,
+			[AC_DEFINE(HAVE_LIBCURL, 1, [Define if libcurl can make HTTPS requests])
+			 LIBS="$LIBS -lcurl"])])
+fi
+
+dnl *************************************************
 dnl         GL
 dnl *************************************************
 

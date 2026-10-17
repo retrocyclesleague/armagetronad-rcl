@@ -699,6 +699,7 @@ void uMenu::OnEnter(){
 
                 uRclTheme::DrawBackground(.72f + .28f * entrance);
                 uRclTheme::DrawChrome(tString(title), footnote_, entrance);
+                RenderExtras(entrance);
 
                 // Some legacy items render a live preview. Their background
                 // callback still prepares gameplay/console content; the
