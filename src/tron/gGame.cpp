@@ -4096,8 +4096,6 @@ protected:
     {
         if ( status_ )
         {
-            if ( event.type == SDL_KEYDOWN && gLeague::HomeKey( event.key.keysym.sym ) )
-                return;
             if ( event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT &&
                  sr_screenWidth > 0 && sr_screenHeight > 0 &&
                  gLeague::HomeClick( 2.0f * event.button.x / sr_screenWidth - 1.0f,
@@ -4381,6 +4379,17 @@ void MainMenu(bool ingame){
                         "$game_menu_text",
                         "$rcl_practice_help",
                         &sg_SinglePlayerGame ) );
+#ifndef DEDICATED
+        // the league: its ladders and its events, as tables
+        rows.push_back( tNEW( uMenuItemFunction )( &MainMenu,
+                        "$rcl_leaderboards_text",
+                        "$rcl_leaderboards_help",
+                        &gLeague::LeaderboardMenu ) );
+        rows.push_back( tNEW( uMenuItemFunction )( &MainMenu,
+                        "$rcl_events_text",
+                        "$rcl_events_help",
+                        &gLeague::EventsMenu ) );
+#endif
         rows.push_back( &subm_settings );
         rows.push_back( &exx );
 

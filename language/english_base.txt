@@ -2576,6 +2576,10 @@ rcl_play_now_finding_text      Finding the best available \1 lobby... Press Esca
 rcl_play_now_unavailable       No online, non-full \1 lobby answered. Please try again or use Online Multiplayer.
 rcl_queue_now_text             Queue Now
 rcl_queue_now_help             See who is in the pickup lobbies. Choosing one joins it and enters its draft queue. Needs an RCL sign-in.
+rcl_leaderboards_text          Leaderboards
+rcl_leaderboards_help          The league's ladders, TST, Sumobar, 2s and Fortress, and where you stand on each.
+rcl_events_text                Events
+rcl_events_help                The league's next event and who won the ones before.
 rcl_queue_now_fort_help        Join an available Fortress lobby and send /add once you have signed in to it.
 rcl_queue_now_sumobar_help     Join an available Sumobar lobby and send /add once you have signed in to it.
 rcl_queue_now_tst_help         Join an available TST lobby and send /add once you have signed in to it.
@@ -4282,7 +4286,7 @@ detail_clean_arena_text        Clean Arena:
 detail_clean_arena_help        A pale, glossy open floor under a low sun: no grid and no rim walls, solid trails that cast long soft shadows. Off restores the dark grid arena.
 rcl_clean_arena_help           Clean arena look: pale open floor, solid trails and soft shadows.
 server_browser_view_help               How the server browser shows servers: 0 as cards, 1 as a list.
-rcl_home_ladder_help                   Which league ladder the main menu shows: 0 TST, 1 Sumobar, 2 2s, 3 Fortress. Left and right change it there.
+rcl_home_ladder_help                   Which league ladder the leaderboards page opens on: 0 TST, 1 Sumobar, 2 2s, 3 Fortress. Left and right change it there.
 server_browser_sort_help               The order of the server browser: 0 by players, 1 by ping, 2 by name.
 server_browser_hide_empty_help         Leaves servers nobody is on out of the server browser.
 server_browser_rcl_only_help           Shows only the league's own servers in the server browser.

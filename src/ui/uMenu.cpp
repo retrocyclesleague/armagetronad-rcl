@@ -698,7 +698,7 @@ void uMenu::OnEnter(){
                 bool const prompt = style_ == uMenuStyle_RclPrompt;
 
                 uRclTheme::DrawBackground(.72f + .28f * entrance);
-                uRclTheme::DrawChrome(tString(title), footnote_, entrance);
+                uRclTheme::DrawChrome(tString(title), footnote_, entrance, keyHint_);
                 RenderExtras(entrance);
 
                 // Some legacy items render a live preview. Their background

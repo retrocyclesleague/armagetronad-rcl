@@ -140,7 +140,9 @@ namespace uRclTheme
     //! 1 covered.
     void NoteSceneBehind( REAL hold = .62f );
     void DrawBackground( REAL alpha );
-    void DrawChrome( tString const & title, tString const & footnote, REAL alpha );
+    //! keyHint replaces the line of keys a table or page names at its foot
+    void DrawChrome( tString const & title, tString const & footnote, REAL alpha,
+                     tString const & keyHint = tString() );
 
     //! the row the following row and text calls belong to
     void BeginRow( REAL y, bool selected, bool primary, int control );

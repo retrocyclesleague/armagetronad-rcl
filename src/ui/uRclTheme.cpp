@@ -615,7 +615,8 @@ namespace uRclTheme
         }
     }
 
-    void DrawChrome( tString const & title, tString const & footnote, REAL alpha )
+    void DrawChrome( tString const & title, tString const & footnote, REAL alpha,
+                     tString const & keyHint )
     {
         if ( layout_ == Layout_Prompt )
             return;
@@ -647,7 +648,10 @@ namespace uRclTheme
         // move, Enter selects and Escape (or the right mouse button) goes
         // back; a page says the last of these, quietly, and that is all.
         REAL const hintY = Y( LogicalHeight() - 22 );
-        if ( layout_ == Layout_Wide )
+        if ( layout_ != Layout_Home && keyHint.Len() > 1 )
+            Text( left, hintY, sizeHint, weightRegular, textSecondary, .8f * alpha, keyHint,
+                  -1, W( LogicalWidth() - 2 * MarginPx() - 260 ) );
+        else if ( layout_ == Layout_Wide )
             Text( left, hintY, sizeHint, weightRegular, textSecondary, .8f * alpha,
                   "enter join  \xb7  arrows move  \xb7  tab sort  \xb7  v view  \xb7  r refresh  \xb7  b bookmark  \xb7  esc back",
                   -1, W( LogicalWidth() - 2 * MarginPx() - 260 ) );
@@ -953,7 +957,7 @@ namespace uRclTheme
     REAL TextWidth( char const *, REAL, int, REAL ) { return 0; }
     int Paragraph( REAL, REAL, REAL, REAL, int, Color const &, REAL, char const *, int, int ) { return 0; }
     void DrawBackground( REAL ) {}
-    void DrawChrome( tString const &, tString const &, REAL ) {}
+    void DrawChrome( tString const &, tString const &, REAL, tString const & ) {}
     void BeginRow( REAL, bool, bool, int ) {}
     void DrawRow( REAL, bool, REAL ) {}
     void RowText( int, REAL, REAL, char const *, bool, REAL, int, int, int ) {}

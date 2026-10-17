@@ -84,6 +84,7 @@ protected:
     uMenuItem *          autoExit_;         //!< the row the menu made for itself to leave by, if it did
     int                  hiddenRow_;        //!< index of that row while it is not shown, else -1
     tString              footnote_;         //!< quiet status text at the foot of the menu
+    tString              keyHint_;          //!< the keys a table or page names at its foot, if not the usual ones
 
     virtual REAL YPos(int num);             //!< where a row lies; a menu with rows of its own sizes says so here
 #ifndef DEDICATED
@@ -142,6 +143,7 @@ public:
     void OpenOn(int s) {openOn_ = s;}
     void SetStyle(uMenuStyle style) {style_ = style;}
     void SetFootnote(tString const & footnote) {footnote_ = footnote;}
+    void SetKeyHint(tString const & hint) {keyHint_ = hint;}
     uMenuStyle GetStyle() const {return style_;}
     bool RclStyle() const {return style_ != uMenuStyle_Classic;}
     int  NumItems()         {return items.Len();}
