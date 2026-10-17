@@ -25,6 +25,7 @@ of the License, or (at your option) any later version.
 #include "rSDL.h"
 #include "tConfiguration.h"
 #include "tDirectories.h"
+#include "tHttp.h"
 #include "tHttps.h"
 #include "tJson.h"
 #include "tSysTime.h"
@@ -35,6 +36,7 @@ of the License, or (at your option) any later version.
 #include <atomic>
 #include <cctype>
 #include <cstdio>
+#include <cstdlib>
 #include <ctime>
 #include <fstream>
 #include <sstream>
@@ -54,15 +56,31 @@ of the License, or (at your option) any later version.
 #endif
 
 // What the league's site says, as the menus show it. The site is asked on a
-// thread of its own, which is handed five paths and gives back five answers;
-// nothing else crosses over. The answers are read, kept on disk and turned
-// into what is drawn here, on the main thread.
+// thread of its own, which is handed the paths to ask and gives back their
+// answers; nothing else crosses over. The answers are read, kept on disk and
+// turned into what is drawn here, on the main thread.
 
 namespace
 {
     char const * const sg_leagueHost = "retrocyclesleague.com";
 
-    // what is asked for, in this order
+    // RCL_LEAGUE_PLAIN in the environment names a host:port that every request
+    // of the league side goes to instead, over plain HTTP, and that its pages
+    // open on: a test hook, for a stand-in on this machine. It is not a
+    // setting, so that no configuration file a server can send has a say in it.
+    std::string const & PlainHost()
+    {
+        static std::string const host( getenv( "RCL_LEAGUE_PLAIN" ) ? getenv( "RCL_LEAGUE_PLAIN" ) : "" );
+        return host;
+    }
+
+    bool Available()
+    {
+        return st_HttpsAvailable() || !PlainHost().empty();
+    }
+
+    // what is asked for, in this order; the first five are the league's, the
+    // last is the signed-in player's own
     enum Source
     {
         Source_Events,
@@ -70,10 +88,11 @@ namespace
         Source_Sumobar,
         Source_Twos,
         Source_Fortress,
+        Source_Progression,
         Source_Count
     };
 
-    char const * const sg_sourceName[ Source_Count ] = { "events", "tst", "sumobar", "2s", "fortress" };
+    char const * const sg_sourceName[ Source_Count ] = { "events", "tst", "sumobar", "2s", "fortress", "progression" };
 
     // the ladders, in the order of the tabs; Source_Tst + index is where each comes from
     int const sg_ladderCount = 4;
@@ -117,9 +136,27 @@ namespace
         LeagueEvent(): starts( 0 ), signups( 0 ), open( false ){}
     };
 
+    // the player's level and how far they are to the next
+    struct Progress
+    {
+        bool loaded;
+        std::string login;          // whose it is: the sign-in it was asked for, as the address carries it
+        std::string name, slug, award;
+        int level, xp, levelXp, nextXp, awardAmount;
+        time_t awardWhen;
+
+        Progress(): loaded( false ), level( 0 ), xp( 0 ), levelXp( 0 ), nextXp( 0 ), awardAmount( 0 ), awardWhen( 0 ){}
+    };
+
     std::string sg_body[ Source_Count ];        // the last good answer from each
     time_t sg_bodyWhen[ Source_Count ];         // and when it came
     bool sg_cacheRead = false;
+
+    // a progression is one player's: the sign-in its answer is for, and the
+    // last one it was asked for, so that someone else's level is never shown
+    std::string sg_progressFor;
+    std::string sg_progressAskedFor;
+    Progress sg_progress;
 
     Ladder sg_ladder[ sg_ladderCount ];
     bool sg_hasNext = false;
@@ -137,13 +174,16 @@ namespace
 
     struct Fetch
     {
-        std::string path[ Source_Count ];
+        std::string path[ Source_Count ];       // empty: not asked this time
         int status[ Source_Count ];
         std::string body[ Source_Count ];
+        std::string plain;                      // PlainHost(), for the thread
+        std::string login;                      // whose progression is asked for
+        bool everything;                        // the league's five are asked too
         std::atomic< bool > done;
         SDL_Thread * thread;
 
-        Fetch(): done( false ), thread( NULL )
+        Fetch(): everything( false ), done( false ), thread( NULL )
         {
             for ( int i = 0; i < Source_Count; ++i )
                 status[i] = -1;
@@ -151,14 +191,25 @@ namespace
     };
 
     Fetch * sg_fetch = NULL;
-    double sg_lastAsked = -1E10;    // tSysTimeFloat() of the last request
-    bool sg_lastAnswered = false;
+    double sg_lastAsked = -1E10;    // tSysTimeFloat() of the last request for the league's five
+    bool sg_lastAnswered = false;   // and whether any of them answered
 
     int sg_FetchThread( void * data )
     {
         Fetch * const fetch = static_cast< Fetch * >( data );
         for ( int i = 0; i < Source_Count; ++i )
-            fetch->status[i] = st_HttpsGet( sg_leagueHost, fetch->path[i], fetch->body[i], 2 << 20, 8 );
+        {
+            if ( fetch->path[i].empty() )
+                continue;
+            if ( fetch->plain.empty() )
+                fetch->status[i] = st_HttpsGet( sg_leagueHost, fetch->path[i], fetch->body[i], 2 << 20, 8 );
+            else
+            {
+                std::ostringstream body;
+                fetch->status[i] = st_PlainHttpGet( fetch->plain, fetch->path[i], body, 2 << 20, 8 );
+                fetch->body[i] = body.str();
+            }
+        }
         fetch->done.store( true, std::memory_order_release );
         return 0;
     }
@@ -492,10 +543,84 @@ namespace
         return me;
     }
 
+    // the signed-in player's sign-in ("syn@rcl") as an address carries it
+    // ("syn%40rcl"); empty when nobody is signed in
+    std::string Login()
+    {
+        if ( !ePlayer::RclAuthenticated() )
+            return std::string();
+        tString const identity = ePlayer::RclIdentity();
+        std::string const raw( static_cast< char const * >( identity ) );
+        static char const * const hex = "0123456789ABCDEF";
+        std::string out;
+        for ( size_t i = 0; i < raw.size(); ++i )
+        {
+            unsigned char const c = raw[i];
+            if ( ( c < 0x80 && isalnum( c ) ) || c == '-' || c == '_' || c == '.' || c == '~' )
+                out += static_cast< char >( c );
+            else
+            {
+                out += '%';
+                out += hex[ c >> 4 ];
+                out += hex[ c & 15 ];
+            }
+        }
+        return out;
+    }
+
+    // a number from the site as a whole number that cannot overflow
+    int Whole( tJson const & value )
+    {
+        double const n = value.Number();
+        return n > 1E9 ? 1000000000 : n < -1E9 ? -1000000000 : static_cast< int >( n );
+    }
+
+    void ReadProgress( std::string const & login )
+    {
+        sg_progress = Progress();
+        tJson doc;
+        // only an answer for whoever is signed in now, and only one with a level
+        if ( login.empty() || login != sg_progressFor || !tJson::Parse( sg_body[ Source_Progression ], doc ) ||
+             doc["level"].Type() != tJson::Kind_Number )
+            return;
+
+        Progress & p = sg_progress;
+        p.loaded = true;
+        p.login = login;
+        p.name = doc["player"]["name"].Str();      // as the site wrote it: drawn only through Plain()
+        p.slug = Slug( doc["player"]["slug"].Str() );
+        p.level = Whole( doc["level"] );
+        p.xp = Whole( doc["xp"] );
+        p.levelXp = Whole( doc["levelXp"] );
+        p.nextXp = Whole( doc["nextLevelXp"] );
+
+        // the newest award: the time says which, whatever the order
+        tJson const & recent = doc["recent"];
+        if ( recent.Type() != tJson::Kind_Array )
+            return;
+        int newest = -1;
+        for ( size_t i = 0; i < recent.Size() && i < 100; ++i )
+        {
+            time_t const when = When( recent[ i ]["earnedAt"].Str() );
+            if ( newest < 0 || when > p.awardWhen )
+            {
+                newest = static_cast< int >( i );
+                p.awardWhen = when;
+            }
+        }
+        if ( newest >= 0 )
+        {
+            tJson const & award = recent[ newest ];
+            p.award = Lower( Plain( award["label"].Str(), award["source"].Str(), 40 ) );
+            p.awardAmount = Whole( award["amount"] );
+        }
+    }
+
     void Rebuild()
     {
         std::vector< std::string > const me = Me();
-        std::string key;
+        std::string const login = Login();
+        std::string key = login + "\n";
         for ( size_t i = 0; i < me.size(); ++i )
             key += me[i] + "\n";
         if ( !sg_rebuild && key == sg_builtFor )
@@ -506,7 +631,14 @@ namespace
         ReadEvents();
         for ( int i = 0; i < sg_ladderCount; ++i )
             ReadLadder( i, me );
+        ReadProgress( login );
         ++sg_generation;
+    }
+
+    // the player's progression, when it is theirs
+    bool HasProgress()
+    {
+        return sg_progress.loaded && sg_progress.login == Login();
     }
 
     bool AnyLoaded()
@@ -519,10 +651,11 @@ namespace
         return false;
     }
 
+    // how old the league's data is; the player's own progression does not count
     time_t Newest()
     {
         time_t newest = 0;
-        for ( int i = 0; i < Source_Count; ++i )
+        for ( int i = 0; i < Source_Progression; ++i )
             if ( sg_bodyWhen[i] > newest )
                 newest = sg_bodyWhen[i];
         return newest;
@@ -532,7 +665,8 @@ namespace
 
     tString CacheName( int source )
     {
-        tString name( "league-" );
+        // what a stand-in answered is never taken for the site's
+        tString name( PlainHost().empty() ? "league-" : "league-test-" );
         name << sg_sourceName[ source ] << ".json";
         return name;
     }
@@ -551,6 +685,17 @@ namespace
             std::string first;
             if ( !std::getline( in, first ) || sscanf( first.c_str(), "%lld", &when ) != 1 )
                 continue;
+            if ( i == Source_Progression )
+            {
+                // its first line also says whose it is
+                std::string::size_type const space = first.find( ' ' );
+                if ( space == std::string::npos )
+                    continue;
+                std::string & whose = sg_progressFor;
+                whose = first.substr( space + 1 );
+                while ( !whose.empty() && isspace( static_cast< unsigned char >( whose[ whose.size() - 1 ] ) ) )
+                    whose.erase( whose.size() - 1 );
+            }
             std::ostringstream body;
             body << in.rdbuf();
             sg_body[i] = body.str();
@@ -563,26 +708,43 @@ namespace
     {
         std::ofstream out( static_cast< char const * >( tDirectories::Var().GetWritePath( CacheName( source ) ) ),
                            std::ios::binary );
-        if ( out )
-            out << static_cast< long long >( sg_bodyWhen[ source ] ) << "\n" << sg_body[ source ];
+        if ( !out )
+            return;
+        out << static_cast< long long >( sg_bodyWhen[ source ] );
+        if ( source == Source_Progression )
+            out << " " << sg_progressFor;
+        out << "\n" << sg_body[ source ];
     }
 
-    void Ask()
+    // asks for the league's five when everything, and for the progression of
+    // login when it is not empty
+    void Ask( bool everything, std::string const & login )
     {
         Fetch * const fetch = new Fetch;
-        time_t const now = time( NULL );
-        tm const * const utc = gmtime( &now );
-        int const season = utc ? utc->tm_year + 1900 : 2026;
-        char fortress[ 96 ];
-        snprintf( fortress, sizeof( fortress ), "/api/hub/leaderboard/fortress?season=%d", season );
+        fetch->plain = PlainHost();
+        fetch->everything = everything;
+        fetch->login = login;
+        if ( everything )
+        {
+            time_t const now = time( NULL );
+            tm const * const utc = gmtime( &now );
+            int const season = utc ? utc->tm_year + 1900 : 2026;
+            char fortress[ 96 ];
+            snprintf( fortress, sizeof( fortress ), "/api/hub/leaderboard/fortress?season=%d", season );
 
-        fetch->path[ Source_Events ] = "/api/events";
-        fetch->path[ Source_Tst ] = "/api/v1/leaderboard";
-        fetch->path[ Source_Sumobar ] = "/api/v1/sumobar/leaderboard?limit=200";
-        fetch->path[ Source_Twos ] = "/api/v1/two-s/leaderboard?limit=200";
-        fetch->path[ Source_Fortress ] = fortress;
+            fetch->path[ Source_Events ] = "/api/events";
+            fetch->path[ Source_Tst ] = "/api/v1/leaderboard";
+            fetch->path[ Source_Sumobar ] = "/api/v1/sumobar/leaderboard?limit=200";
+            fetch->path[ Source_Twos ] = "/api/v1/two-s/leaderboard?limit=200";
+            fetch->path[ Source_Fortress ] = fortress;
+            sg_lastAsked = tSysTimeFloat();
+        }
+        if ( !login.empty() )
+        {
+            fetch->path[ Source_Progression ] = "/api/v1/progression?login=" + login;
+            sg_progressAskedFor = login;
+        }
 
-        sg_lastAsked = tSysTimeFloat();
         fetch->thread = SDL_CreateThread( &sg_FetchThread, fetch );
         if ( !fetch->thread )
         {
@@ -595,17 +757,36 @@ namespace
     void TakeAnswer()
     {
         SDL_WaitThread( sg_fetch->thread, NULL );
-        sg_lastAnswered = false;
+        if ( sg_fetch->everything )
+            sg_lastAnswered = false;
         time_t const now = time( NULL );
         for ( int i = 0; i < Source_Count; ++i )
         {
+            if ( i == Source_Progression && sg_fetch->status[i] == 404 )
+            {
+                // the site does not know this player: nothing of theirs is kept
+                sg_body[i].clear();
+                sg_bodyWhen[i] = now;
+                sg_progressFor = sg_fetch->login;
+                WriteCache( i );
+                continue;
+            }
+
             // an answer that cannot be read keeps the last one that could
             tJson check;
             if ( sg_fetch->status[i] != 200 || !tJson::Parse( sg_fetch->body[i], check ) )
                 continue;
+            if ( i == Source_Progression )
+            {
+                // and a progression without a level is no progression
+                if ( check["level"].Type() != tJson::Kind_Number )
+                    continue;
+                sg_progressFor = sg_fetch->login;
+            }
+            else
+                sg_lastAnswered = true;
             sg_body[i].swap( sg_fetch->body[i] );
             sg_bodyWhen[i] = now;
-            sg_lastAnswered = true;
             WriteCache( i );
         }
         delete sg_fetch;
@@ -615,7 +796,8 @@ namespace
 
     void OpenPage( std::string const & path )
     {
-        std::string const url = std::string( "https://" ) + sg_leagueHost + path;
+        std::string const url = PlainHost().empty() ? std::string( "https://" ) + sg_leagueHost + path
+                                                    : "http://" + PlainHost() + path;
 #ifdef _WIN32
         ShellExecuteA( NULL, "open", url.c_str(), NULL, NULL, SW_SHOWNORMAL );
 #else
@@ -671,6 +853,7 @@ namespace
     };
     Box sg_tileBox[ sg_ladderCount ];
     Box sg_signupBox;
+    Box sg_progressBox;
     bool sg_drawn = false;
 
     // field coordinates to logical pixels from the top left
@@ -831,6 +1014,88 @@ namespace
                     snprintf( gap, sizeof( gap ), "%+d", difference );
                     Text( X( right - pad - 62 ), Y( y ), 13, 400, sg_quiet, alpha, gap, 1 );
                 }
+            }
+        }
+    }
+
+    // how long ago, shortly: "2 h ago"
+    std::string AgoText( time_t when )
+    {
+        if ( when <= 0 )
+            return std::string();
+        long const age = static_cast< long >( time( NULL ) - when );
+        char buffer[ 32 ];
+        if ( age < 60 )
+            return "just now";
+        if ( age < 3600 )
+            snprintf( buffer, sizeof( buffer ), "%ld min ago", age / 60 );
+        else if ( age < 2 * 86400 )
+            snprintf( buffer, sizeof( buffer ), "%ld h ago", age / 3600 );
+        else
+            snprintf( buffer, sizeof( buffer ), "%ld days ago", age / 86400 );
+        return buffer;
+    }
+
+    // the player's level, in a strip of its own: the number, the way to the
+    // next one, and the last thing that earned them some
+    void DrawProgress( REAL left, REAL top, REAL width, REAL height, REAL alpha )
+    {
+        Progress const & p = sg_progress;
+        REAL const pad = 22, right = left + width, mid = top + height * .5f;
+        FillRect( X( left ), Y( top ), X( right ), Y( top + height ), sg_cardColor, .88f * alpha, 8 );
+        if ( !p.slug.empty() )
+        {
+            sg_progressBox.left = left;
+            sg_progressBox.right = right;
+            sg_progressBox.top = top;
+            sg_progressBox.bottom = top + height;
+        }
+
+        // "level 23", the number large, the two on one baseline (a text's lies
+        // about a third of its size below the middle it is drawn at)
+        Text( X( left + pad ), Y( mid + 6 ), 13, 500, textSecondary, alpha, "level" );
+        REAL x = left + pad + WidthPx( "level", 13, 500 ) + 8;
+        char level[ 16 ];
+        snprintf( level, sizeof( level ), "%d", p.level );
+        Text( X( x ), Y( mid ), 30, 600, accent, alpha, level );
+        x += WidthPx( level, 30, 600 ) + 20;
+
+        // who, over the bar from this level to the next: the name the client
+        // knows them by, else the site's
+        tString const display = ePlayer::RclDisplayName();
+        std::string name = Plain( std::string( static_cast< char const * >( display ) ), p.name.empty() ? p.slug : p.name );
+        if ( name.empty() )
+        {
+            tString const identity = ePlayer::RclIdentity();
+            int const at = identity.StrPos( "@" );
+            name = Plain( std::string( static_cast< char const * >( at > 0 ? identity.SubStr( 0, at ) : identity ) ) );
+        }
+        REAL const barWidth = 130, barTop = top + 37;
+        int const span = p.nextXp - p.levelXp;
+        char xp[ 48 ];
+        if ( span > 0 )
+            snprintf( xp, sizeof( xp ), "%d / %d xp", std::max( 0, std::min( p.xp - p.levelXp, span ) ), span );
+        else
+            snprintf( xp, sizeof( xp ), "%d xp", p.xp );
+        REAL const xpRight = x + barWidth + 10 + WidthPx( xp, 12, 400 );
+        Text( X( x ), Y( top + 20 ), 15, 500, textPrimary, alpha, name.c_str(), -1, W( xpRight - x ) );
+        FillRect( X( x ), Y( barTop ), X( x + barWidth ), Y( barTop + 4 ), surfaceRaised, alpha );
+        if ( span > 0 && p.xp > p.levelXp )
+            FillRect( X( x ), Y( barTop ), X( x + barWidth * std::min( REAL( 1 ), REAL( p.xp - p.levelXp ) / span ) ),
+                      Y( barTop + 4 ), accent, alpha );
+        Text( X( x + barWidth + 10 ), Y( barTop + 2 ), 12, 400, textSecondary, alpha, xp );
+
+        // the newest award, quietly, on the right, where there is room
+        if ( p.awardAmount != 0 || !p.award.empty() )
+        {
+            char amount[ 24 ];
+            snprintf( amount, sizeof( amount ), "%+d", p.awardAmount );
+            std::string const award = std::string( amount ) + " " + ( p.award.empty() ? std::string( "xp" ) : p.award );
+            REAL const room = right - pad - ( xpRight + 24 );
+            if ( room > 40 )
+            {
+                Text( X( right - pad ), Y( top + 21 ), 12, 400, sg_quiet, alpha, award.c_str(), 1, W( room ) );
+                Text( X( right - pad ), Y( barTop + 2 ), 11, 400, sg_quiet, alpha, AgoText( p.awardWhen ).c_str(), 1 );
             }
         }
     }
@@ -1271,7 +1536,7 @@ namespace
 
 void gLeague::Poll()
 {
-    if ( !st_HttpsAvailable() )
+    if ( !Available() )
         return;
 
     if ( sg_ladderShown < 0 || sg_ladderShown >= sg_ladderCount )
@@ -1290,8 +1555,22 @@ void gLeague::Poll()
     {
         double const age = static_cast< double >( time( NULL ) - Newest() );
         double const sinceAsked = tSysTimeFloat() - sg_lastAsked;
-        if ( age > sg_freshFor && sinceAsked > ( sg_lastAnswered ? sg_freshFor : sg_retryAfter ) )
-            Ask();
+        bool const due = age > sg_freshFor && sinceAsked > ( sg_lastAnswered ? sg_freshFor : sg_retryAfter );
+
+        // The player's own progression goes along with the rest, and is asked
+        // for at once for someone just signed in (that often ends a few seconds
+        // after the menu is up), unless what is kept is theirs and new enough.
+        std::string const login = Login();
+        bool mine = false;
+        if ( !login.empty() && login != sg_progressAskedFor )
+        {
+            if ( login == sg_progressFor && time( NULL ) - sg_bodyWhen[ Source_Progression ] <= sg_freshFor )
+                sg_progressAskedFor = login;
+            else
+                mine = true;
+        }
+        if ( due || mine )
+            Ask( due, login );
     }
 
     Rebuild();
@@ -1300,23 +1579,26 @@ void gLeague::Poll()
 void gLeague::DrawHome( REAL alpha )
 {
     sg_drawn = false;
-    if ( !st_HttpsAvailable() || !AnyLoaded() )
+    if ( !Available() || !AnyLoaded() )
         return;
 
-    // beside the rail, on the right; a window too small for both keeps the rail
+    // beside the rail, on the right; a window too small for all of it keeps the rail
     REAL const margin = MarginPx();
     REAL const railRight = margin + ColumnPx() + margin * .5f;
     REAL const widthPx = 560;
     REAL const right = LogicalWidth() - margin * .6f;
     REAL const left = right - widthPx;
-    REAL const eventHeight = 86, tileHeight = 204, gap = 12;
+    bool const progress = HasProgress();
+    REAL const eventHeight = 86, progressHeight = 58, tileHeight = 204, gap = 12;
     REAL top = margin * .6f;
-    if ( left < railRight + 40 || LogicalHeight() < top + eventHeight + gap + 2 * tileHeight + gap + 40 )
+    REAL const needed = top + eventHeight + gap + ( progress ? progressHeight + gap : 0 ) + 2 * tileHeight + gap + 40;
+    if ( left < railRight + 40 || LogicalHeight() < needed )
         return;
     sg_drawn = true;
 
     // ---- the next event, on one line ----
     sg_signupBox = Box();
+    sg_progressBox = Box();
     FillRect( X( left ), Y( top ), X( right ), Y( top + eventHeight ), sg_cardColor, .88f * alpha, 8 );
     Text( X( left + 22 ), Y( top + 20 ), 12, 500, sg_quiet, alpha, "next event" );
     if ( sg_hasNext )
@@ -1347,6 +1629,13 @@ void gLeague::DrawHome( REAL alpha )
     }
     top += eventHeight + gap;
 
+    // ---- the player's level, when the site has one for them ----
+    if ( progress )
+    {
+        DrawProgress( left, top, widthPx, progressHeight, alpha );
+        top += progressHeight + gap;
+    }
+
     // ---- the four ladders, two by two ----
     REAL const tileWidth = ( widthPx - gap ) * .5f;
     for ( int i = 0; i < sg_ladderCount; ++i )
@@ -1371,6 +1660,12 @@ bool gLeague::HomeClick( REAL x, REAL y )
     {
         uMenu::MenuSound( uMenu::Sound_Activate );
         OpenPage( "/event/" + sg_next.slug );
+        return true;
+    }
+    if ( sg_progressBox.Holds( px, py ) && HasProgress() && !sg_progress.slug.empty() )
+    {
+        uMenu::MenuSound( uMenu::Sound_Activate );
+        OpenPage( "/player/" + sg_progress.slug );
         return true;
     }
     for ( int i = 0; i < sg_ladderCount; ++i )

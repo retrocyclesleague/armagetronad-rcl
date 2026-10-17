@@ -22,15 +22,17 @@ of the License, or (at your option) any later version.
 #include "defs.h"
 
 //! The league in the menus: its next event and the ones before, its ladders
-//! and where the player stands on them, read from the league's site and kept
-//! on disk so the menus have them at once on the next start.
+//! and where the player stands on them, the player's level, read from the
+//! league's site and kept on disk so the menus have them at once on the next
+//! start.
 namespace gLeague
 {
     //! Each frame of a menu that shows the league: asks the site again when
     //! what is known is old, and takes an answer that has come in. Never waits.
     void Poll();
 
-    //! the main menu's right side: the next event and the player's four ladders
+    //! the main menu's right side: the next event, the player's level when
+    //! the site has one for them, and their four ladders
     void DrawHome( REAL alpha );
 
     //! A press of the left mouse button at x, y (field coordinates) on the
