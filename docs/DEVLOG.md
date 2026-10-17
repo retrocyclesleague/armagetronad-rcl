@@ -1,5 +1,15 @@
 # Dev log
 
+## 2026-10-17 - a spectator comes in looking down on the game
+
+Jamie, joining a server as a spectator and finding the free camera low over the middle, looking at the horizon: "when i join as spec i should be looking straight down or following the action in some way not this".
+
+- Coming in as a spectator, the free camera now looks straight down (83 degrees, as steep as the mouse can look) from high enough to have everything in view: the cycles still alive, with room around them and never nearer than a quarter of the arena across, or the whole arena while nobody is alive. It glides after them as they move (`eCamera::SpectatorTarget`), climbing as they spread and coming down as fewer are left.
+- Flying it in any way (a key, a drag) ends the following; from there it is the watcher's, and the next round starts where they left it. A watcher who never took it is shown the next round from above again. Someone who loses their cycle keeps the view they had, as before.
+- `CAMERA_SPECTATOR_FOLLOW 0` turns the following off (the camera then starts a little above the middle, as before). The ceiling for flying is now 2000 units, so a high overview does not jump down when the watcher takes it.
+
+Checked on Windows: the off-screen test window joined the branch's dedicated server in Docker as a spectator, with four bots playing (`GAME_WAIT_PLAYERS_ENABLED 0` on the test server); pictures at the round's start (close over the four cycles), seconds later (pulled back over the whole play), and after W (the watcher's). Not checked: a big arena on a real server, the screen at other aspect ratios.
+
 ## 2026-10-17 - your level on the main menu; your servers, one row away
 
 **Your level.** The league is getting levels from verified play (spec in Jamie's rcl-cfg, `progression/PROGRESSION_SPEC.md`; the site side is built but not deployed). When the player is signed in, the league side also asks `/api/v1/progression?login=<login>` and draws a strip under the next event: level, a bar to the next level, and the newest award; a click opens their page. Cached per login, so another account's level is never shown. Nothing is drawn until the site answers with a level (today it does not: not deployed). `RCL_LEAGUE_PLAIN=host:port` sends every league request over plain HTTP to a local stand-in, with cache files of its own, for tests.

@@ -122,6 +122,10 @@ protected:
     bool   spectatorWaySet_;    //!< the way the flight travels has been taken from the view
     eCoord spectatorWay_;       //!< the way the flight travels, which is not always where the view looks
     REAL   spectatorWayRise_;   //!< and how steeply up or down
+    bool   spectatorFollow_;    //!< the free camera keeps the cycles in view from above until the watcher flies it
+
+    //! what following keeps in view, and how high the camera must be to see it
+    bool SpectatorTarget( eCoord & centre, REAL & height ) const;
 
     void SpectatorFly();        //!< hands a watcher their own free camera and flies it
 

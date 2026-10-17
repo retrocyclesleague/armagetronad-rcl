@@ -374,6 +374,13 @@ static REAL se_spectatorDelay = .75f;           // seconds after a cycle is lost
 static tConfItem< REAL > se_spectatorDelayConf( "CAMERA_SPECTATOR_DELAY", se_spectatorDelay );
 static tConfItem< REAL > se_spectatorMouseConf( "CAMERA_SPECTATOR_MOUSE", se_spectatorMouse );
 
+// A watcher who has just come in sees the arena from straight above, and the
+// camera keeps the cycles still alive in view, gliding after them, until the
+// watcher flies it themselves. Someone who lost their cycle keeps their view.
+static bool se_spectatorFollow = true;
+static tConfItem< bool > se_spectatorFollowConf( "CAMERA_SPECTATOR_FOLLOW", se_spectatorFollow );
+static const REAL se_spectatorDown = -8.24f;    // the rise of a view 83 degrees down, as steep as the mouse can look
+
 // Where the watcher last left their camera, and in which arena. Every round
 // brings a new camera object; the place a watcher flew to should outlast it.
 namespace
@@ -383,8 +390,9 @@ struct eSpectatorPose
     bool valid;
     eCoord low, high, pos, dir;
     REAL z, rise;
+    bool flown;     // the watcher had the camera in hand here; a camera that only followed is not kept
 };
-eSpectatorPose se_spectatorPose = { false, eCoord(), eCoord(), eCoord(), eCoord( 0, 1 ), 0, 0 };
+eSpectatorPose se_spectatorPose = { false, eCoord(), eCoord(), eCoord(), eCoord( 0, 1 ), 0, 0, false };
 
 // The watcher went on to one of the views that follow players. That choice
 // stands for the rounds after it, until they come back to the free view.
@@ -455,6 +463,7 @@ void eCamera::SpectatorFly()
     if ( !spectatorFly_ && ( fell || !uMenu::MenuActive() ) && now - spectatorSince_ >= ( fell || spectator ? 0.0 : 1.0 ) )
     {
         spectatorFly_ = true;
+        spectatorFollow_ = false;
         spectatorLockUntil_ = fell ? now + se_spectatorDelay : 0;
         spectatorHeldOver_ = fell ? ~0u : 0u;
 
@@ -474,7 +483,7 @@ void eCamera::SpectatorFly()
         {
             // they would rather follow the players: the camera stays as it is
         }
-        else if ( last.valid && ( last.low - bounds.GetLow() ).NormSquared() < 1 &&
+        else if ( last.valid && last.flown && ( last.low - bounds.GetLow() ).NormSquared() < 1 &&
              ( last.high - bounds.GetHigh() ).NormSquared() < 1 )
         {
             mode = CAMERA_FREE;
@@ -489,18 +498,32 @@ void eCamera::SpectatorFly()
         {
             mode = CAMERA_FREE;
 
-            // a little above the middle of the arena, looking along it and down
-            eCoord const size = bounds.GetHigh() - bounds.GetLow();
-            REAL const span = size.x > size.y ? size.x : size.y;
-            if ( span > 0 && span < 1E+6 )
+            eCoord centre;
+            REAL height = 0;
+            if ( se_spectatorFollow && SpectatorTarget( centre, height ) )
             {
-                pos = ( bounds.GetLow() + bounds.GetHigh() ) * REAL( .5 );
-                z = span * REAL( .08 );
-                if ( z < 20 ) z = 20;
-                if ( z > 60 ) z = 60;
+                // from straight above, everything that is going on in sight
+                spectatorFollow_ = true;
+                dir = eCoord( 0, 1 );
+                rise = se_spectatorDown;
+                z = height;
+                pos = centre - dir * ( height / -se_spectatorDown );
             }
-            dir = eCoord( 0, 1 );
-            rise = REAL( -.35 );
+            else
+            {
+                // a little above the middle of the arena, looking along it and down
+                eCoord const size = bounds.GetHigh() - bounds.GetLow();
+                REAL const span = size.x > size.y ? size.x : size.y;
+                if ( span > 0 && span < 1E+6 )
+                {
+                    pos = ( bounds.GetLow() + bounds.GetHigh() ) * REAL( .5 );
+                    z = span * REAL( .08 );
+                    if ( z < 20 ) z = 20;
+                    if ( z > 60 ) z = 60;
+                }
+                dir = eCoord( 0, 1 );
+                rise = REAL( -.35 );
+            }
         }
         glancingForward = glancingBack = glancingLeft = glancingRight = false;
         glanceSmooth = glanceSmoothAbs = 0;
@@ -603,6 +626,27 @@ void eCamera::SpectatorFly()
     REAL left = REAL( held[ uSpectatorKey_Left ] ? 1 : 0 ) - REAL( held[ uSpectatorKey_Right ] ? 1 : 0 );
     REAL const turning = REAL( held[ uSpectatorKey_TurnLeft ] ? 1 : 0 ) - REAL( held[ uSpectatorKey_TurnRight ] ? 1 : 0 );
     REAL const up = REAL( held[ uSpectatorKey_Up ] ? 1 : 0 ) - REAL( held[ uSpectatorKey_Down ] ? 1 : 0 );
+
+    // Following: the camera glides after the cycles from above. Flying it in
+    // any way ends that; the watcher has it from there.
+    if ( spectatorFollow_ && ( look || steer || ahead != 0 || left != 0 || turning != 0 || up != 0 ) )
+        spectatorFollow_ = false;
+    if ( spectatorFollow_ )
+    {
+        eCoord centre;
+        REAL height;
+        if ( SpectatorTarget( centre, height ) )
+        {
+            REAL const k = 1 - exp( -dt / REAL( .9 ) );
+            dir = eCoord( 0, 1 );
+            rise = se_spectatorDown;
+            eCoord const at = centre - dir * ( height / -se_spectatorDown );
+            pos = pos + ( at - pos ) * k;
+            z += ( height - z ) * k;
+        }
+        spectatorWay_ = dir;
+        spectatorWayRise_ = rise;
+    }
     if ( steer )
     {
         left += turning;
@@ -640,7 +684,7 @@ void eCamera::SpectatorFly()
         pos = pos + spectatorWay_ * ( ahead * level * step ) + spectatorWay_.Turn( eCoord( 0, 1 ) ) * ( left * step );
         z += ( ahead * spectatorWayRise_ * level + up ) * step;
         if ( z < 1 ) z = 1;
-        if ( z > 300 ) z = 300;
+        if ( z > 2000 ) z = 2000;
 
         // not off into the void: over the arena or the ground around it
         eCoord const size = bounds.GetHigh() - bounds.GetLow();
@@ -659,7 +703,69 @@ void eCamera::SpectatorFly()
     keep.dir = dir;
     keep.z = z;
     keep.rise = rise;
+    if ( !spectatorFollow_ )
+        keep.flown = true;
 #endif
+}
+
+// What following keeps in view: the cycles still alive, with room around
+// them, or the whole arena while none are; and how high the camera must be,
+// looking down, to have all of it on the screen.
+bool eCamera::SpectatorTarget( eCoord & centre, REAL & height ) const
+{
+    eRectangle const & bounds = eWallRim::GetBounds();
+    eCoord const size = bounds.GetHigh() - bounds.GetLow();
+    bool const arena = size.x > 0 && size.y > 0 && size.x < 1E+6 && size.y < 1E+6;
+
+    eCoord low, high;
+    bool any = false;
+    for ( int i = grid->gameObjectsInteresting.Len() - 1; i >= 0; --i )
+    {
+        eGameObject const * object = grid->gameObjectsInteresting[i];
+        if ( !object || !object->Alive() )
+            continue;
+        eCoord const p = object->Position();
+        if ( !any )
+        {
+            low = high = p;
+            any = true;
+            continue;
+        }
+        if ( p.x < low.x ) low.x = p.x;
+        if ( p.y < low.y ) low.y = p.y;
+        if ( p.x > high.x ) high.x = p.x;
+        if ( p.y > high.y ) high.y = p.y;
+    }
+    if ( !any )
+    {
+        if ( !arena )
+            return false;
+        low = bounds.GetLow();
+        high = bounds.GetHigh();
+    }
+
+    // room around them, and never nearer than a quarter of the arena across
+    eCoord half = ( high - low ) * REAL( .5 ) + eCoord( 20, 20 );
+    if ( arena )
+    {
+        REAL const least = ( size.x > size.y ? size.x : size.y ) * REAL( .125 );
+        if ( half.x < least ) half.x = least;
+        if ( half.y < least ) half.y = least;
+    }
+    centre = ( low + high ) * REAL( .5 );
+
+    // looking down, the arena's length is the screen's height
+    REAL const upDown = tan( vp->UpDownFOV( fov ) * REAL( 3.14159265 / 360 ) );
+    if ( !( upDown > 0 ) )
+        return false;
+    REAL const across = upDown * REAL( 1.33 );  // a screen is at least as wide as 4:3
+    height = half.y / upDown;
+    if ( half.x / across > height )
+        height = half.x / across;
+    height *= REAL( 1.1 );
+    if ( height < 25 ) height = 25;
+    if ( height > 2000 ) height = 2000;
+    return true;
 }
 
 void eCamera::MyInit(){
@@ -668,6 +774,7 @@ void eCamera::MyInit(){
     spectatorLast_ = 0;
     spectatorWaySet_ = false;
     spectatorWayRise_ = 0;
+    spectatorFollow_ = false;
     spectatorLockUntil_ = 0;
     spectatorHeldOver_ = 0;
 

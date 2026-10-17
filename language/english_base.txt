@@ -4341,7 +4341,8 @@ spectator_key_look_text        Look around
 spectator_key_look_help        Held, the mouse turns the view and the camera keeps the heading it had.
 spectator_key_steer_text       Steer
 spectator_key_steer_help       Held, the mouse turns the view and the heading with it. With the look button held too, the camera flies forward.
-camera_spectator_free_help     While you have no cycle in the round, give you a free camera flown with the keys and mouse of World of Warcraft: from the view you had when you lost your cycle, or a little above the middle of the arena if you are spectating. Off keeps the camera behind other players.
+camera_spectator_free_help     While you have no cycle in the round, give you a free camera flown with the keys and mouse of World of Warcraft: from the view you had when you lost your cycle, or from above the arena if you are spectating. Off keeps the camera behind other players.
+camera_spectator_follow_help   When you come in as a spectator, the free camera looks straight down and keeps the cycles still alive in view, until you fly it yourself.
 camera_spectator_speed_help    How fast the spectator's free camera flies, in arena units a second.
 camera_spectator_mouse_help    How far the spectator's free camera turns for mouse travel, in radians a pixel.
 rcl_scoreboard_help            Shows the scores as a panel: the server and map, each team with its score, and every player with score, ping and whether they are alive. Off brings the plain text table back.
