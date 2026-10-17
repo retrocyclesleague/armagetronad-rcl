@@ -32,4 +32,9 @@ typedef bool tHttpIdle();
 int st_PlainHttpGet( std::string host, std::string const & path, std::ostream & target, int maxlen,
                      double budget, tHttpIdle * idle = 0 );
 
+//! The IPv4 address a host name stands for, in dots ("192.0.2.7"), or ""
+//! when it stands for none. Waits for as long as the lookup takes, so it
+//! belongs on a thread of its own; any number of threads may ask at once.
+std::string st_LookupHost( std::string const & host );
+
 #endif

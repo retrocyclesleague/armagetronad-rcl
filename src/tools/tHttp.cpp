@@ -20,6 +20,7 @@ of the License, or (at your option) any later version.
 
 #include <ostream>
 #include <chrono>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #ifdef _WIN32
@@ -86,6 +87,58 @@ namespace
                 return false;
         }
     }
+
+    void st_HttpStartup()
+    {
+#ifdef _WIN32
+        static bool started = false;
+        if ( !started )
+        {
+            WSADATA data;
+            WSAStartup( MAKEWORD( 1, 1 ), &data );
+            started = true;
+        }
+#endif
+    }
+
+    // This is also called from threads of its own (the sign-in check at
+    // startup, the main menu's server lookups), so the lookup must not share
+    // a buffer with other callers.
+    bool st_HttpLookup( std::string const & host, in_addr & found )
+    {
+#ifdef _WIN32
+        // Winsock keeps gethostbyname's answer per thread
+        hostent const * entry = gethostbyname( host.c_str() );
+        if ( !entry || entry->h_addrtype != AF_INET || !entry->h_addr_list[0] )
+            return false;
+        memcpy( &found, entry->h_addr_list[0], sizeof( found ) );
+#else
+        addrinfo hints;
+        memset( &hints, 0, sizeof( hints ) );
+        hints.ai_family = AF_INET;
+        hints.ai_socktype = SOCK_STREAM;
+        addrinfo * answer = NULL;
+        if ( getaddrinfo( host.c_str(), NULL, &hints, &answer ) != 0 || !answer )
+            return false;
+        found = reinterpret_cast< sockaddr_in const * >( answer->ai_addr )->sin_addr;
+        freeaddrinfo( answer );
+#endif
+        return true;
+    }
+}
+
+std::string st_LookupHost( std::string const & host )
+{
+    st_HttpStartup();
+
+    in_addr found;
+    if ( host.empty() || !st_HttpLookup( host, found ) )
+        return std::string();
+
+    unsigned char const * const b = reinterpret_cast< unsigned char const * >( &found );
+    char dotted[ 16 ];
+    snprintf( dotted, sizeof( dotted ), "%u.%u.%u.%u", b[0], b[1], b[2], b[3] );
+    return dotted;
 }
 
 int st_PlainHttpGet( std::string host, std::string const & path, std::ostream & target, int maxlen,
@@ -94,15 +147,7 @@ int st_PlainHttpGet( std::string host, std::string const & path, std::ostream & 
     if ( budget <= 0 )
         return -1;
 
-#ifdef _WIN32
-    static bool started = false;
-    if ( !started )
-    {
-        WSADATA data;
-        WSAStartup( MAKEWORD( 1, 1 ), &data );
-        started = true;
-    }
-#endif
+    st_HttpStartup();
 
     // what the request names as its host: with the port, if one was given
     std::string const hostHeader = host;
@@ -119,28 +164,8 @@ int st_PlainHttpGet( std::string host, std::string const & path, std::ostream & 
     memset( &address, 0, sizeof( address ) );
     address.sin_family = AF_INET;
     address.sin_port = htons( static_cast< unsigned short >( port ) );
-
-    // This is also called from threads of its own (the sign-in check at
-    // startup), so the lookup must not share a buffer with other callers.
-#ifdef _WIN32
-    // Winsock keeps gethostbyname's answer per thread
-    hostent const * entry = gethostbyname( host.c_str() );
-    if ( !entry || entry->h_addrtype != AF_INET || !entry->h_addr_list[0] )
+    if ( !st_HttpLookup( host, address.sin_addr ) )
         return -1;
-    memcpy( &address.sin_addr, entry->h_addr_list[0], sizeof( address.sin_addr ) );
-#else
-    {
-        addrinfo hints;
-        memset( &hints, 0, sizeof( hints ) );
-        hints.ai_family = AF_INET;
-        hints.ai_socktype = SOCK_STREAM;
-        addrinfo * found = NULL;
-        if ( getaddrinfo( host.c_str(), NULL, &hints, &found ) != 0 || !found )
-            return -1;
-        address.sin_addr = reinterpret_cast< sockaddr_in const * >( found->ai_addr )->sin_addr;
-        freeaddrinfo( found );
-    }
-#endif
 
     st_HttpSocket s = socket( AF_INET, SOCK_STREAM, 0 );
 #ifdef _WIN32

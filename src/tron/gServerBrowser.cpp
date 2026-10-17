@@ -29,6 +29,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "gGame.h"
 #include "gLogo.h"
 #include "gServerFavorites.h"
+#include "gServerHistory.h"
 #include "gFriends.h"
 
 #include "nServerInfo.h"
@@ -52,6 +53,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include <vector>
 #include <algorithm>
+#include <map>
 #include <string>
 #include <string.h>
 #include <ctype.h>
@@ -126,6 +128,15 @@ static bool sg_browserHideEmpty = false;
 static tConfItem< bool > sg_browserHideEmptyConf( "SERVER_BROWSER_HIDE_EMPTY", sg_browserHideEmpty );
 static bool sg_browserRclOnly = false;
 static tConfItem< bool > sg_browserRclOnlyConf( "SERVER_BROWSER_RCL_ONLY", sg_browserRclOnly );
+// only the servers in the player's own history, their favourites first
+static bool sg_browserYours = false;
+static tConfItem< bool > sg_browserYoursConf( "SERVER_BROWSER_YOURS", sg_browserYours );
+
+// the filter counts only while there is a history to filter by
+static bool sg_BrowserYours()
+{
+    return sg_browserYours && gServerHistory::On();
+}
 
 //! where a row of the list lies and what it is
 struct gBrowserSlot
@@ -456,6 +467,11 @@ void gServerMenu::Changed( int chip )
     case 4:
         sg_browserHideEmpty = !sg_browserHideEmpty;
         break;
+    case 7:
+        if ( !gServerHistory::On() )
+            return;
+        sg_browserYours = !sg_browserYours;
+        break;
     case 5:
         sg_browserView = gBrowserView_Cards;
         break;
@@ -552,6 +568,10 @@ void gServerMenu::HandleEvent( SDL_Event event )
         case(SDLK_o):
             if ( searching ) break;
             Changed( 3 );
+            return;
+        case(SDLK_y):
+            if ( searching ) break;
+            Changed( 7 );
             return;
 		case(SDLK_m):
             if( searching ) break;
@@ -818,6 +838,8 @@ void gServerMenu::Update()
 
 	// Who is shown, in two stretches: the servers people are on, and the empty ones.
     std::vector< gServerInfo * > live, empty;
+    std::map< gServerInfo *, double > yours;
+    bool const onlyYours = sg_BrowserYours();
     livePlayers_ = 0;
     for ( run = gServerInfo::GetFirstServer(); run; run = run->Next() )
     {
@@ -825,6 +847,13 @@ void gServerMenu::Update()
             continue;
         if ( sg_browserRclOnly && !sg_BrowserIsRcl( run ) )
             continue;
+        if ( onlyYours )
+        {
+            double const score = gServerHistory::Score( run->GetConnectionName(), run->GetPort() );
+            if ( score < 0 )
+                continue;
+            yours[ run ] = score;
+        }
         if ( run->Users() > 0 && run->Reachable() )
         {
             live.push_back( run );
@@ -840,6 +869,13 @@ void gServerMenu::Update()
     bool const byName = sg_browserSort == gBrowserSort_Name;
     std::stable_sort( live.begin(), live.end(), gBrowserOrder( sg_browserSort ) );
     std::stable_sort( empty.begin(), empty.end(), gBrowserOrder( byName ? int( gBrowserSort_Name ) : int( gBrowserSort_Ping ) ) );
+    if ( onlyYours )
+    {
+        // the player's favourites first, in both stretches
+        auto const favourite = [&yours]( gServerInfo * a, gServerInfo * b ){ return yours[a] > yours[b]; };
+        std::stable_sort( live.begin(), live.end(), favourite );
+        std::stable_sort( empty.begin(), empty.end(), favourite );
+    }
     if ( sg_browserHideEmpty )
         empty.clear();
 
@@ -864,7 +900,7 @@ void gServerMenu::Update()
     }
     if ( !empty.empty() )
     {
-        tNEW( gBrowserSectionItem )( this, byName ? "empty" : "empty, nearest first" );
+        tNEW( gBrowserSectionItem )( this, onlyYours ? "empty, your favourites first" : byName ? "empty" : "empty, nearest first" );
         for ( size_t i = 0; i < empty.size(); ++i )
         {
             gServerMenuItem * const item = tNEW( gServerMenuItem )( this );
@@ -1455,6 +1491,8 @@ void gServerMenu::RenderChips( REAL y, REAL alpha )
     x += uRclTheme::W( 18 );
     x = sg_BrowserChip( x, y, "rcl only", sg_browserRclOnly, 3, alpha, false );
     x = sg_BrowserChip( x, y, "hide empty", sg_browserHideEmpty, 4, alpha, false );
+    if ( gServerHistory::On() )
+        x = sg_BrowserChip( x, y, "yours", sg_browserYours, 7, alpha, false );
 
     // the view, from the right edge
     REAL right = uRclTheme::RowRight() - uRclTheme::W( 14 );

@@ -1,5 +1,28 @@
 # Dev log
 
+## 2026-10-17 - your level on the main menu; your servers, one row away
+
+**Your level.** The league is getting levels from verified play (spec in Jamie's rcl-cfg, `progression/PROGRESSION_SPEC.md`; the site side is built but not deployed). When the player is signed in, the league side also asks `/api/v1/progression?login=<login>` and draws a strip under the next event: level, a bar to the next level, and the newest award; a click opens their page. Cached per login, so another account's level is never shown. Nothing is drawn until the site answers with a level (today it does not: not deployed). `RCL_LEAGUE_PLAIN=host:port` sends every league request over plain HTTP to a local stand-in, with cache files of its own, for tests.
+
+**Your servers.** Jamie: "can we have a system that tracks what servers you go to so we can have quick actions to go to your favourite server that is populated".
+
+- Every session in which the client entered a game on a server is kept in `var/server-history.txt` on this PC only: the server, seconds played, visits (sessions of 30 s or more), when last, its name. At most 50 servers. `SERVER_HISTORY 0` stops it and hides the rows; `SERVER_HISTORY_CLEAR` forgets everything.
+- A server's weight is its time plus a minute a visit, halved for every three weeks since it was last played. The three heaviest get rows in the main menu between Events and Settings, the ones with players first, each with who is on now (`6 / 24`, lime when anyone is; `empty`; `-` while unknown or not answering) and, on its help line, how long and how lately the player was there. Choosing a row joins the server.
+- The counts come from the servers themselves, the way Play Now counts: while the main menu is open, about every 45 s, the three servers are asked through the shared server list, a little each frame, after their names were looked up on a thread (a lookup on the main thread can stall a frame). The probe ends before anything the menu starts (browser, Play Now, a join) and leaves the shared list alone if anyone else has touched it; nothing is sent while history is off or empty, or while a session is recorded.
+- In the server browser, a "yours" chip (key Y, `SERVER_BROWSER_YOURS`) lists only the servers in your history.
+- A server's name is kept whole: servers that colour every letter make long names, and the first cut kept 96 bytes and could end inside a colour code.
+
+Checked on Windows (off-screen test window, throwaway profile):
+- The level strip against the stand-in: shown with a level, not shown when the stand-in answers 503 from a clean cache.
+- Your servers with a written history: the rows appear in order, the real Frankfurt Fort Practice server answered, its row took the server's own name and showed `empty`, and a dead address showed `-`. A row joined the local test server (the branch's dedicated server in Docker), the game menu's Disconnect left it, and the file then had the session's 15 s and the new time (no new visit: under 30 s).
+
+Not checked:
+- A populated server's lime count, since none of the history's servers had players at the time.
+- The local Docker server's count: it shows `-`, though joining it works, apparently because its answers to info requests leave from a port Docker does not forward.
+- The browser's "yours" chip.
+- Frame times during a probe.
+- macOS, Linux and the dedicated server build.
+
 ## 2026-10-17 - the league in the menus: you on four ladders, the next event, leaderboards and events pages
 
 Jamie: "now we need to revamp the home page to have a cleaner exp and integrate rcl more with leaderboards and events". Shown drawn proposals (cards beside the rail, a strip along the bottom, the event as a headline, you first) with the league's real data, he chose: "d plus the pages, build it".

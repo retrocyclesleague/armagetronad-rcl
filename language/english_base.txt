@@ -2580,6 +2580,22 @@ rcl_leaderboards_text          Leaderboards
 rcl_leaderboards_help          The league's ladders, TST, Sumobar, 2s and Fortress, and where you stand on each.
 rcl_events_text                Events
 rcl_events_help                The league's next event and who won the ones before.
+rcl_your_server_help           You have played here \1, last \2. \3
+rcl_your_server_joining        Joining \1...\n
+rcl_your_server_moments        under a minute
+rcl_your_server_minutes        \1 min
+rcl_your_server_hours          \1 h
+rcl_your_server_just_now       within the hour
+rcl_your_server_hours_ago      \1 h ago
+rcl_your_server_yesterday      yesterday
+rcl_your_server_days_ago       \1 days ago
+rcl_your_server_weeks_ago      \1 weeks ago
+rcl_your_server_months_ago     \1 months ago
+rcl_your_server_asking         Asking who is on...
+rcl_your_server_silent         It is not answering right now.
+rcl_your_server_empty          Nobody is on right now.
+rcl_your_server_playing        \1 of \2 playing now.
+rcl_your_server_playing_open   \1 playing now.
 rcl_queue_now_fort_help        Join an available Fortress lobby and send /add once you have signed in to it.
 rcl_queue_now_sumobar_help     Join an available Sumobar lobby and send /add once you have signed in to it.
 rcl_queue_now_tst_help         Join an available TST lobby and send /add once you have signed in to it.
@@ -4290,6 +4306,10 @@ rcl_home_ladder_help                   Which league ladder the leaderboards page
 server_browser_sort_help               The order of the server browser: 0 by players, 1 by ping, 2 by name.
 server_browser_hide_empty_help         Leaves servers nobody is on out of the server browser.
 server_browser_rcl_only_help           Shows only the league's own servers in the server browser.
+server_history_help                    Keeps a list of the servers you play on and offers your favourites in the main menu, with who is on them now. The list stays on this PC (var/server-history.txt) and is never sent anywhere. 0 stops recording and hides those rows.
+server_history_clear_help              Forgets every server in your server history and removes var/server-history.txt.
+server_browser_yours_help              Shows only the servers in your server history in the server browser, your favourites first. Y switches it there.
+server_history_cleared                 Your server history is cleared.\n
 rcl_shadow_soft_help                   In the open arena, shadows that are darkest at a wall's foot and thin out softly, with a dark band where the wall meets the floor. Off draws the flat shadows of before.
 rcl_arena_dark_wall_foot_help          In the dark arena, how bright a wall is at the floor against higher up (0 to 1). Lower makes walls standing one behind the other easier to tell apart.
 rcl_arena_dark_wall_edge_help          In the dark arena, how far towards white a wall has paled at its top (0 to 1). 0 for not at all.

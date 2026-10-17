@@ -89,6 +89,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "gRotation.h"
 #include "gLeague.h"
+#include "gServerHistory.h"
 #include "nSocket.h"
 
 #ifdef KRAWALL_SERVER
@@ -2965,7 +2966,22 @@ bool ConnectToServerCore(nServerInfoBase *server)
             sr_con.fullscreen=false;
 
             con << tOutput("$network_syncing_gamestate");
+#ifndef DEDICATED
+            // what the session was on, taken now: the server info may not
+            // outlive the game
+            tString const host = server->GetConnectionName();
+            unsigned int const port = server->GetPort();
+            tString const name = server->GetName();
+            tString address;
+            if ( server->GetAddress().IsSet() )
+                address << server->GetAddress().GetAddress() << ":" << port;
+            double const entered = tSysTimeFloat();
+#endif
             sg_EnterGame( nCLIENT );
+#ifndef DEDICATED
+            // the player's own record of where they play; it stays on this PC
+            gServerHistory::Played( host, port, name, address, tSysTimeFloat() - entered );
+#endif
         }
         else{
             //con << "Timeout. Try again!\n";
@@ -3442,6 +3458,8 @@ static void sg_RclPlayNow( gRclPlayNowMode const & mode, bool queueOnJoin = fals
     gLogo::SetDisplayed( false );
     sg_rclQueueOnJoin = queueOnJoin;
     sg_rclQueueConnectStart = tSysTimeFloat();
+    // the connection knows the server only by its address
+    gServerHistory::NameHint( connectionName, port, serverName );
     nServerInfoRedirect target( connectionName, port );
     ConnectToServer( &target );
     sg_rclQueueOnJoin = false;
@@ -4065,14 +4083,183 @@ static tString sg_RclStatusLine()
     return status;
 }
 
+// One of the player's own servers in the rail: its name, and at the row's
+// right end how many are on it now. Choosing it joins it.
+class gRclYourServerItem: public uMenuItem
+{
+public:
+    explicit gRclYourServerItem( uMenu * menu )
+    : uMenuItem( menu, tOutput() )
+    {
+    }
+
+    void Show( gServerHistory::Server const & server ){ server_ = server; }
+    gServerHistory::Server const & Shown() const { return server_; }
+
+    virtual tString GetLabel(){ return Label(); }
+
+    virtual void Render( REAL x, REAL y, REAL alpha, bool selected )
+    {
+        if ( !menu->RclStyle() )
+        {
+            DisplayTextSpecial( x, y, Label(), selected, alpha );
+            return;
+        }
+
+        // where the menu slid the row to as it entered, as the theme's rows do
+        REAL const slide = x - uRclTheme::LabelX();
+        REAL const left = uRclTheme::LabelX() + slide;
+        REAL const right = uRclTheme::RowRight() - uRclTheme::W( 12 ) + slide;
+
+        tString const count = Count();
+        REAL const countWidth = uRclTheme::TextWidth( count, 15, 500 );
+        uRclTheme::Text( right, y, 15, 500, Populated() ? uRclTheme::accent : uRclTheme::textSecondary,
+                         alpha, count, 1 );
+        uRclTheme::Text( left, y, 18, 500, uRclTheme::textPrimary, alpha, Label(), -1,
+                         std::max( uRclTheme::W( 24 ), right - countWidth - uRclTheme::W( 12 ) - left ) );
+    }
+
+    virtual tString Help()
+    {
+        tOutput help;
+        help.SetTemplateParameter( 1, PlayedText() );
+        help.SetTemplateParameter( 2, WhenText() );
+        help.SetTemplateParameter( 3, NowText() );
+        help << "$rcl_your_server_help";
+        return tString( help );
+    }
+
+    virtual void Enter()
+    {
+        // as Play Now joins: by the name the player played it under
+        tString const host = server_.host;
+        unsigned int const port = server_.port;
+        con << tOutput( "$rcl_your_server_joining", Label() );
+        gLogo::SetDisplayed( false );
+        nServerInfoRedirect target( host, port );
+        ConnectToServer( &target );
+    }
+
+private:
+    bool Answered() const
+    {
+        return server_.Fresh() && server_.live == gServerHistory::Live_Answered;
+    }
+
+    bool Populated() const
+    {
+        return Answered() && server_.users > 0;
+    }
+
+    // the name without its colours, as the browser lists it; the address while it has none
+    tString Label() const
+    {
+        tString label( tColoredString::RemoveColors( server_.name, false ) );
+        if ( label.Len() <= 1 )
+        {
+            label = server_.host;
+            if ( server_.port != sn_defaultPort )
+                label << ":" << server_.port;
+        }
+        return label;
+    }
+
+    tString Count() const
+    {
+        tString count;
+        if ( !Answered() )
+            count << "-";
+        else if ( server_.users <= 0 )
+            count << "empty";
+        else if ( server_.maxUsers > 0 )
+            count << server_.users << " / " << server_.maxUsers;
+        else
+            count << server_.users;
+        return count;
+    }
+
+    tString PlayedText() const
+    {
+        double const minutes = server_.seconds / 60;
+        char number[ 32 ];
+        if ( minutes < 1 )
+            return tString( tOutput( "$rcl_your_server_moments" ) );
+        if ( minutes < 60 )
+            return tString( tOutput( "$rcl_your_server_minutes", int( minutes + .5 ) ) );
+        snprintf( number, sizeof( number ), minutes < 600 ? "%.1f" : "%.0f", minutes / 60 );
+        return tString( tOutput( "$rcl_your_server_hours", number ) );
+    }
+
+    tString WhenText() const
+    {
+        long long const ago = std::max( 0LL, static_cast< long long >( time( NULL ) ) - server_.last );
+        int const hours = int( ago / 3600 ), days = int( ago / 86400 );
+        if ( hours < 1 )
+            return tString( tOutput( "$rcl_your_server_just_now" ) );
+        if ( hours < 24 )
+            return tString( tOutput( "$rcl_your_server_hours_ago", hours ) );
+        if ( days < 2 )
+            return tString( tOutput( "$rcl_your_server_yesterday" ) );
+        if ( days < 14 )
+            return tString( tOutput( "$rcl_your_server_days_ago", days ) );
+        if ( days < 60 )
+            return tString( tOutput( "$rcl_your_server_weeks_ago", days / 7 ) );
+        return tString( tOutput( "$rcl_your_server_months_ago", days / 30 ) );
+    }
+
+    tString NowText() const
+    {
+        if ( !server_.Fresh() || server_.live == gServerHistory::Live_Unknown )
+            return tString( tOutput( "$rcl_your_server_asking" ) );
+        if ( server_.live == gServerHistory::Live_Silent )
+            return tString( tOutput( "$rcl_your_server_silent" ) );
+        if ( server_.users <= 0 )
+            return tString( tOutput( "$rcl_your_server_empty" ) );
+        if ( server_.maxUsers > 0 )
+            return tString( tOutput( "$rcl_your_server_playing", server_.users, server_.maxUsers ) );
+        return tString( tOutput( "$rcl_your_server_playing_open", server_.users ) );
+    }
+
+    gServerHistory::Server server_;
+};
+
 // The main menu keeps its status line current while it is open, and out of
 // a game it has the league beside its rail: the next event, the ladders.
+// There its rail also has a row for each of the player's favourite servers,
+// asked now and then who is on them.
 class gMainMenu: public uMenu
 {
 public:
+    enum { YourRows = 3 };
+
     gMainMenu( const tOutput & title, bool status )
-    : uMenu( title, false ), status_( status )
+    : uMenu( title, false ), status_( status ), shownFor_( -1 ), shown_( 0 )
     {
+        for ( int i = 0; i < YourRows; ++i )
+            yours_[i] = NULL;
+    }
+
+    ~gMainMenu()
+    {
+        if ( status_ )
+            gServerHistory::MainMenuLeaves();
+
+        // the menu deletes the rows it has; those not shown are not among them
+        for ( int i = 0; i < YourRows; ++i )
+            if ( yours_[i] && yours_[i]->GetID() < 0 )
+                delete yours_[i];
+    }
+
+    //! The rail, top to bottom, with the rows for the player's servers in it.
+    //! Those rows are in the menu only while there is a server for them.
+    void SetRail( std::vector< uMenuItem * > const & rail, gRclYourServerItem * const yours[ YourRows ] )
+    {
+        rail_ = rail;
+        for ( int i = 0; i < YourRows; ++i )
+            yours_[i] = yours[i];
+        shown_ = YourRows;
+        shownFor_ = -1;
+        SyncYours();
     }
 
 protected:
@@ -4083,6 +4270,8 @@ protected:
         {
             SetFootnote( sg_RclStatusLine() );
             gLeague::Poll();
+            gServerHistory::MainMenuFrame();
+            SyncYours();
         }
     }
 
@@ -4096,8 +4285,17 @@ protected:
     {
         if ( status_ )
         {
-            if ( event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT &&
-                 sr_screenWidth > 0 && sr_screenHeight > 0 &&
+            // Whatever may choose a row (or a card beside the rail) may hand
+            // the network to the browser or Play Now: the servers' list is
+            // left to them first.
+            bool const click = event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT;
+            bool const key = event.type == SDL_KEYDOWN &&
+                             ( event.key.keysym.sym == SDLK_RETURN || event.key.keysym.sym == SDLK_KP_ENTER ||
+                               event.key.keysym.sym == SDLK_SPACE );
+            if ( click || key )
+                gServerHistory::MainMenuLeaves();
+
+            if ( click && sr_screenWidth > 0 && sr_screenHeight > 0 &&
                  gLeague::HomeClick( 2.0f * event.button.x / sr_screenWidth - 1.0f,
                                      1.0f - 2.0f * event.button.y / sr_screenHeight ) )
                 return;
@@ -4106,7 +4304,66 @@ protected:
     }
 
 private:
+    // Puts the player's servers into their rows, and the rows into the rail
+    // when how many there are changed. The selection stays on the server it
+    // was on, wherever its row is now.
+    void SyncYours()
+    {
+        if ( rail_.empty() || gServerHistory::Generation() == shownFor_ )
+            return;
+        shownFor_ = gServerHistory::Generation();
+
+        std::vector< gServerHistory::Server > const servers = gServerHistory::Favourites();
+        int const count = std::min( static_cast< int >( servers.size() ), static_cast< int >( YourRows ) );
+
+        bool const selecting = selected >= 0 && selected < items.Len();
+        uMenuItem * const was = selecting ? items[selected] : NULL;
+        int const fromTop = selecting ? items.Len() - 1 - selected : 0;
+        tString wasHost;
+        unsigned int wasPort = 0;
+        for ( int i = 0; i < YourRows; ++i )
+            if ( was && was == yours_[i] )
+            {
+                wasHost = yours_[i]->Shown().host;
+                wasPort = yours_[i]->Shown().port;
+            }
+
+        for ( int i = 0; i < count; ++i )
+            yours_[i]->Show( servers[i] );
+
+        if ( count != shown_ )
+        {
+            std::vector< uMenuItem * > rail( rail_ );
+            for ( int i = count; i < YourRows; ++i )
+            {
+                if ( yours_[i]->GetID() >= 0 )
+                    RemoveItem( yours_[i] );
+                std::replace( rail.begin(), rail.end(), static_cast< uMenuItem * >( yours_[i] ),
+                              static_cast< uMenuItem * >( NULL ) );
+            }
+            sg_OrderMenu( *this, rail );
+            shown_ = count;
+            mouseSelection_ = -1;
+        }
+
+        if ( !selecting )
+            return;
+        int target = -1;
+        for ( int i = 0; i < count && wasPort; ++i )
+            if ( yours_[i]->Shown().port == wasPort && yours_[i]->Shown().host == wasHost )
+                target = yours_[i]->GetID();
+        if ( target < 0 && was && was->GetID() >= 0 )
+            target = was->GetID();
+        if ( target < 0 )
+            target = std::max( 0, std::min( items.Len() - 1, items.Len() - 1 - fromTop ) );
+        selected = target;
+    }
+
     bool status_;
+    std::vector< uMenuItem * > rail_;           //!< top to bottom, the player's servers' rows among the rest
+    gRclYourServerItem * yours_[ YourRows ];
+    int shownFor_;                              //!< the history's generation the rows show
+    int shown_;                                 //!< how many of them are in the menu
 };
 
 // the account row explains itself with whatever is known about the account
@@ -4322,6 +4579,9 @@ void MainMenu(bool ingame){
      "$system_settings_menu_help");
 
     std::vector< uMenuItem * > rows;
+#ifndef DEDICATED
+    gRclYourServerItem * yours[ gMainMenu::YourRows ] = { NULL };
+#endif
     if (ingame)
     {
         rows.push_back( &exx );
@@ -4389,6 +4649,13 @@ void MainMenu(bool ingame){
                         "$rcl_events_text",
                         "$rcl_events_help",
                         &gLeague::EventsMenu ) );
+        // the servers the player plays on most, one key away; rows without
+        // a server leave the rail as it was
+        for ( int i = 0; i < gMainMenu::YourRows; ++i )
+        {
+            yours[i] = tNEW( gRclYourServerItem )( &MainMenu );
+            rows.push_back( yours[i] );
+        }
 #endif
         rows.push_back( &subm_settings );
         rows.push_back( &exx );
@@ -4396,6 +4663,10 @@ void MainMenu(bool ingame){
         rViewport::Update(MAX_PLAYERS);
     }
     sg_OrderMenu( MainMenu, rows );
+#ifndef DEDICATED
+    if ( !ingame )
+        MainMenu.SetRail( rows, yours );
+#endif
 
     MainMenu.Enter();
 
