@@ -974,6 +974,13 @@ void eCamera::SwitchView(){
 }
 
 bool eCamera::Act(uActionCamera *Act,REAL x){
+    // Flying the watcher's own camera, only the watcher's keys count (see
+    // SpectatorFly). A player's binds often share keys and mouse buttons with
+    // them, and would glance, climb and zoom at the same time. Switching view
+    // still works: it is the way back to the views that follow players.
+    if ( spectatorFly_ && mode == CAMERA_FREE && !( se_switchView == *Act ) )
+        return true;
+
     eCoord objdir=CenterCamDir();
 
     int turn=0;
