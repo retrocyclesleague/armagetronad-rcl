@@ -423,6 +423,7 @@ namespace
         Stage_Settling      // asked; late answers are still taken
     };
     Stage sg_stage = Stage_Idle;
+    bool sg_wasAlone = false;       // the network was standalone when the asking began
     double sg_next = 0;             // tSysTimeFloat() of the next asking
     double sg_until = 0;            // and of the end of the current stage
     double sg_lastFrame = -1E10;    // of the asking page's last frame
@@ -619,6 +620,13 @@ namespace
                 ReadAnswers( false );
             }
             nServerInfo::DeleteAll( false );
+
+            // Asking put the network client-side (sn_Bend). A menu out of a
+            // game must not stay there: the next player object made, as when
+            // the player page closes, would wait on a server for an id that
+            // never comes, and the game ends with "Not enough nNetObject IDs".
+            if ( sg_wasAlone && sn_GetNetState() == nCLIENT )
+                sn_SetNetState( nSTANDALONE );
         }
         sg_stage = Stage_Idle;
         sg_asked.clear();
@@ -677,6 +685,7 @@ namespace
             server->SetConnectionName( tString( sg_asked[i].first.c_str() ) );
             server->SetPort( sg_asked[i].second );
         }
+        sg_wasAlone = sn_GetNetState() == nSTANDALONE;
         nServerInfo::StartQueryAll( nServerInfo::QUERY_ALL );
         sg_stage = Stage_Asking;
         sg_until = now + ( sg_asked.size() > sg_rows ? sg_askBudgetMany : sg_askBudget );
