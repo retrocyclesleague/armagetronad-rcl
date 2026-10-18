@@ -113,6 +113,7 @@ namespace uRclTheme
             {
             case Layout_Home: return 104;
             case Layout_Wide: return 124;
+            case Layout_Hero: return 0;     // its rows are placed by the menu, anywhere
             default:          return 96;
             }
         }
@@ -148,6 +149,7 @@ namespace uRclTheme
         switch ( layout_ )
         {
         case Layout_Home:   break;
+        case Layout_Hero:   wanted = 520; break;    // the quick-join chip at its widest
         case Layout_Wide:   wanted = 1600; break;
         case Layout_Prompt: wanted = 4000; break;
         default:            if ( values_ ) wanted = 600; break;
@@ -160,6 +162,8 @@ namespace uRclTheme
     REAL MenuTop()    { return Y( ListTopPx() ); }
     REAL MenuBottom()
     {
+        if ( layout_ == Layout_Hero )
+            return Y( LogicalHeight() );
         return Y( LogicalHeight() - ( layout_ == Layout_Wide ? tableFooterPx : footerPx ) );
     }
     REAL RowLeft()    { return X( MarginPx() ); }
@@ -333,6 +337,31 @@ namespace uRclTheme
                 Vertex( left, bottom + cutH );
             }
             RenderEnd();
+        }
+
+        // A band down the whole window from left to right whose opacity runs
+        // from alphaLeft to alphaRight: holds a scene back by degrees.
+        void Fade( REAL left, REAL right, Color const & c, REAL alphaLeft, REAL alphaRight )
+        {
+            if ( !sr_alphaBlend )
+                return;     // without blending it could only cover the scene
+
+            RenderEnd();
+            glDisable( GL_TEXTURE_2D );
+            // the colour has to run across the band whatever the shading setting
+            GLint shading = GL_SMOOTH;
+            glGetIntegerv( GL_SHADE_MODEL, &shading );
+            glShadeModel( GL_SMOOTH );
+            BeginQuads();
+            ::Color( c.r, c.g, c.b, alphaLeft );
+            Vertex( left, -1 );
+            ::Color( c.r, c.g, c.b, alphaRight );
+            Vertex( right, -1 );
+            Vertex( right, 1 );
+            ::Color( c.r, c.g, c.b, alphaLeft );
+            Vertex( left, 1 );
+            RenderEnd();
+            glShadeModel( shading );
         }
 
         // a control's body: a fill inside a one pixel outline
@@ -580,6 +609,24 @@ namespace uRclTheme
             return;
         }
 
+        if ( layout_ == Layout_Hero )
+        {
+            // No rail: the scene is the first screen's page. It is held back
+            // a little all over, and more on the left where the words are,
+            // less and less towards the league's cards on the right.
+            if ( sceneBehind_ )
+            {
+                REAL const w = LogicalWidth();
+                Rect( -1, 1, 1, -1, canvas, sceneHold_ * .45f * alpha );
+                Fade( X( 0 ),        X( w * .22f ), canvas, .62f * alpha, .48f * alpha );
+                Fade( X( w * .22f ), X( w * .40f ), canvas, .48f * alpha, .18f * alpha );
+                Fade( X( w * .40f ), X( w * .60f ), canvas, .18f * alpha, 0 );
+            }
+            else
+                Rect( -1, 1, 1, -1, canvas, 1 );
+            return;
+        }
+
         // The scene behind is held back so it cannot compete with the text.
         if ( sceneBehind_ )
             Rect( -1, 1, 1, -1, canvas, sceneHold_ * alpha );
@@ -622,8 +669,9 @@ namespace uRclTheme
             return;
 
         REAL const left = X( MarginPx() );
+        bool const first = layout_ == Layout_Home || layout_ == Layout_Hero;
 
-        if ( layout_ == Layout_Home )
+        if ( first )
         {
             DrawWordmark( alpha );
         }
@@ -648,22 +696,26 @@ namespace uRclTheme
         // move, Enter selects and Escape (or the right mouse button) goes
         // back; a page says the last of these, quietly, and that is all.
         REAL const hintY = Y( LogicalHeight() - 22 );
-        if ( layout_ != Layout_Home && keyHint.Len() > 1 )
+        if ( !first && keyHint.Len() > 1 )
             Text( left, hintY, sizeHint, weightRegular, textSecondary, .8f * alpha, keyHint,
                   -1, W( LogicalWidth() - 2 * MarginPx() - 260 ) );
         else if ( layout_ == Layout_Wide )
             Text( left, hintY, sizeHint, weightRegular, textSecondary, .8f * alpha,
                   "enter join  \xb7  arrows move  \xb7  tab sort  \xb7  v view  \xb7  r refresh  \xb7  b bookmark  \xb7  esc back",
                   -1, W( LogicalWidth() - 2 * MarginPx() - 260 ) );
-        else if ( layout_ != Layout_Home )
+        else if ( !first )
             Text( left, hintY, sizeHint, weightRegular, textSecondary, .55f * alpha, "esc back" );
 
         if ( footnote.Len() > 1 )
         {
             // The first screen's status line (who is signed in, which build)
             // is in the rail with everything else that is written: nothing is
-            // laid over the scene.
-            if ( layout_ == Layout_Home )
+            // laid over the scene. Without the rail it is one small line at
+            // the foot, on the darker side.
+            if ( layout_ == Layout_Hero )
+                Text( left, Y( LogicalHeight() - 24 ), sizeHint - .5f, weightRegular, textSecondary,
+                      .7f * alpha, footnote, -1, W( LogicalWidth() * .5f ) );
+            else if ( layout_ == Layout_Home )
                 Paragraph( left, Y( LogicalHeight() - 46 ), W( ColumnPx() ), sizeHint,
                            weightRegular, textSecondary, .8f * alpha, footnote, 2 );
             else
@@ -875,6 +927,17 @@ namespace uRclTheme
         // a table's footer shows the selected row's details instead
         if ( layout_ == Layout_Prompt || layout_ == Layout_Wide || help.Len() <= 1 )
             return;
+
+        if ( layout_ == Layout_Hero )
+        {
+            // small, at the foot over the status line, growing upwards
+            REAL const line = sizeHint / emPerCell;
+            int const lines = std::max( 1, std::min( 2, Paragraph( 0, 0, W( ColumnPx() ), sizeHint,
+                                                                   weightRegular, textSecondary, 0, help ) ) );
+            Paragraph( X( MarginPx() ), Y( LogicalHeight() - 38 - lines * line ), W( ColumnPx() ),
+                       sizeHint, weightRegular, textSecondary, .85f * alpha, help, 2 );
+            return;
+        }
 
         // the first screen keeps its last lines for the status line
         Paragraph( X( MarginPx() ), Y( LogicalHeight() - footerPx + 8 ), W( ColumnPx() ),

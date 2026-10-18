@@ -38,6 +38,7 @@ of the License, or (at your option) any later version.
 #include <cstdlib>
 #include <ctime>
 #include <fstream>
+#include <map>
 #include <string>
 #include <utility>
 #include <vector>
@@ -46,7 +47,9 @@ of the License, or (at your option) any later version.
 // var/server-history.txt and nothing of it is sent anywhere. The only traffic
 // it causes is the usual "who is on?" question the server browser asks, put
 // to the player's three favourite servers now and then while the main menu
-// is open, and never while the history is off or empty.
+// or the Play page is open, and never while the history is off or empty.
+// The Play page also has the league's own servers asked the same question,
+// in every region; that is the page's, history or not.
 //
 // Everything here runs on the main thread except the address lookups, which
 // get a thread of their own so that a slow name server cannot stall a frame.
@@ -75,7 +78,11 @@ namespace
     size_t const sg_lookedUp = 6;           // candidates looked up, so that two names for one server are found
 
     double const sg_askEvery = 45;          // seconds between askings while the main menu is open
+    double const sg_askEveryPage = 30;      // and while the Play page is
     double const sg_askBudget = 3;          // an asking gives up on those that have not answered by then
+    double const sg_askBudgetMany = 4;      // one of the Play page's many servers
+    int const sg_simultaneous = 4;          // questions out at once
+    int const sg_simultaneousMany = 12;     // for the Play page, as Play Now counts
     double const sg_settle = .5;            // late answers are still taken for this long
     double const sg_backAfter = 1.5;        // after the main menu comes back, the next asking is this soon
     double const sg_staleAfter = 15;        // unless the last one is younger than this
@@ -418,8 +425,23 @@ namespace
     Stage sg_stage = Stage_Idle;
     double sg_next = 0;             // tSysTimeFloat() of the next asking
     double sg_until = 0;            // and of the end of the current stage
-    double sg_lastAsked = -1E10;    // of the last asking that ran to its end
-    double sg_lastFrame = -1E10;    // of the main menu's last frame
+    double sg_lastFrame = -1E10;    // of the asking page's last frame
+
+    // which page asks (a gServerHistory::Asker), and when an asking of each
+    // last ran to its end
+    int sg_asker = -1;
+    double sg_lastAsked[ gServerHistory::Asker_Count ] = { -1E10, -1E10 };
+
+    // the servers the asking page wants asked besides the favourites: host
+    // (lower case) and port
+    std::vector< std::pair< std::string, unsigned int > > sg_others;
+
+    // every name looked up and the number it led to; empty where it led nowhere
+    std::map< std::string, std::string > sg_numbers;
+    double sg_lookedUpWhen = -1E10;
+
+    // what each server said, by number and port ("192.0.2.7:4534")
+    std::map< std::string, gServerHistory::Heard > sg_heard;
 
     // what was put in the shared list: number and port
     std::vector< std::pair< std::string, unsigned int > > sg_asked;
@@ -427,21 +449,44 @@ namespace
     bool Allowed()
     {
         // a recording must play back the same way, and threads answer when they like
-        return sg_historyOn && !tRecorder::IsRunning();
+        return !tRecorder::IsRunning();
+    }
+
+    // When what a page shows was last asked for. The favourites go along
+    // with every asking, so for the main menu any page's asking counts.
+    double LastAsked( int asker )
+    {
+        if ( asker != gServerHistory::Asker_MainMenu )
+            return sg_lastAsked[ asker ];
+        double last = -1E10;
+        for ( int i = 0; i < gServerHistory::Asker_Count; ++i )
+            last = std::max( last, sg_lastAsked[i] );
+        return last;
     }
 
     void StartLookup()
     {
-        std::vector< size_t > const picks = Candidates( sg_lookedUp );
-        if ( picks.empty() )
-            return;     // nobody to ask, so nothing is sent
-
         Lookup * const lookup = new Lookup;
+        std::vector< size_t > picks;
+        if ( sg_historyOn )
+            picks = Candidates( sg_lookedUp );
         for ( size_t i = 0; i < picks.size(); ++i )
         {
             std::string const & host = sg_entries[ picks[i] ].host;
             if ( std::find( lookup->hosts.begin(), lookup->hosts.end(), host ) == lookup->hosts.end() )
                 lookup->hosts.push_back( host );
+        }
+        for ( size_t i = 0; i < sg_others.size(); ++i )
+        {
+            std::string const & host = sg_others[i].first;
+            if ( !Numeric( host ) &&
+                 std::find( lookup->hosts.begin(), lookup->hosts.end(), host ) == lookup->hosts.end() )
+                lookup->hosts.push_back( host );
+        }
+        if ( lookup->hosts.empty() && sg_others.empty() )
+        {
+            delete lookup;
+            return;     // nobody to ask, so nothing is sent
         }
         lookup->numbers.resize( lookup->hosts.size() );
         lookup->thread = SDL_CreateThread( &sg_LookupThread, lookup );
@@ -460,9 +505,18 @@ namespace
     {
         SDL_WaitThread( sg_lookup->thread, NULL );
         for ( size_t i = 0; i < sg_lookup->hosts.size(); ++i )
+        {
+            std::string const & host = sg_lookup->hosts[i];
+            std::string const & number = sg_lookup->numbers[i];
+            if ( !number.empty() )
+                sg_numbers[ host ] = number;
+            else if ( sg_numbers.find( host ) == sg_numbers.end() )
+                sg_numbers[ host ] = std::string();
             for ( size_t j = 0; j < sg_entries.size(); ++j )
-                if ( sg_entries[j].host == sg_lookup->hosts[i] && !sg_lookup->numbers[i].empty() )
-                    sg_entries[j].address = sg_lookup->numbers[i] + ":" + PortText( sg_entries[j].port );
+                if ( sg_entries[j].host == host && !number.empty() )
+                    sg_entries[j].address = number + ":" + PortText( sg_entries[j].port );
+        }
+        sg_lookedUpWhen = tSysTimeFloat();
         delete sg_lookup;
         sg_lookup = NULL;
 
@@ -488,15 +542,37 @@ namespace
         return count == sg_asked.size();
     }
 
-    // What has come in, onto the entries it is about. Complete: the asking
-    // ran to its end, and those that said nothing are taken to be silent.
+    // What has come in, onto the entries it is about and into what was
+    // heard. Complete: the asking ran to its end, and those that said
+    // nothing are taken to be silent. Before that it may be read every frame,
+    // so counts fill in as the answers arrive.
     void ReadAnswers( bool complete )
     {
         double const now = tSysTimeFloat();
-        bool named = false;
+        bool named = false, changed = complete;
         for ( nServerInfo * server = nServerInfo::GetFirstServer(); server; server = server->Next() )
         {
             std::string const address = Std( server->GetConnectionName() ) + ":" + PortText( server->GetPort() );
+            gServerHistory::Heard & heard = sg_heard[ address ];
+            if ( server->Reachable() )
+            {
+                changed = changed || heard.live != gServerHistory::Live_Answered ||
+                          heard.users != server->Users() || heard.maxUsers != server->MaxUsers();
+                heard.live = gServerHistory::Live_Answered;
+                heard.users = server->Users();
+                heard.maxUsers = server->MaxUsers();
+                heard.name = server->GetName();
+                heard.address = address.c_str();
+                heard.when = now;
+            }
+            else if ( complete )
+            {
+                heard.live = gServerHistory::Live_Silent;
+                heard.users = 0;
+                heard.address = address.c_str();
+                heard.when = now;
+            }
+
             for ( size_t i = 0; i < sg_entries.size(); ++i )
             {
                 Entry & e = sg_entries[i];
@@ -526,7 +602,8 @@ namespace
         }
         if ( named )
             Save();
-        ++sg_generation;
+        if ( changed || named )
+            ++sg_generation;
     }
 
     // Ends an asking and leaves the shared list empty. With take, answers that
@@ -551,7 +628,9 @@ namespace
     {
         double const now = tSysTimeFloat();
         sg_asked.clear();
-        std::vector< size_t > const picks = Candidates( sg_rows );
+        std::vector< size_t > picks;
+        if ( sg_historyOn )
+            picks = Candidates( sg_rows );
         for ( size_t i = 0; i < picks.size(); ++i )
         {
             Entry & e = sg_entries[ picks[i] ];
@@ -567,14 +646,30 @@ namespace
             if ( std::find( sg_asked.begin(), sg_asked.end(), which ) == sg_asked.end() )
                 sg_asked.push_back( which );
         }
+        for ( size_t i = 0; i < sg_others.size(); ++i )
+        {
+            // a name that leads nowhere just now is not asked; Counted() says so
+            std::string number = sg_others[i].first;
+            if ( !Numeric( number ) )
+            {
+                std::map< std::string, std::string >::const_iterator const found = sg_numbers.find( number );
+                if ( found == sg_numbers.end() || found->second.empty() )
+                    continue;
+                number = found->second;
+            }
+            std::pair< std::string, unsigned int > const which( number, sg_others[i].second );
+            if ( std::find( sg_asked.begin(), sg_asked.end(), which ) == sg_asked.end() )
+                sg_asked.push_back( which );
+        }
         ++sg_generation;
         if ( sg_asked.empty() )
             return;
 
         // The list is the browser's and Play Now's too. Each of them starts
-        // by emptying it, and so does this, only ever from the main menu's
-        // own frame, when neither of them is running. The servers go in by
-        // number, so asking them needs no lookup here.
+        // by emptying it, and so does this, only ever from the asking page's
+        // own frame (the main menu's or the Play page's), when neither of
+        // them is running. The servers go in by number, so asking them needs
+        // no lookup here.
         nServerInfo::DeleteAll( false );
         for ( size_t i = 0; i < sg_asked.size(); ++i )
         {
@@ -584,7 +679,7 @@ namespace
         }
         nServerInfo::StartQueryAll( nServerInfo::QUERY_ALL );
         sg_stage = Stage_Asking;
-        sg_until = now + sg_askBudget;
+        sg_until = now + ( sg_asked.size() > sg_rows ? sg_askBudgetMany : sg_askBudget );
     }
 }
 
@@ -684,11 +779,30 @@ int gServerHistory::Generation()
     return sg_generation * 2 + ( sg_historyOn ? 1 : 0 );
 }
 
-void gServerHistory::MainMenuFrame()
+bool gServerHistory::Heard::Fresh() const
 {
+    return live != Live_Unknown && tSysTimeFloat() - when < sg_freshFor;
+}
+
+void gServerHistory::CountFrame( int asker, std::vector< Target > const & others )
+{
+    if ( asker < 0 || asker >= Asker_Count )
+        return;
+
     double const now = tSysTimeFloat();
-    bool const away = now - sg_lastFrame > sg_awayGap;
+    bool const switched = asker != sg_asker;
+    bool const away = switched || now - sg_lastFrame > sg_awayGap;
     sg_lastFrame = now;
+    sg_asker = asker;
+
+    // what this page wants asked besides the favourites, for its next asking
+    sg_others.clear();
+    for ( size_t i = 0; i < others.size(); ++i )
+    {
+        std::string const host = CleanHost( Std( others[i].host ) );
+        if ( !host.empty() && others[i].port > 0 && others[i].port <= 65535 )
+            sg_others.push_back( std::make_pair( host, others[i].port ) );
+    }
 
     bool const lookedUp = sg_lookup && sg_lookup->done.load( std::memory_order_acquire );
     if ( lookedUp )
@@ -701,13 +815,17 @@ void gServerHistory::MainMenuFrame()
         return;
     }
 
-    // Back from somewhere else (a game, a page): whatever was out is given
-    // up, and counts that are old by now are asked for again soon.
+    // Back from somewhere else (a game, a page), or another page asked last:
+    // whatever was out is given up, and counts that are old by now are asked
+    // for again soon; at once on a page that is there for its counts.
     if ( away )
     {
         Finish( false );
-        if ( now - sg_lastAsked > sg_staleAfter )
-            sg_next = now + sg_backAfter;
+        // a lookup still out was for the other page's servers
+        if ( switched )
+            sg_askWhenLookedUp = false;
+        if ( now - LastAsked( asker ) > sg_staleAfter )
+            sg_next = now + ( asker == Asker_MainMenu ? sg_backAfter : 0 );
     }
 
     if ( lookedUp )
@@ -717,12 +835,13 @@ void gServerHistory::MainMenuFrame()
         sg_askWhenLookedUp = false;
     }
 
+    double const every = asker == Asker_MainMenu ? sg_askEvery : sg_askEveryPage;
     switch ( sg_stage )
     {
     case Stage_Idle:
         if ( !sg_lookup && now >= sg_next )
         {
-            sg_next = now + sg_askEvery;
+            sg_next = now + every;
             Load();
             StartLookup();
         }
@@ -746,33 +865,70 @@ void gServerHistory::MainMenuFrame()
 
         if ( sg_stage == Stage_Asking )
         {
-            if ( !nServerInfo::DoQueryAll( 4 ) || now > sg_until )
+            bool const going = nServerInfo::DoQueryAll( sg_asked.size() > sg_rows ? sg_simultaneousMany : sg_simultaneous );
+            if ( !going || now > sg_until )
             {
                 ReadAnswers( true );
                 sg_stage = Stage_Settling;
                 sg_until = now + sg_settle;
-                sg_lastAsked = now;
+                sg_lastAsked[ asker ] = now;
             }
+            else
+                ReadAnswers( false );
         }
         else if ( now > sg_until )
         {
             // late answers went to the servers they are about, not to
             // whoever uses the list next
             Finish( true );
-            sg_next = now + sg_askEvery;
+            sg_next = now + every;
         }
         break;
     }
 }
 
-void gServerHistory::MainMenuLeaves()
+void gServerHistory::CountLeaves()
 {
     bool const cut = sg_stage == Stage_Asking;
     Finish( true );
 
-    // if the main menu stays after all, the asking is done again soon
+    // if the page stays after all, the asking is done again soon
     if ( cut )
         sg_next = tSysTimeFloat() + sg_backAfter;
+}
+
+gServerHistory::Heard gServerHistory::Counted( tString const & host, unsigned int port )
+{
+    std::string number = CleanHost( Std( host ) );
+    if ( number.empty() )
+        return Heard();
+    if ( !Numeric( number ) )
+    {
+        std::map< std::string, std::string >::const_iterator const found = sg_numbers.find( number );
+        if ( found == sg_numbers.end() )
+            return Heard();     // not looked up yet
+        if ( found->second.empty() )
+        {
+            // the name led nowhere
+            Heard nowhere;
+            nowhere.live = Live_Silent;
+            nowhere.when = sg_lookedUpWhen;
+            return nowhere;
+        }
+        number = found->second;
+    }
+    std::map< std::string, Heard >::const_iterator const heard = sg_heard.find( number + ":" + PortText( port ) );
+    return heard != sg_heard.end() ? heard->second : Heard();
+}
+
+void gServerHistory::MainMenuFrame()
+{
+    CountFrame( Asker_MainMenu, std::vector< Target >() );
+}
+
+void gServerHistory::MainMenuLeaves()
+{
+    CountLeaves();
 }
 
 double gServerHistory::Score( tString const & host, unsigned int port )
@@ -815,6 +971,10 @@ void gServerHistory::Played( tString const &, unsigned int, tString const &, tSt
 void gServerHistory::NameHint( tString const &, unsigned int, tString const & ){}
 std::vector< gServerHistory::Server > gServerHistory::Favourites(){ return std::vector< Server >(); }
 int gServerHistory::Generation(){ return 0; }
+bool gServerHistory::Heard::Fresh() const { return false; }
+void gServerHistory::CountFrame( int, std::vector< Target > const & ){}
+void gServerHistory::CountLeaves(){}
+gServerHistory::Heard gServerHistory::Counted( tString const &, unsigned int ){ return Heard(); }
 void gServerHistory::MainMenuFrame(){}
 void gServerHistory::MainMenuLeaves(){}
 double gServerHistory::Score( tString const &, unsigned int ){ return -1; }

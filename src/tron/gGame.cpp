@@ -3340,19 +3340,21 @@ static bool sg_RclServerNameMatches( tString const & serverName, char const * mo
     return name.find( mode ) != std::string::npos;
 }
 
+// whether a league sign-in is set up; queueing needs one
+static bool sg_RclHasIdentity()
+{
+    tString const identity = ePlayer::RclIdentity();
+    return identity.Len() > 1 && identity != "@rcl";
+}
+
 static void sg_RclPlayNow( gRclPlayNowMode const & mode, bool queueOnJoin = false )
 {
-    if ( queueOnJoin )
+    if ( queueOnJoin && !sg_RclHasIdentity() )
     {
-        tString identity = ePlayer::RclIdentity();
-        if ( identity.Len() <= 1 || identity == "@rcl" )
+        ePlayer::RclLogin();
+        if ( !sg_RclHasIdentity() )
         {
-            ePlayer::RclLogin();
-            identity = ePlayer::RclIdentity();
-            if ( identity.Len() <= 1 || identity == "@rcl" )
-            {
-                return;
-            }
+            return;
         }
     }
 
@@ -3483,24 +3485,6 @@ static void sg_RclPlayTst()
     sg_RclPlayNow( mode );
 }
 
-static void sg_RclQueueFort()
-{
-    static const gRclPlayNowMode mode = { "fort", 4554 };
-    sg_RclPlayNow( mode, true );
-}
-
-static void sg_RclQueueSumobar()
-{
-    static const gRclPlayNowMode mode = { "sumo", 4534 };
-    sg_RclPlayNow( mode, true );
-}
-
-static void sg_RclQueueTst()
-{
-    static const gRclPlayNowMode mode = { "tst", 4551 };
-    sg_RclPlayNow( mode, true );
-}
-
 // ---- the practice servers: one kind each, open to walk into ----
 static const gRclPlayNowMode sg_rclPractice[] = {
     { "fort",   4595, 0, "Fort practice" },    // six a side, bots fill the teams
@@ -3516,140 +3500,51 @@ static const gRclPlayNowMode sg_rclPickup[] = {
     { "fort", 4554, 0, 0 }
 };
 
-static void sg_RclPracticeFort()    { sg_RclPlayNow( sg_rclPractice[0] ); }
-static void sg_RclPracticeSumobar() { sg_RclPlayNow( sg_rclPractice[1] ); }
-static void sg_RclPracticeDojo()    { sg_RclPlayNow( sg_rclPractice[2] ); }
-static void sg_RclPracticeMazing()  { sg_RclPlayNow( sg_rclPractice[3] ); }
-static void sg_RclPracticeTrap()    { sg_RclPlayNow( sg_rclPractice[4] ); }
-static void sg_RclPracticeMaze()    { sg_RclPlayNow( sg_rclPractice[5] ); }
-
 // how many people are on one kind of server, over every region that answered
 struct gRclLobbyCount
 {
     int players, servers;
 };
 
-// Asks every region for all the given kinds at once. False if the player
-// pressed Escape while the answers were out.
-static bool sg_RclCountLobbies( gRclPlayNowMode const * modes, int count, gRclLobbyCount * found )
+// every region's servers of the given kinds, for the Play page to have asked
+static void sg_RclLobbyTargets( gRclPlayNowMode const * modes, int count,
+                                std::vector< gServerHistory::Target > & targets )
 {
-    for ( int m = 0; m < count; ++m )
-        found[m].players = found[m].servers = 0;
-
-    nServerInfo::DeleteAll( false );
     for ( unsigned int i = 0; i < sizeof( sg_rclPlayNowHosts ) / sizeof( sg_rclPlayNowHosts[0] ); ++i )
         for ( int m = 0; m < count; ++m )
             for ( int second = 0; second < 2; ++second )
             {
                 unsigned int const port = second ? modes[m].port2 : modes[m].port;
-                if ( !port )
-                    continue;
-                nServerInfo * candidate = tNEW( nServerInfo );
-                candidate->SetConnectionName( tString( sg_rclPlayNowHosts[i] ) );
-                candidate->SetPort( port );
+                if ( port )
+                    targets.push_back( gServerHistory::Target( tString( sg_rclPlayNowHosts[i] ), port ) );
             }
+}
 
-    bool cancelled = false;
-    double const probeDeadline = tSysTimeFloat() + sg_rclPlayNowProbeBudget;
-    nServerInfo::StartQueryAll( nServerInfo::QUERY_ALL );
-    while ( nServerInfo::DoQueryAll( 12 ) && tSysTimeFloat() < probeDeadline )
-    {
-        if ( !uMenu::Busy( tOutput( "$rcl_play_now_finding_title" ),
-                           tOutput( "$rcl_play_now_counting_text" ) ) )
+// What has been heard so far from one kind's servers, every region's. Never
+// waits: the Play page's asking fills it in. A server two names lead to
+// counts once; one that calls itself something else (another kind on that
+// port) not at all.
+static gRclLobbyCount sg_RclHeardLobbies( gRclPlayNowMode const & mode )
+{
+    gRclLobbyCount count = { 0, 0 };
+    std::vector< std::string > counted;
+    for ( unsigned int i = 0; i < sizeof( sg_rclPlayNowHosts ) / sizeof( sg_rclPlayNowHosts[0] ); ++i )
+        for ( int second = 0; second < 2; ++second )
         {
-            cancelled = true;
-            break;
-        }
-        tAdvanceFrame( 10000 );
-        st_DoToDo();
-    }
-
-    if ( !cancelled )
-        for ( nServerInfo * candidate = nServerInfo::GetFirstServer(); candidate; candidate = candidate->Next() )
-        {
-            if ( !candidate->Reachable() )
+            unsigned int const port = second ? mode.port2 : mode.port;
+            if ( !port )
                 continue;
-            for ( int m = 0; m < count; ++m )
-                if ( ( candidate->GetPort() == modes[m].port ||
-                       ( modes[m].port2 && candidate->GetPort() == modes[m].port2 ) ) &&
-                     sg_RclServerNameMatches( candidate->GetName(), modes[m].name ) )
-                {
-                    found[m].players += candidate->Users();
-                    ++found[m].servers;
-                }
+            gServerHistory::Heard const heard = gServerHistory::Counted( tString( sg_rclPlayNowHosts[i] ), port );
+            std::string const address( static_cast< char const * >( heard.address ) );
+            if ( !heard.Fresh() || heard.live != gServerHistory::Live_Answered ||
+                 !sg_RclServerNameMatches( heard.name, mode.name ) ||
+                 std::find( counted.begin(), counted.end(), address ) != counted.end() )
+                continue;
+            counted.push_back( address );
+            count.players += heard.users;
+            ++count.servers;
         }
-    nServerInfo::DeleteAll( false );
-    return !cancelled;
-}
-
-// a row's text: what it is and who is there
-static tOutput sg_RclLobbyTitle( char const * key, gRclLobbyCount const & count )
-{
-    tOutput title;
-    title << key;
-    if ( count.servers <= 0 )
-        title << "$rcl_lobby_offline";
-    else if ( count.players <= 0 )
-        title << "$rcl_lobby_empty";
-    else
-    {
-        tString playing;
-        playing << ": " << count.players << " ";
-        title << playing << "$rcl_lobby_playing";
-    }
-    return title;
-}
-
-// Play Now: the practice servers, each with how many are on it right now.
-// Choosing one joins the fullest of its kind among the nearest.
-static void sg_RclPlayNowMenu()
-{
-    int const kinds = sizeof( sg_rclPractice ) / sizeof( sg_rclPractice[0] );
-    gRclLobbyCount count[ sizeof( sg_rclPractice ) / sizeof( sg_rclPractice[0] ) ];
-    if ( !sg_RclCountLobbies( sg_rclPractice, kinds, count ) )
-        return;
-
-    uMenu menu( "$rcl_play_now_text" );
-    menu.SetStyle( uMenuStyle_RclPanel );
-
-    // rows are added bottom up
-    uMenuItemFunction maze( &menu, sg_RclLobbyTitle( "$rcl_practice_maze_text", count[5] ),
-                            "$rcl_practice_maze_help", &sg_RclPracticeMaze );
-    uMenuItemFunction trap( &menu, sg_RclLobbyTitle( "$rcl_practice_trap_text", count[4] ),
-                            "$rcl_practice_trap_help", &sg_RclPracticeTrap );
-    uMenuItemFunction mazing( &menu, sg_RclLobbyTitle( "$rcl_practice_mazing_text", count[3] ),
-                              "$rcl_practice_mazing_help", &sg_RclPracticeMazing );
-    uMenuItemFunction dojo( &menu, sg_RclLobbyTitle( "$rcl_practice_dojo_text", count[2] ),
-                            "$rcl_practice_dojo_help", &sg_RclPracticeDojo );
-    uMenuItemFunction sumobar( &menu, sg_RclLobbyTitle( "$rcl_practice_sumobar_text", count[1] ),
-                               "$rcl_practice_sumobar_help", &sg_RclPracticeSumobar );
-    uMenuItemFunction fort( &menu, sg_RclLobbyTitle( "$rcl_practice_fort_text", count[0] ),
-                            "$rcl_practice_fort_help", &sg_RclPracticeFort );
-
-    menu.Enter();
-}
-
-// Queue Now: the pickup lobbies, each with how many are in it. Nothing is
-// joined until one is chosen; choosing joins that lobby and asks for its
-// draft queue, which is where the queue lives today.
-static void sg_RclQueueNowMenu()
-{
-    int const kinds = sizeof( sg_rclPickup ) / sizeof( sg_rclPickup[0] );
-    gRclLobbyCount count[ sizeof( sg_rclPickup ) / sizeof( sg_rclPickup[0] ) ];
-    if ( !sg_RclCountLobbies( sg_rclPickup, kinds, count ) )
-        return;
-
-    uMenu menu( "$rcl_queue_now_text" );
-    menu.SetStyle( uMenuStyle_RclPanel );
-
-    uMenuItemFunction fort( &menu, sg_RclLobbyTitle( "$rcl_play_now_fort_text", count[2] ),
-                            "$rcl_queue_now_fort_help", &sg_RclQueueFort );
-    uMenuItemFunction sumobar( &menu, sg_RclLobbyTitle( "$rcl_play_now_sumobar_text", count[1] ),
-                               "$rcl_queue_now_sumobar_help", &sg_RclQueueSumobar );
-    uMenuItemFunction tst( &menu, sg_RclLobbyTitle( "$rcl_play_now_tst_text", count[0] ),
-                           "$rcl_queue_now_tst_help", &sg_RclQueueTst );
-
-    menu.Enter();
+    return count;
 }
 
 static void sg_RclMaybeAutoQueue()
@@ -4083,13 +3978,20 @@ static tString sg_RclStatusLine()
     return status;
 }
 
-// One of the player's own servers in the rail: its name, and at the row's
-// right end how many are on it now. Choosing it joins it.
+// One of the player's own servers: its name and how many are on it now.
+// Choosing it joins it. On the first screen it is the chip under Play, there
+// only while people are on it; on the Play page it is a card.
 class gRclYourServerItem: public uMenuItem
 {
 public:
-    explicit gRclYourServerItem( uMenu * menu )
-    : uMenuItem( menu, tOutput() )
+    enum Shape
+    {
+        Shape_Chip,     //!< under Play on the first screen
+        Shape_Card      //!< on the Play page
+    };
+
+    gRclYourServerItem( uMenu * menu, Shape shape )
+    : uMenuItem( menu, tOutput() ), shape_( shape )
     {
     }
 
@@ -4097,27 +3999,10 @@ public:
     gServerHistory::Server const & Shown() const { return server_; }
 
     virtual tString GetLabel(){ return Label(); }
+    virtual bool OwnsRow(){ return menu->RclStyle(); }
 
-    virtual void Render( REAL x, REAL y, REAL alpha, bool selected )
-    {
-        if ( !menu->RclStyle() )
-        {
-            DisplayTextSpecial( x, y, Label(), selected, alpha );
-            return;
-        }
-
-        // where the menu slid the row to as it entered, as the theme's rows do
-        REAL const slide = x - uRclTheme::LabelX();
-        REAL const left = uRclTheme::LabelX() + slide;
-        REAL const right = uRclTheme::RowRight() - uRclTheme::W( 12 ) + slide;
-
-        tString const count = Count();
-        REAL const countWidth = uRclTheme::TextWidth( count, 15, 500 );
-        uRclTheme::Text( right, y, 15, 500, Populated() ? uRclTheme::accent : uRclTheme::textSecondary,
-                         alpha, count, 1 );
-        uRclTheme::Text( left, y, 18, 500, uRclTheme::textPrimary, alpha, Label(), -1,
-                         std::max( uRclTheme::W( 24 ), right - countWidth - uRclTheme::W( 12 ) - left ) );
-    }
+    // drawn by the menu it is in, which knows where it goes (below)
+    virtual void Render( REAL x, REAL y, REAL alpha, bool selected );
 
     virtual tString Help()
     {
@@ -4140,7 +4025,6 @@ public:
         ConnectToServer( &target );
     }
 
-private:
     bool Answered() const
     {
         return server_.Fresh() && server_.live == gServerHistory::Live_Answered;
@@ -4190,6 +4074,7 @@ private:
         return tString( tOutput( "$rcl_your_server_hours", number ) );
     }
 
+private:
     tString WhenText() const
     {
         long long const ago = std::max( 0LL, static_cast< long long >( time( NULL ) ) - server_.last );
@@ -4220,23 +4105,625 @@ private:
         return tString( tOutput( "$rcl_your_server_playing_open", server_.users ) );
     }
 
+    Shape shape_;
     gServerHistory::Server server_;
 };
 
-// The main menu keeps its status line current while it is open, and out of
-// a game it has the league beside its rail: the next event, the ladders.
-// There its rail also has a row for each of the player's favourite servers,
-// asked now and then who is on them.
+// ---- cards, as the server browser draws its own ----
+namespace
+{
+// logical pixels
+REAL const sg_rclCardHeight = 100;
+REAL const sg_rclCardLeast  = 280;      // narrower than this, a row holds one card fewer
+REAL const sg_rclCardGap    = 14;
+REAL const sg_rclCardRowGap = 12;
+REAL const sg_rclHeadingPx  = 36;       // a section's heading
+REAL const sg_rclHeadingGap = 22;       // over a heading that follows cards
+REAL const sg_rclSpacerPx   = 14;
+
+uRclTheme::Color const sg_rclCardColor = { .165f, .172f, .180f };   // a card at rest, between the page and a control
+uRclTheme::Color const sg_rclQuietText = { .470f, .478f, .486f };
+
+// One card: its title, under it how many are on (lit while anyone is) and on
+// the right a quiet note. The edges are field coordinates.
+void sg_RclCard( REAL left, REAL top, REAL right, REAL bottom, char const * title, char const * count,
+                 bool lit, char const * note, bool selected, REAL alpha )
+{
+    uRclTheme::FillRect( left, top, right, bottom, selected ? uRclTheme::surfaceRaised : sg_rclCardColor, alpha, 6 );
+    if ( selected )
+        uRclTheme::FrameRect( left, top, right, bottom, 2, uRclTheme::accent, alpha );
+
+    REAL const textLeft = left + uRclTheme::W( 18 ), textRight = right - uRclTheme::W( 18 );
+    uRclTheme::Text( textLeft, top - uRclTheme::H( 30 ), 16, 500, uRclTheme::textPrimary, alpha, title,
+                     -1, textRight - textLeft );
+
+    REAL const lineY = bottom + uRclTheme::H( 32 );
+    REAL used = 0;
+    if ( count && *count )
+    {
+        uRclTheme::Text( textLeft, lineY, 14.5f, 500, lit ? uRclTheme::accent : uRclTheme::textSecondary,
+                         alpha, count );
+        used = uRclTheme::TextWidth( count, 14.5f, 500 ) + uRclTheme::W( 16 );
+    }
+    REAL const room = textRight - textLeft - used;
+    if ( note && *note && room > uRclTheme::W( 40 ) )
+        uRclTheme::Text( textRight, lineY, 12.5f, 400, sg_rclQuietText, alpha, note, 1, room );
+}
+}
+
+// The Play page: every way into a game, as cards under four headings. It is
+// there at once; how many are on each fills in as the servers answer, asked
+// the way the main menu asks after the player's favourites and never waited
+// on. Choosing a card does what the old Play Now and Queue Now rows did.
+class gRclPlayMenu: public uMenu
+{
+public:
+    gRclPlayMenu()
+    : uMenu( tOutput( "$rcl_play_text" ), false ), shownFor_( -1 )
+    {
+        SetStyle( uMenuStyle_RclFull );
+        SetKeyHint( tString( "enter join  \xb7  arrows move  \xb7  esc back" ) );
+
+        // every region's practice servers and pickup lobbies
+        sg_RclLobbyTargets( sg_rclPractice, sizeof( sg_rclPractice ) / sizeof( sg_rclPractice[0] ), targets_ );
+        sg_RclLobbyTargets( sg_rclPickup, sizeof( sg_rclPickup ) / sizeof( sg_rclPickup[0] ), targets_ );
+    }
+
+    ~gRclPlayMenu()
+    {
+        // what was being asked is given up, and the shared server list left empty
+        gServerHistory::CountLeaves();
+    }
+
+    //! where the card of row index is with its middle at y; false for a row that is no card
+    bool CardEdges( int index, REAL y, REAL & left, REAL & top, REAL & right, REAL & bottom ) const;
+
+    //! how much of a card with these edges shows: it thins out as it leaves the list
+    REAL CardShows( REAL top, REAL bottom ) const;
+
+protected:
+    virtual REAL YPos( int num );
+    virtual REAL ItemRowHalf( int index );
+    virtual bool ItemContainsX( int index, REAL mouseX );
+    virtual void OnRender();
+    virtual void RenderExtras( REAL alpha );
+    virtual void HandleEvent( SDL_Event event );
+
+private:
+    //! where a row lies and what it is
+    struct Slot
+    {
+        REAL top, height;   // from the top of the list's content, in field units
+        REAL left, right;
+        int row, col;       // for the arrow keys
+        bool card;
+    };
+
+    void Layout();                      //!< places every row, in this frame's units
+    bool Step( int rows, int cols );    //!< moves the selection over the cards; false if there is none that way
+    void ShowYours();                   //!< what was last heard, onto the player's own servers' cards
+
+    std::vector< Slot > slots_;         //!< one for every row, by its index
+    std::vector< gServerHistory::Target > targets_;
+    int shownFor_;                      //!< the history's generation the cards of the player's servers show
+};
+
+// a heading over a stretch of cards (or, without words, room under the last); never selected
+class gRclPlayHeading: public uMenuItem
+{
+public:
+    gRclPlayHeading( uMenu * menu, char const * label )
+    : uMenuItem( menu, tOutput() ), label_( label ? label : "" )
+    {
+    }
+
+    bool Spacer() const { return label_.empty(); }
+
+    virtual bool IsSelectable(){ return false; }
+    virtual bool OwnsRow(){ return true; }
+
+    virtual void Render( REAL x, REAL y, REAL alpha, bool selected )
+    {
+        (void)selected;
+        if ( Spacer() )
+            return;
+        // where the menu slid the row to as it entered
+        REAL const slide = x - uRclTheme::LabelX();
+        uRclTheme::Text( uRclTheme::RowLeft() + slide, y - uRclTheme::H( 4 ), 13, 500, uRclTheme::textSecondary,
+                         alpha, tString( tOutput( label_.c_str() ) ) );
+    }
+
+private:
+    std::string label_;     //!< the name of its language string
+};
+
+// One kind of the league's servers, counted over every region: a practice
+// server to walk into, or a pickup lobby to queue in. Choosing it joins the
+// fullest of the kind among the nearest, as Play Now and Queue Now did.
+class gRclLobbyCard: public uMenuItem
+{
+public:
+    gRclLobbyCard( uMenu * menu, gRclPlayNowMode const & mode, bool queue, char const * title,
+                   char const * help, char const * note )
+    : uMenuItem( menu, tOutput( help ) ), mode_( mode ), queue_( queue ), title_( title ),
+      note_( note ? note : "" )
+    {
+    }
+
+    virtual tString GetLabel(){ return tString( title_ ); }
+    virtual bool OwnsRow(){ return true; }
+
+    virtual void Render( REAL x, REAL y, REAL alpha, bool selected )
+    {
+        gRclPlayMenu * const page = dynamic_cast< gRclPlayMenu * >( menu );
+        REAL left, top, right, bottom;
+        if ( !page || !page->CardEdges( GetID(), y, left, top, right, bottom ) )
+            return;
+        alpha *= page->CardShows( top, bottom );
+        if ( alpha <= .01f )
+            return;
+        REAL const slide = x - uRclTheme::LabelX();
+
+        gRclLobbyCount const count = sg_RclHeardLobbies( mode_ );
+        tString counted;
+        if ( count.servers <= 0 )
+            counted << "-";
+        else if ( count.players <= 0 )
+            counted << tOutput( "$rcl_play_empty" );
+        else
+            counted << tOutput( "$rcl_play_playing", count.players );
+
+        // a pickup says first what it needs; Queue Now asks for a sign-in before it joins
+        tString note;
+        if ( queue_ && !sg_RclHasIdentity() )
+            note << tOutput( "$rcl_play_needs_sign_in" );
+        else if ( !note_.empty() )
+            note << tOutput( note_.c_str() );
+
+        sg_RclCard( left + slide, top, right + slide, bottom, tString( title_ ), counted, count.players > 0,
+                    note, selected, alpha );
+    }
+
+    virtual void Enter()
+    {
+        sg_RclPlayNow( mode_, queue_ );
+    }
+
+private:
+    gRclPlayNowMode mode_;
+    bool queue_;            //!< a pickup: joining asks for its draft queue
+    tOutput title_;
+    std::string note_;      //!< the name of its language string, if it has a note
+};
+
+// a way into a game that is not a server: a local one, or the list of every server
+class gRclPlayCard: public uMenuItem
+{
+public:
+    gRclPlayCard( uMenu * menu, char const * title, char const * help, char const * note, FUNCPTR func )
+    : uMenuItem( menu, tOutput( help ) ), title_( title ), note_( note ), func_( func )
+    {
+    }
+
+    virtual tString GetLabel(){ return tString( title_ ); }
+    virtual bool OwnsRow(){ return true; }
+
+    virtual void Render( REAL x, REAL y, REAL alpha, bool selected )
+    {
+        gRclPlayMenu * const page = dynamic_cast< gRclPlayMenu * >( menu );
+        REAL left, top, right, bottom;
+        if ( !page || !page->CardEdges( GetID(), y, left, top, right, bottom ) )
+            return;
+        alpha *= page->CardShows( top, bottom );
+        if ( alpha <= .01f )
+            return;
+        REAL const slide = x - uRclTheme::LabelX();
+        sg_RclCard( left + slide, top, right + slide, bottom, tString( title_ ), NULL, false,
+                    tString( note_ ), selected, alpha );
+    }
+
+    virtual void Enter()
+    {
+        (*func_)();
+    }
+
+private:
+    tOutput title_, note_;
+    FUNCPTR func_;
+};
+
+void gRclPlayMenu::Layout()
+{
+    int const count = items.Len();
+    slots_.resize( count );
+
+    // as many cards side by side as fit, five at most, all as wide
+    REAL const left = uRclTheme::RowLeft(), right = uRclTheme::RowRight();
+    REAL const gap = uRclTheme::W( sg_rclCardGap );
+    int const columns = std::max( 1, std::min( 5, int( ( right - left + gap ) / ( uRclTheme::W( sg_rclCardLeast ) + gap ) ) ) );
+    REAL const width = ( right - left - ( columns - 1 ) * gap ) / columns;
+    REAL const cardHeight = uRclTheme::H( sg_rclCardHeight );
+
+    // top to bottom (rows are stored bottom first): a heading across the
+    // page, then its cards in rows
+    REAL cursor = 0;
+    int row = -1, col = columns;
+    bool cards = false;
+    for ( int i = count - 1; i >= 0; --i )
+    {
+        Slot & slot = slots_[i];
+        gRclPlayHeading * const heading = dynamic_cast< gRclPlayHeading * >( items(i) );
+        if ( heading )
+        {
+            if ( cards )
+                cursor += cardHeight + ( heading->Spacer() ? 0 : uRclTheme::H( sg_rclHeadingGap ) );
+            cards = false;
+            slot.top = cursor;
+            slot.height = uRclTheme::H( heading->Spacer() ? sg_rclSpacerPx : sg_rclHeadingPx );
+            slot.left = left;
+            slot.right = right;
+            slot.row = ++row;
+            slot.col = 0;
+            slot.card = false;
+            cursor += slot.height;
+            col = columns;
+            continue;
+        }
+
+        if ( col >= columns )
+        {
+            if ( cards )
+                cursor += cardHeight + uRclTheme::H( sg_rclCardRowGap );
+            ++row;
+            col = 0;
+        }
+        slot.top = cursor;
+        slot.height = cardHeight;
+        slot.left = left + col * ( width + gap );
+        slot.right = slot.left + width;
+        slot.row = row;
+        slot.col = col++;
+        slot.card = true;
+        cards = true;
+    }
+}
+
+REAL gRclPlayMenu::YPos( int num )
+{
+    if ( num >= 0 && num < int( slots_.size() ) && int( slots_.size() ) == items.Len() )
+    {
+        Slot const & slot = slots_[ num ];
+        return yOffset - uRclTheme::RowPitch() * .5f - slot.top - slot.height * .5f;
+    }
+    return uMenu::YPos( num );
+}
+
+REAL gRclPlayMenu::ItemRowHalf( int index )
+{
+    if ( index >= 0 && index < int( slots_.size() ) )
+        return slots_[ index ].height * .5f;
+    return uMenu::ItemRowHalf( index );
+}
+
+bool gRclPlayMenu::ItemContainsX( int index, REAL mouseX )
+{
+    if ( index < 0 || index >= int( slots_.size() ) )
+        return true;
+    return mouseX >= slots_[ index ].left && mouseX <= slots_[ index ].right;
+}
+
+bool gRclPlayMenu::CardEdges( int index, REAL y, REAL & left, REAL & top, REAL & right, REAL & bottom ) const
+{
+    if ( index < 0 || index >= int( slots_.size() ) || !slots_[ index ].card )
+        return false;
+    Slot const & slot = slots_[ index ];
+    left = slot.left;
+    right = slot.right;
+    top = y + slot.height * .5f;
+    bottom = y - slot.height * .5f;
+    return true;
+}
+
+REAL gRclPlayMenu::CardShows( REAL top, REAL bottom ) const
+{
+    // by its edge and not its middle, as the browser's cards do
+    REAL const band = uRclTheme::RowPitch() * .5f;
+    REAL shows = 1;
+    if ( top > menuTop )
+        shows *= std::max( 0.0f, 1 - ( top - menuTop ) / band );
+    if ( bottom < menuBot )
+        shows *= std::max( 0.0f, 1 - ( menuBot - bottom ) / band );
+    return shows;
+}
+
+bool gRclPlayMenu::Step( int rows, int cols )
+{
+    if ( selected < 0 || selected >= int( slots_.size() ) || int( slots_.size() ) != items.Len() )
+        return false;
+    Slot const & at = slots_[ selected ];
+
+    int best = -1;
+    if ( cols )
+    {
+        for ( int i = items.Len() - 1; i >= 0; --i )
+            if ( slots_[i].row == at.row && slots_[i].col == at.col + cols && items(i)->IsSelectable() )
+                best = i;
+    }
+    else
+    {
+        // the nearest row that way with a card in it, and in it the column nearest this one
+        int nearRow = 1 << 30, nearCol = 1 << 30;
+        for ( int i = items.Len() - 1; i >= 0; --i )
+        {
+            if ( !items(i)->IsSelectable() )
+                continue;
+            int const away = ( slots_[i].row - at.row ) * rows;
+            if ( away <= 0 )
+                continue;
+            int const aside = slots_[i].col > at.col ? slots_[i].col - at.col : at.col - slots_[i].col;
+            if ( away < nearRow || ( away == nearRow && aside < nearCol ) )
+            {
+                best = i;
+                nearRow = away;
+                nearCol = aside;
+            }
+        }
+    }
+    if ( best < 0 )
+        return false;
+
+    selected = best;
+    mouseSelection_ = -1;
+    MenuSound( Sound_Move );
+    return true;
+}
+
+void gRclPlayMenu::ShowYours()
+{
+    if ( gServerHistory::Generation() == shownFor_ )
+        return;
+    shownFor_ = gServerHistory::Generation();
+
+    // the cards stay where they were when the page opened; only what they say changes
+    std::vector< gServerHistory::Server > const servers = gServerHistory::Favourites();
+    for ( int i = items.Len() - 1; i >= 0; --i )
+    {
+        gRclYourServerItem * const card = dynamic_cast< gRclYourServerItem * >( items(i) );
+        if ( !card )
+            continue;
+        for ( size_t k = 0; k < servers.size(); ++k )
+            if ( servers[k].port == card->Shown().port && servers[k].host == card->Shown().host )
+                card->Show( servers[k] );
+    }
+}
+
+void gRclPlayMenu::OnRender()
+{
+    uMenu::OnRender();
+    gServerHistory::CountFrame( gServerHistory::Asker_PlayPage, targets_ );
+    ShowYours();
+
+    // the rows are measured in the window's own units, so they are placed every frame
+    Layout();
+
+    // A card is taller than the room the menu keeps for a row: the one the
+    // keys chose is brought into the list whole.
+    if ( mouseSelection_ != selected && selected >= 0 && selected < int( slots_.size() ) )
+    {
+        REAL const margin = uRclTheme::H( 10 );
+        REAL const y = YPos( selected ), half = slots_[ selected ].height * .5f;
+        if ( y - half < menuBot + margin )
+            yOffset += menuBot + margin - ( y - half );
+        else if ( y + half > menuTop - margin )
+            yOffset -= ( y + half ) - ( menuTop - margin );
+    }
+}
+
+void gRclPlayMenu::RenderExtras( REAL alpha )
+{
+    // the chosen card's help over the keys; a page across the window has no
+    // help of the theme's at its foot
+    if ( selected < 0 || selected >= items.Len() )
+        return;
+    tString const help = items[ selected ]->Help();
+    uRclTheme::Paragraph( uRclTheme::X( uRclTheme::MarginPx() ), uRclTheme::Y( uRclTheme::LogicalHeight() - 76 ),
+                          uRclTheme::W( std::min( REAL( 900 ), uRclTheme::ColumnPx() ) ), 14, 400,
+                          uRclTheme::textSecondary, alpha, help, 2 );
+}
+
+void gRclPlayMenu::HandleEvent( SDL_Event event )
+{
+    if ( event.type == SDL_KEYDOWN )
+    {
+        switch ( event.key.keysym.sym )
+        {
+        case SDLK_LEFT:
+        case SDLK_RIGHT:
+            Step( 0, event.key.keysym.sym == SDLK_RIGHT ? 1 : -1 );
+            return;
+        case SDLK_UP:
+        case SDLK_DOWN:
+            Step( event.key.keysym.sym == SDLK_DOWN ? 1 : -1, 0 );
+            return;
+        case SDLK_RETURN:
+        case SDLK_KP_ENTER:
+        case SDLK_SPACE:
+            // a card may hand the network to Play Now, the browser or a
+            // game: the shared server list is theirs first
+            gServerHistory::CountLeaves();
+            break;
+        default:
+            break;
+        }
+    }
+    else if ( event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT &&
+              sr_screenWidth > 0 && sr_screenHeight > 0 &&
+              ItemAt( 2.0f * event.button.x / sr_screenWidth - 1.0f,
+                      1.0f - 2.0f * event.button.y / sr_screenHeight ) >= 0 )
+        gServerHistory::CountLeaves();
+
+    uMenu::HandleEvent( event );
+}
+
+static void sg_RclServers();
+
+// Play, from the first screen
+static void sg_RclPlayPage()
+{
+    gRclPlayMenu page;
+
+    // top to bottom here; the menu keeps its rows the other way round, so
+    // they are turned at the end
+
+    std::vector< gServerHistory::Server > const yours = gServerHistory::Favourites();
+    if ( !yours.empty() )
+    {
+        tNEW( gRclPlayHeading )( &page, "$rcl_play_section_yours" );
+        for ( size_t i = 0; i < yours.size(); ++i )
+        {
+            gRclYourServerItem * const card = tNEW( gRclYourServerItem )( &page, gRclYourServerItem::Shape_Card );
+            card->Show( yours[i] );
+        }
+    }
+
+    // the practice servers (not the sumo bot dojo: retired on 2026-10-07)
+    struct Practice
+    {
+        int kind;   // in sg_rclPractice
+        char const * title, * help, * note;
+    };
+    static Practice const practice[] =
+    {
+        { 0, "$rcl_practice_fort_text",    "$rcl_practice_fort_help",    "$rcl_practice_fort_note" },
+        { 1, "$rcl_practice_sumobar_text", "$rcl_practice_sumobar_help", "$rcl_practice_sumobar_note" },
+        { 3, "$rcl_practice_mazing_text",  "$rcl_practice_mazing_help",  NULL },
+        { 4, "$rcl_practice_trap_text",    "$rcl_practice_trap_help",    NULL },
+        { 5, "$rcl_practice_maze_text",    "$rcl_practice_maze_help",    NULL }
+    };
+    tNEW( gRclPlayHeading )( &page, "$rcl_play_section_practice" );
+    for ( size_t i = 0; i < sizeof( practice ) / sizeof( practice[0] ); ++i )
+        tNEW( gRclLobbyCard )( &page, sg_rclPractice[ practice[i].kind ], false,
+                               practice[i].title, practice[i].help, practice[i].note );
+
+    // the pickup lobbies: joining one asks for its draft queue
+    tNEW( gRclPlayHeading )( &page, "$rcl_play_section_pickups" );
+    tNEW( gRclLobbyCard )( &page, sg_rclPickup[0], true, "$rcl_play_now_tst_text", "$rcl_queue_now_tst_help", NULL );
+    tNEW( gRclLobbyCard )( &page, sg_rclPickup[1], true, "$rcl_play_now_sumobar_text", "$rcl_queue_now_sumobar_help", NULL );
+    tNEW( gRclLobbyCard )( &page, sg_rclPickup[2], true, "$rcl_play_now_fort_text", "$rcl_queue_now_fort_help", NULL );
+
+    tNEW( gRclPlayHeading )( &page, "$rcl_play_section_more" );
+    tNEW( gRclPlayCard )( &page, "$rcl_play_local_text", "$rcl_practice_help", "$rcl_play_local_note",
+                          &sg_SinglePlayerGame );
+    tNEW( gRclPlayCard )( &page, "$rcl_play_browser_text", "$network_menu_help", "$rcl_play_browser_note",
+                          &sg_RclServers );
+
+    // room under the last row, so the last cards clear the end of the list
+    tNEW( gRclPlayHeading )( &page, NULL );
+
+    page.ReverseItems();
+    page.Enter();
+}
+
+// the signed-in player's own page on the league's site; there only while someone is signed in
+class gRclPlayerPageItem: public uMenuItemFunction
+{
+public:
+    explicit gRclPlayerPageItem( uMenu * menu )
+    : uMenuItemFunction( menu, "$rcl_player_page_text", "$rcl_player_page_help", &gLeague::OpenPlayerPage )
+    {
+    }
+
+    virtual bool IsSelectable(){ return gLeague::HasPlayerPage(); }
+
+    virtual void Render( REAL x, REAL y, REAL alpha, bool selected )
+    {
+        if ( gLeague::HasPlayerPage() )
+            uMenuItemFunction::Render( x, y, alpha, selected );
+    }
+};
+
+// League, from the first screen: the ladders, the events and the player's own page
+static void sg_RclLeaguePage()
+{
+    uMenu page( "$rcl_league_text" );
+    page.SetStyle( uMenuStyle_RclPanel );
+
+    std::vector< uMenuItem * > rows;
+    rows.push_back( tNEW( uMenuItemFunction )( &page, "$rcl_leaderboards_text", "$rcl_leaderboards_help",
+                                               &gLeague::LeaderboardMenu ) );
+    rows.push_back( tNEW( uMenuItemFunction )( &page, "$rcl_events_text", "$rcl_events_help",
+                                               &gLeague::EventsMenu ) );
+    rows.push_back( tNEW( gRclPlayerPageItem )( &page ) );
+    sg_OrderMenu( page, rows );
+    page.Enter();
+}
+
+// A server's name short enough for a line of copy: without its colours,
+// without the league's "RCL" in front, and without a short last part after a
+// bar, which is where names keep their city ("RCL Fort Practice | Frankfurt"
+// is "Fort Practice"). The rest stays as its owner wrote it.
+static tString sg_RclShortServerName( tString const & name )
+{
+    std::string const plain( static_cast< char const * >( tColoredString::RemoveColors( name, false ) ) );
+    std::string text( plain );
+    auto const trim = []( std::string & s )
+    {
+        while ( !s.empty() && ( s[0] == ' ' || s[0] == '|' ) )
+            s.erase( 0, 1 );
+        while ( !s.empty() && ( s[ s.size() - 1 ] == ' ' || s[ s.size() - 1 ] == '|' ) )
+            s.erase( s.size() - 1 );
+    };
+    trim( text );
+
+    std::string lower( text );
+    std::transform( lower.begin(), lower.end(), lower.begin(), ::tolower );
+    if ( lower.compare( 0, 4, "rcl " ) == 0 || lower.compare( 0, 4, "rcl|" ) == 0 )
+    {
+        text.erase( 0, 3 );
+        trim( text );
+    }
+
+    std::string::size_type const bar = text.rfind( '|' );
+    if ( bar != std::string::npos && bar > 0 )
+    {
+        std::string last( text.substr( bar + 1 ) ), first( text.substr( 0, bar ) );
+        trim( last );
+        trim( first );
+        if ( !last.empty() && last.size() <= 12 && !first.empty() )
+            text = first;
+    }
+
+    return tString( text.empty() ? plain.c_str() : text.c_str() );
+}
+
+// the first screen, in logical pixels
+namespace
+{
+REAL const sg_heroPlayWidth    = 400;
+REAL const sg_heroPlayHeight   = 104;
+REAL const sg_heroPlayFromFoot = 252;   // from the window's foot to Play's
+REAL const sg_heroChipHeight   = 40;
+REAL const sg_heroChipPad      = 16;
+REAL const sg_heroChipText     = 15;
+REAL const sg_heroWordSize     = 21;
+REAL const sg_heroWordGap      = 40;
+REAL const sg_heroWordReach    = 20;    // over and under a word, for the mouse
+}
+
+// The first screen, out of a game, has no rail. The scene goes across the
+// window, the league stands on the right, and low on the left is a line of
+// what is going on, one big Play button and a short row of words. While one
+// of the player's own servers has people on it, a chip under Play joins it.
+// In a game the main menu is the plain panel it always was.
 class gMainMenu: public uMenu
 {
 public:
-    enum { YourRows = 3 };
-
     gMainMenu( const tOutput & title, bool status )
-    : uMenu( title, false ), status_( status ), shownFor_( -1 ), shown_( 0 )
+    : uMenu( title, false ), status_( status ), play_( NULL ), chip_( NULL ),
+      shownFor_( -1 ), chipShown_( false ), lastWord_( 0 ),
+      left_( 0 ), liveY_( 0 ), playTop_( 0 ), playBottom_( 0 ), chipTop_( 0 ), chipBottom_( 0 ),
+      chipRight_( 0 ), wordsY_( 0 )
     {
-        for ( int i = 0; i < YourRows; ++i )
-            yours_[i] = NULL;
     }
 
     ~gMainMenu()
@@ -4244,25 +4731,99 @@ public:
         if ( status_ )
             gServerHistory::MainMenuLeaves();
 
-        // the menu deletes the rows it has; those not shown are not among them
-        for ( int i = 0; i < YourRows; ++i )
-            if ( yours_[i] && yours_[i]->GetID() < 0 )
-                delete yours_[i];
+        // the menu deletes the rows it has; the chip is not among them while it is hidden
+        if ( chip_ && chip_->GetID() < 0 )
+            delete chip_;
     }
 
-    //! The rail, top to bottom, with the rows for the player's servers in it.
-    //! Those rows are in the menu only while there is a server for them.
-    void SetRail( std::vector< uMenuItem * > const & rail, gRclYourServerItem * const yours[ YourRows ] )
+    //! The first screen's rows, top to bottom: Play, the chip, then the
+    //! words. The chip is in the menu only while it has a server to show.
+    void SetHero( std::vector< uMenuItem * > const & rows, gRclYourServerItem * chip )
     {
-        rail_ = rail;
-        for ( int i = 0; i < YourRows; ++i )
-            yours_[i] = yours[i];
-        shown_ = YourRows;
+        rows_ = rows;
+        chip_ = chip;
+        play_ = rows.empty() ? NULL : rows.front();
+        words_.clear();
+        for ( size_t i = 1; i < rows.size(); ++i )
+            if ( rows[i] != chip )
+                words_.push_back( rows[i] );
+        chipShown_ = chip_ && chip_->GetID() >= 0;
         shownFor_ = -1;
-        SyncYours();
+        SyncChip();
+        Measure();
+    }
+
+    //! where one of the first screen's rows is this frame, in field coordinates
+    void Edges( uMenuItem const * item, REAL & left, REAL & top, REAL & right, REAL & bottom ) const
+    {
+        left = right = top = bottom = 0;
+        if ( item == play_ )
+        {
+            left = uRclTheme::X( left_ );
+            right = uRclTheme::X( left_ + sg_heroPlayWidth );
+            top = uRclTheme::Y( playTop_ );
+            bottom = uRclTheme::Y( playBottom_ );
+        }
+        else if ( item && item == chip_ )
+        {
+            left = uRclTheme::X( left_ );
+            right = uRclTheme::X( chipRight_ );
+            top = uRclTheme::Y( chipTop_ );
+            bottom = uRclTheme::Y( chipBottom_ );
+        }
+        else
+        {
+            // a word, with half the gap on either side so the row has no holes for the mouse
+            int const word = Word( item );
+            if ( word < 0 || word >= int( wordLeft_.size() ) )
+                return;
+            left = uRclTheme::X( wordLeft_[ word ] - sg_heroWordGap * .5f );
+            right = uRclTheme::X( wordRight_[ word ] + sg_heroWordGap * .5f );
+            top = uRclTheme::Y( wordsY_ - sg_heroWordReach );
+            bottom = uRclTheme::Y( wordsY_ + sg_heroWordReach );
+        }
+    }
+
+    //! Draws one of the first screen's rows. slide is how far the menu slid
+    //! it as it entered.
+    void DrawHero( uMenuItem * item, REAL slide, REAL alpha, bool selected )
+    {
+        if ( item == play_ )
+            DrawPlay( slide, alpha, selected );
+        else if ( item && item == chip_ )
+            DrawChip( slide, alpha, selected );
+        else
+            DrawWord( Word( item ), slide, alpha, selected );
     }
 
 protected:
+    virtual REAL YPos( int num )
+    {
+        if ( !Hero() || num < 0 || num >= items.Len() )
+            return uMenu::YPos( num );
+        REAL left, top, right, bottom;
+        Edges( items[ num ], left, top, right, bottom );
+        return ( top + bottom ) * .5f;
+    }
+
+    virtual REAL ItemRowHalf( int index )
+    {
+        if ( !Hero() || index < 0 || index >= items.Len() )
+            return uMenu::ItemRowHalf( index );
+        REAL left, top, right, bottom;
+        Edges( items[ index ], left, top, right, bottom );
+        return ( top - bottom ) * .5f;
+    }
+
+    virtual bool ItemContainsX( int index, REAL mouseX )
+    {
+        if ( !Hero() || index < 0 || index >= items.Len() )
+            return true;
+        REAL left, top, right, bottom;
+        Edges( items[ index ], left, top, right, bottom );
+        return mouseX >= left && mouseX <= right;
+    }
+
     virtual void OnRender()
     {
         uMenu::OnRender();
@@ -4271,7 +4832,17 @@ protected:
             SetFootnote( sg_RclStatusLine() );
             gLeague::Poll();
             gServerHistory::MainMenuFrame();
-            SyncYours();
+        }
+        if ( Hero() )
+        {
+            SyncChip();
+            Measure();
+            live_ = LiveLine();
+            int const word = selected >= 0 && selected < items.Len() ? Word( items[ selected ] ) : -1;
+            if ( word >= 0 )
+                lastWord_ = word;
+            // the rows are placed, not scrolled: the list's offset is not left to wander
+            yOffset = menuTop;
         }
     }
 
@@ -4279,15 +4850,18 @@ protected:
     {
         if ( status_ )
             gLeague::DrawHome( alpha );
+        if ( Hero() && live_.Len() > 1 )
+            uRclTheme::Text( uRclTheme::X( left_ ), uRclTheme::Y( liveY_ ), 17, 400, uRclTheme::textSecondary,
+                             alpha, live_, -1, uRclTheme::W( uRclTheme::ColumnPx() ) );
     }
 
     virtual void HandleEvent( SDL_Event event )
     {
         if ( status_ )
         {
-            // Whatever may choose a row (or a card beside the rail) may hand
-            // the network to the browser or Play Now: the servers' list is
-            // left to them first.
+            // Whatever may choose a row (or a card beside them) may hand the
+            // network to the browser or Play Now: the servers' list is left
+            // to them first.
             bool const click = event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT;
             bool const key = event.type == SDL_KEYDOWN &&
                              ( event.key.keysym.sym == SDLK_RETURN || event.key.keysym.sym == SDLK_KP_ENTER ||
@@ -4300,71 +4874,305 @@ protected:
                                      1.0f - 2.0f * event.button.y / sr_screenHeight ) )
                 return;
         }
+        if ( Hero() && event.type == SDL_KEYDOWN && HeroKey( event.key.keysym.sym ) )
+            return;
         uMenu::HandleEvent( event );
     }
 
 private:
-    // Puts the player's servers into their rows, and the rows into the rail
-    // when how many there are changed. The selection stays on the server it
-    // was on, wherever its row is now.
-    void SyncYours()
+    bool Hero() const { return play_ != NULL; }
+
+    // a row's place in the row of words; -1 for any other row
+    int Word( uMenuItem const * item ) const
     {
-        if ( rail_.empty() || gServerHistory::Generation() == shownFor_ )
+        for ( size_t i = 0; i < words_.size(); ++i )
+            if ( words_[i] == item )
+                return int( i );
+        return -1;
+    }
+
+    // The arrows: up and down between Play, the chip and the row of words,
+    // left and right along the words. False for any other key.
+    bool HeroKey( int key )
+    {
+        if ( key != SDLK_UP && key != SDLK_DOWN && key != SDLK_LEFT && key != SDLK_RIGHT )
+            return false;
+
+        uMenuItem * const at = selected >= 0 && selected < items.Len() ? items[ selected ] : NULL;
+        int const word = Word( at );
+        bool const chip = chipShown_ && chip_ && chip_->GetID() >= 0;
+        uMenuItem * const back = words_.empty() ? NULL : words_[ std::min( lastWord_, int( words_.size() ) - 1 ) ];
+        uMenuItem * to = NULL;
+        switch ( key )
+        {
+        case SDLK_UP:
+            if ( word >= 0 )
+                to = chip ? chip_ : play_;
+            else if ( at && at == chip_ )
+                to = play_;
+            break;
+        case SDLK_DOWN:
+            if ( at == play_ )
+                to = chip ? chip_ : back;
+            else if ( at && at == chip_ )
+                to = back;
+            break;
+        default:
+            if ( word >= 0 )
+            {
+                int const next = word + ( key == SDLK_RIGHT ? 1 : -1 );
+                if ( next >= 0 && next < int( words_.size() ) )
+                    to = words_[ next ];
+            }
+            break;
+        }
+
+        if ( to && to != at && to->GetID() >= 0 )
+        {
+            selected = to->GetID();
+            mouseSelection_ = -1;
+            MenuSound( Sound_Move );
+        }
+        return true;
+    }
+
+    // Shows the chip while one of the player's servers has people on it, for
+    // the one with the most; the selection stays on the row it was on, or
+    // goes to Play when the chip it was on leaves.
+    void SyncChip()
+    {
+        if ( !chip_ || gServerHistory::Generation() == shownFor_ )
             return;
         shownFor_ = gServerHistory::Generation();
 
+        // the favourites come with those that have players first
         std::vector< gServerHistory::Server > const servers = gServerHistory::Favourites();
-        int const count = std::min( static_cast< int >( servers.size() ), static_cast< int >( YourRows ) );
-
-        bool const selecting = selected >= 0 && selected < items.Len();
-        uMenuItem * const was = selecting ? items[selected] : NULL;
-        int const fromTop = selecting ? items.Len() - 1 - selected : 0;
-        tString wasHost;
-        unsigned int wasPort = 0;
-        for ( int i = 0; i < YourRows; ++i )
-            if ( was && was == yours_[i] )
-            {
-                wasHost = yours_[i]->Shown().host;
-                wasPort = yours_[i]->Shown().port;
-            }
-
-        for ( int i = 0; i < count; ++i )
-            yours_[i]->Show( servers[i] );
-
-        if ( count != shown_ )
-        {
-            std::vector< uMenuItem * > rail( rail_ );
-            for ( int i = count; i < YourRows; ++i )
-            {
-                if ( yours_[i]->GetID() >= 0 )
-                    RemoveItem( yours_[i] );
-                std::replace( rail.begin(), rail.end(), static_cast< uMenuItem * >( yours_[i] ),
-                              static_cast< uMenuItem * >( NULL ) );
-            }
-            sg_OrderMenu( *this, rail );
-            shown_ = count;
-            mouseSelection_ = -1;
-        }
-
-        if ( !selecting )
+        bool const populated = !servers.empty() && servers[0].Fresh() &&
+                               servers[0].live == gServerHistory::Live_Answered && servers[0].users > 0;
+        if ( populated )
+            chip_->Show( servers[0] );
+        if ( populated == chipShown_ )
             return;
-        int target = -1;
-        for ( int i = 0; i < count && wasPort; ++i )
-            if ( yours_[i]->Shown().port == wasPort && yours_[i]->Shown().host == wasHost )
-                target = yours_[i]->GetID();
-        if ( target < 0 && was && was->GetID() >= 0 )
-            target = was->GetID();
-        if ( target < 0 )
-            target = std::max( 0, std::min( items.Len() - 1, items.Len() - 1 - fromTop ) );
-        selected = target;
+
+        uMenuItem * const was = selected >= 0 && selected < items.Len() ? items[ selected ] : NULL;
+        std::vector< uMenuItem * > rows( rows_ );
+        if ( !populated )
+        {
+            if ( chip_->GetID() >= 0 )
+                RemoveItem( chip_ );
+            std::replace( rows.begin(), rows.end(), static_cast< uMenuItem * >( chip_ ),
+                          static_cast< uMenuItem * >( NULL ) );
+        }
+        sg_OrderMenu( *this, rows );
+        chipShown_ = populated;
+        mouseSelection_ = -1;
+        if ( was && was->GetID() >= 0 )
+            selected = was->GetID();
+        else if ( play_ )
+            selected = play_->GetID();
+    }
+
+    // the chip's words and how wide each is, in logical pixels; the name gets what room is left
+    void ChipText( tString & join, tString & name, tString & tail, REAL & joinW, REAL & nameW, REAL & tailW ) const
+    {
+        REAL const unit = uRclTheme::W( 1 );
+        join = tString( tOutput( "$rcl_home_join" ) );
+        name = chip_ ? chip_->Label() : tString();
+        tail = tString( "  \xb7  " );
+        if ( chip_ )
+            tail << chip_->Count();
+        joinW = uRclTheme::TextWidth( join, sg_heroChipText, 500 ) / unit;
+        tailW = uRclTheme::TextWidth( tail, sg_heroChipText, 500 ) / unit;
+        REAL const room = uRclTheme::ColumnPx() - 2 * sg_heroChipPad - joinW - 8 - tailW;
+        nameW = std::max( REAL( 24 ), std::min( room, uRclTheme::TextWidth( name, sg_heroChipText, 500 ) / unit ) );
+    }
+
+    // Places the first screen's rows for this frame, in logical pixels: Play
+    // low on the left, the chip under it while it is there, the row of words
+    // under that, the live line over Play.
+    void Measure()
+    {
+        REAL const height = uRclTheme::LogicalHeight();
+        left_ = uRclTheme::MarginPx();
+        playBottom_ = height - sg_heroPlayFromFoot;
+        playTop_ = playBottom_ - sg_heroPlayHeight;
+        liveY_ = playTop_ - 34;
+        chipTop_ = playBottom_ + 18;
+        chipBottom_ = chipTop_ + sg_heroChipHeight;
+        wordsY_ = chipShown_ ? chipBottom_ + 36 : playBottom_ + 50;
+
+        tString join, name, tail;
+        REAL joinW, nameW, tailW;
+        ChipText( join, name, tail, joinW, nameW, tailW );
+        chipRight_ = left_ + sg_heroChipPad + joinW + 8 + nameW + tailW + sg_heroChipPad;
+
+        REAL const unit = uRclTheme::W( 1 );
+        wordLeft_.resize( words_.size() );
+        wordRight_.resize( words_.size() );
+        REAL x = left_;
+        for ( size_t i = 0; i < words_.size(); ++i )
+        {
+            tString const label = words_[i]->GetLabel();
+            REAL const width = uRclTheme::TextWidth( label, sg_heroWordSize, 500 ) / unit;
+            wordLeft_[i] = x;
+            wordRight_[i] = x + width;
+            x += width + sg_heroWordGap;
+        }
+    }
+
+    // What is going on, in a few words, where it is known: people on the
+    // player's own server, and the league's next event.
+    tString LiveLine() const
+    {
+        tString line;
+        if ( chipShown_ && chip_ && chip_->Populated() )
+            line << tOutput( "$rcl_home_playing_on", chip_->Shown().users, sg_RclShortServerName( chip_->Label() ) );
+        tString const event = gLeague::NextEventLine();
+        if ( event.Len() > 1 )
+        {
+            if ( line.Len() > 1 )
+                line << "  \xb7  ";
+            line << event;
+        }
+        return line;
+    }
+
+    // the primary action: lime, always, with a white outline while it has the focus
+    void DrawPlay( REAL slide, REAL alpha, bool selected )
+    {
+        REAL const left = uRclTheme::X( left_ ) + slide;
+        REAL const right = uRclTheme::X( left_ + sg_heroPlayWidth ) + slide;
+        REAL const top = uRclTheme::Y( playTop_ ), bottom = uRclTheme::Y( playBottom_ );
+        REAL const middle = ( top + bottom ) * .5f;
+        uRclTheme::FillRect( left, top, right, bottom, uRclTheme::accent, alpha, 6 );
+        if ( selected )
+            uRclTheme::FrameRect( left - uRclTheme::W( 4 ), top + uRclTheme::H( 4 ),
+                                  right + uRclTheme::W( 4 ), bottom - uRclTheme::H( 4 ), 2, uRclTheme::textPrimary, alpha );
+        tString const label = play_->GetLabel();
+        uRclTheme::Text( left + uRclTheme::W( 30 ), middle, 56, 600, uRclTheme::onAccent, alpha, label,
+                         -1, right - left - uRclTheme::W( 90 ), -.02f );
+        uRclTheme::Text( right - uRclTheme::W( 30 ), middle, 34, 500, uRclTheme::onAccent, alpha, "\x9b", 1 );
+    }
+
+    // "join  RCL Fort Practice | Frankfurt  ·  6 / 24"
+    void DrawChip( REAL slide, REAL alpha, bool selected )
+    {
+        REAL const left = uRclTheme::X( left_ ) + slide;
+        REAL const right = uRclTheme::X( chipRight_ ) + slide;
+        REAL const top = uRclTheme::Y( chipTop_ ), bottom = uRclTheme::Y( chipBottom_ );
+        REAL const middle = ( top + bottom ) * .5f;
+        uRclTheme::FillRect( left, top, right, bottom, selected ? uRclTheme::surfaceRaised : sg_rclCardColor,
+                             .94f * alpha, 6 );
+        if ( selected )
+            uRclTheme::FrameRect( left, top, right, bottom, 2, uRclTheme::accent, alpha );
+
+        tString join, name, tail;
+        REAL joinW, nameW, tailW;
+        ChipText( join, name, tail, joinW, nameW, tailW );
+        REAL x = left + uRclTheme::W( sg_heroChipPad );
+        uRclTheme::Text( x, middle, sg_heroChipText, 500, uRclTheme::textSecondary, alpha, join );
+        x += uRclTheme::W( joinW + 8 );
+        uRclTheme::Text( x, middle, sg_heroChipText, 500, uRclTheme::textPrimary, alpha, name, -1, uRclTheme::W( nameW ) );
+        x += uRclTheme::W( nameW );
+        uRclTheme::Text( x, middle, sg_heroChipText, 500, uRclTheme::accent, alpha, tail );
+    }
+
+    // a word in the row: lime and underlined while it has the focus; the last (quit) quieter
+    void DrawWord( int word, REAL slide, REAL alpha, bool selected )
+    {
+        if ( word < 0 || word >= int( wordLeft_.size() ) )
+            return;
+        REAL const left = uRclTheme::X( wordLeft_[ word ] ) + slide;
+        REAL const right = uRclTheme::X( wordRight_[ word ] ) + slide;
+        uRclTheme::Color const & color = selected ? uRclTheme::accent
+                                       : word == int( words_.size() ) - 1 ? uRclTheme::textSecondary
+                                       : uRclTheme::textPrimary;
+        tString const label = words_[ word ]->GetLabel();
+        uRclTheme::Text( left, uRclTheme::Y( wordsY_ ), sg_heroWordSize, 500, color, alpha, label );
+        if ( selected )
+            uRclTheme::FillRect( left, uRclTheme::Y( wordsY_ + 15 ), right, uRclTheme::Y( wordsY_ + 18 ),
+                                 uRclTheme::accent, alpha );
     }
 
     bool status_;
-    std::vector< uMenuItem * > rail_;           //!< top to bottom, the player's servers' rows among the rest
-    gRclYourServerItem * yours_[ YourRows ];
-    int shownFor_;                              //!< the history's generation the rows show
-    int shown_;                                 //!< how many of them are in the menu
+    std::vector< uMenuItem * > rows_;       //!< the first screen's, top to bottom, the chip among them
+    uMenuItem * play_;
+    gRclYourServerItem * chip_;
+    std::vector< uMenuItem * > words_;
+    int shownFor_;                          //!< the history's generation the chip shows
+    bool chipShown_;                        //!< whether it is in the menu
+    int lastWord_;                          //!< the word last chosen, for the way back down
+
+    // this frame's places, in logical pixels from the window's top left
+    REAL left_, liveY_, playTop_, playBottom_, chipTop_, chipBottom_, chipRight_, wordsY_;
+    std::vector< REAL > wordLeft_, wordRight_;
+    tString live_;                          //!< the line over Play
 };
+
+// A row of the first screen: the Play button, or one of the words under it.
+// The main menu draws it where it goes.
+class gRclHomeItem: public uMenuItem
+{
+public:
+    gRclHomeItem( uMenu * menu, char const * label, char const * help, FUNCPTR func, uMenu * submenu = NULL )
+    : uMenuItem( menu, tOutput( help ) ), label_( label ), func_( func ), submenu_( submenu )
+    {
+    }
+
+    virtual tString GetLabel(){ return tString( label_ ); }
+    virtual bool OwnsRow(){ return true; }
+
+    virtual void Render( REAL x, REAL y, REAL alpha, bool selected )
+    {
+        (void)y;
+        gMainMenu * const home = dynamic_cast< gMainMenu * >( menu );
+        if ( home )
+            home->DrawHero( this, x - uRclTheme::LabelX(), alpha, selected );
+    }
+
+    virtual void Enter()
+    {
+        if ( submenu_ )
+            submenu_->Enter();
+        else if ( func_ )
+            (*func_)();
+        else
+            menu->Exit();   // the word that quits: the main menu's end is the program's
+    }
+
+private:
+    tOutput label_;
+    FUNCPTR func_;
+    uMenu * submenu_;
+};
+
+void gRclYourServerItem::Render( REAL x, REAL y, REAL alpha, bool selected )
+{
+    if ( !menu->RclStyle() )
+    {
+        DisplayTextSpecial( x, y, Label(), selected, alpha );
+        return;
+    }
+
+    REAL const slide = x - uRclTheme::LabelX();
+    if ( shape_ == Shape_Chip )
+    {
+        gMainMenu * const home = dynamic_cast< gMainMenu * >( menu );
+        if ( home )
+            home->DrawHero( this, slide, alpha, selected );
+        return;
+    }
+
+    gRclPlayMenu * const page = dynamic_cast< gRclPlayMenu * >( menu );
+    REAL left, top, right, bottom;
+    if ( !page || !page->CardEdges( GetID(), y, left, top, right, bottom ) )
+        return;
+    alpha *= page->CardShows( top, bottom );
+    if ( alpha <= .01f )
+        return;
+    tString const note( tOutput( "$rcl_play_you", PlayedText() ) );
+    sg_RclCard( left + slide, top, right + slide, bottom, Label(), Count(), Populated(), note, selected, alpha );
+}
 
 // the account row explains itself with whatever is known about the account
 class gRclAccountItem: public uMenuItemFunction
@@ -4423,8 +5231,9 @@ void MainMenu(bool ingame){
     bool const online = ( sn_GetNetState() == nCLIENT );
     bool const local  = ( sn_GetNetState() == nSTANDALONE );
 
-    // The tree is short on purpose. The main menu is the ways into a game,
-    // settings and the way out. Settings is six rows, each one page of what a
+    // The tree is short on purpose. Out of a game the main menu is Play (the
+    // page with every way into a game), the league, the server list, settings
+    // and the way out. Settings is six rows, each one page of what a
     // player sets (gMenus.cpp, sg_Rcl*Page). Everything else the client ever
     // had a menu for is still there, one level down under Advanced, on the
     // pages it always had. Rows made with new belong to their menu, which
@@ -4441,7 +5250,7 @@ void MainMenu(bool ingame){
 #else
     gMainMenu MainMenu(title,false);
 #endif
-    MainMenu.SetStyle(ingame ? uMenuStyle_RclPanel : uMenuStyle_RclHome);
+    MainMenu.SetStyle(ingame ? uMenuStyle_RclPanel : uMenuStyle_RclHero);
 
     if (ingame)
         sg_IngameMenu = &MainMenu;
@@ -4562,30 +5371,16 @@ void MainMenu(bool ingame){
     // ---- the main menu: top to bottom ----
     // Out of a game the way into one comes first and is the primary action;
     // in a game that is going back to it, and leaving sits at the far end.
-    char const * extitle,* exhelp;
-    if (!ingame){
-        extitle="$main_menu_exit_text";
-        exhelp="$main_menu_exit_help";
-    }
-    else{
-        extitle="$ingame_menu_exit_text";
-        exhelp="$ingame_menu_exit_help";
-    }
-    uMenuItemExit exx(&MainMenu,extitle,
-                      exhelp);
-
-    uMenuItemSubmenu subm_settings
-    (&MainMenu,&Settings,
-     "$system_settings_menu_help");
-
     std::vector< uMenuItem * > rows;
 #ifndef DEDICATED
-    gRclYourServerItem * yours[ gMainMenu::YourRows ] = { NULL };
+    gRclYourServerItem * chip = NULL;
 #endif
     if (ingame)
     {
-        rows.push_back( &exx );
-        exx.SetPrimary( true );
+        uMenuItemExit * const back = tNEW( uMenuItemExit )( &MainMenu, "$ingame_menu_exit_text",
+                                                            "$ingame_menu_exit_help" );
+        back->SetPrimary( true );
+        rows.push_back( back );
 
         rows.push_back( tNEW( uMenuItemFunction )( &MainMenu,
                         "$team_menu_title",
@@ -4602,7 +5397,7 @@ void MainMenu(bool ingame){
         if ( !online )
             rows.push_back( tNEW( uMenuItemSubmenu )( &MainMenu, &game_menu, "$game_menu_ingame_help" ) );
 
-        rows.push_back( &subm_settings );
+        rows.push_back( tNEW( uMenuItemSubmenu )( &MainMenu, &Settings, "$system_settings_menu_help" ) );
 
         // asking a server to sign this player in by hand, where it can
         static nVersionFeature authentication( 15 );
@@ -4619,53 +5414,35 @@ void MainMenu(bool ingame){
     else
     {
 #ifndef DEDICATED
-        uMenuItemFunction * const playNow = tNEW( uMenuItemFunction )( &MainMenu,
-                                            "$rcl_play_now_text",
-                                            "$rcl_play_now_help",
-                                            &sg_RclPlayNowMenu );
-        playNow->SetPrimary( true );
-        rows.push_back( playNow );
-        rows.push_back( tNEW( uMenuItemFunction )( &MainMenu,
-                        "$rcl_queue_now_text",
-                        "$rcl_queue_now_help",
-                        &sg_RclQueueNowMenu ) );
+        // One big way in and a short row of words. Every way into a game is
+        // on the Play page behind Play; the league's tables are on its own.
+        gRclHomeItem * const play = tNEW( gRclHomeItem )( &MainMenu, "$rcl_play_text", "$rcl_play_help",
+                                                          &sg_RclPlayPage );
+        play->SetPrimary( true );
+        rows.push_back( play );
+        // one of the player's servers with people on it, while there is one
+        chip = tNEW( gRclYourServerItem )( &MainMenu, gRclYourServerItem::Shape_Chip );
+        rows.push_back( chip );
+        rows.push_back( tNEW( gRclHomeItem )( &MainMenu, "$rcl_league_text", "$rcl_league_help",
+                                              &sg_RclLeaguePage ) );
+        rows.push_back( tNEW( gRclHomeItem )( &MainMenu, "$network_menu_text", "$network_menu_help",
+                                              &sg_RclServers ) );
+        rows.push_back( tNEW( gRclHomeItem )( &MainMenu, "$system_settings_menu_text", "$system_settings_menu_help",
+                                              NULL, &Settings ) );
+        rows.push_back( tNEW( gRclHomeItem )( &MainMenu, "$main_menu_exit_text", "$main_menu_exit_help", NULL ) );
+#else
+        rows.push_back( tNEW( uMenuItemFunction )( &MainMenu, "$network_menu_text", "$network_menu_help",
+                                                   &sg_RclServers ) );
+        rows.push_back( tNEW( uMenuItemSubmenu )( &MainMenu, &Settings, "$system_settings_menu_help" ) );
+        rows.push_back( tNEW( uMenuItemExit )( &MainMenu, "$main_menu_exit_text", "$main_menu_exit_help" ) );
 #endif
-        rows.push_back( tNEW( uMenuItemFunction )( &MainMenu,
-                        "$network_menu_text",
-                        "$network_menu_help",
-                        &sg_RclServers ) );
-        // practice is one key away: its settings are under Advanced
-        rows.push_back( tNEW( uMenuItemFunction )( &MainMenu,
-                        "$game_menu_text",
-                        "$rcl_practice_help",
-                        &sg_SinglePlayerGame ) );
-#ifndef DEDICATED
-        // the league: its ladders and its events, as tables
-        rows.push_back( tNEW( uMenuItemFunction )( &MainMenu,
-                        "$rcl_leaderboards_text",
-                        "$rcl_leaderboards_help",
-                        &gLeague::LeaderboardMenu ) );
-        rows.push_back( tNEW( uMenuItemFunction )( &MainMenu,
-                        "$rcl_events_text",
-                        "$rcl_events_help",
-                        &gLeague::EventsMenu ) );
-        // the servers the player plays on most, one key away; rows without
-        // a server leave the rail as it was
-        for ( int i = 0; i < gMainMenu::YourRows; ++i )
-        {
-            yours[i] = tNEW( gRclYourServerItem )( &MainMenu );
-            rows.push_back( yours[i] );
-        }
-#endif
-        rows.push_back( &subm_settings );
-        rows.push_back( &exx );
 
         rViewport::Update(MAX_PLAYERS);
     }
     sg_OrderMenu( MainMenu, rows );
 #ifndef DEDICATED
     if ( !ingame )
-        MainMenu.SetRail( rows, yours );
+        MainMenu.SetHero( rows, chip );
 #endif
 
     MainMenu.Enter();

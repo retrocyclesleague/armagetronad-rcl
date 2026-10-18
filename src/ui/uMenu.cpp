@@ -101,7 +101,8 @@ void uMenu::UpdateRows()
 {
     // the menu's own way out is in the way while there is anything else
     hiddenRow_ = -1;
-    if (autoExit_ && (style_ == uMenuStyle_RclPanel || style_ == uMenuStyle_RclHome))
+    if (autoExit_ && (style_ == uMenuStyle_RclPanel || style_ == uMenuStyle_RclHome ||
+                      style_ == uMenuStyle_RclHero))
     {
         int at = -1;
         bool others = false;
@@ -214,7 +215,7 @@ static void su_MenuSound( uMenu::Sound sound );
 // end the program, so there they first go to its last row, the one that quits.
 void uMenu::Back()
 {
-    if (style_ == uMenuStyle_RclHome)
+    if (style_ == uMenuStyle_RclHome || style_ == uMenuStyle_RclHero)
     {
         int bottom = 0;
         while (bottom < items.Len() && !items[bottom]->IsSelectable())
@@ -242,6 +243,7 @@ void uMenu::ApplyTheme()
     switch (style_)
     {
     case uMenuStyle_RclHome:   layout = uRclTheme::Layout_Home;   break;
+    case uMenuStyle_RclHero:   layout = uRclTheme::Layout_Hero;   break;
     case uMenuStyle_RclFull:   layout = uRclTheme::Layout_Wide;   break;
     case uMenuStyle_RclPrompt: layout = uRclTheme::Layout_Prompt; break;
     default: break;

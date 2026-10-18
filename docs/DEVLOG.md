@@ -1,5 +1,33 @@
 # Dev log
 
+## 2026-10-18 - one Play button; a Play page of cards; the watcher's keys alone
+
+Jamie: "i still think we can be more modern punchy simple throughout the menu experience we have a lot of options to start with maybe it could be less". Shown two drawn ways (`rcl-cfg/client-ui/simple-*.png`), he said "do it" to the one with a Play button and no rail.
+
+- The first screen has no rail. The scene shows across the window, held back by a dark fade on the left. Under the wordmark, low on the left, are:
+  - one line of what is going on: a populated favourite and the next league event;
+  - a large lime Play button;
+  - a "join <server> · 6 / 24" chip, only while one of the player's own servers has people on it;
+  - a row of words: league · servers · settings · quit.
+
+  Arrows move between them, Enter and clicks act, and Escape goes to quit as before. The league's cards stay on the right. New layout `uRclTheme::Layout_Hero` (style `uMenuStyle_RclHero`); the other menus are as they were.
+- Play opens a page of cards: your servers (from the local history), the practice servers, the pickup lobbies, a game against bots, and every server. The page opens at once and the counts fill in as servers answer: the history's probe was made general (`gServerHistory::CountFrame`, `Counted`), so there is no Busy screen. Choosing a practice or pickup card does what the Play Now and Queue Now rows did, and those two pages and their blocking count are gone. The sumo bot dojo is not offered (retired 2026-10-07).
+- League opens a short page: leaderboards, events, and the player's page on the site.
+- Play now, queue now, practice, leaderboards, events and the three quick-join rows left the first screen for those two pages.
+- While the watcher flies their own camera, the player's camera binds no longer act on it (glance, look, move up and down, zoom). They often share keys and buttons with the watcher's own. Switching view still works.
+
+Checked on Windows (off-screen test window):
+- The first screen, signed in through the stand-in: Play selected on opening (its white frame by pixel), the word row by arrows, League's page opened from it (underline checked by pixel before Enter), and the Play page opened from Play.
+- On the Play page the counts came in from the real servers within seconds (Mazing "1 playing", the rest "empty"; the history's dead address "-"), arrows moved across the grid, and Escape went back.
+- As a spectator on the local test server, twelve presses of the default player bind for moving the camera up and six of the one for glancing left the camera where it was, and W still flew it.
+
+Not checked:
+- Joining from a practice or pickup card, since no public server was joined.
+- The chip (no favourite had players).
+- The mouse.
+- Small and 4:3 windows.
+- macOS, Linux and the dedicated server build.
+
 ## 2026-10-17 - a spectator comes in looking down on the game
 
 Jamie, joining a server as a spectator and finding the free camera low over the middle, looking at the horizon: "when i join as spec i should be looking straight down or following the action in some way not this".

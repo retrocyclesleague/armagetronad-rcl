@@ -1693,6 +1693,48 @@ void gLeague::EventsMenu()
     menu.Enter();
 }
 
+tString gLeague::NextEventLine()
+{
+    if ( !Available() || !sg_hasNext || sg_next.title.empty() )
+        return tString();
+    std::string line = sg_next.title;
+    if ( sg_next.starts > 0 )
+        line += " " + UntilText( sg_next.starts );
+    else if ( !sg_next.date.empty() )
+        line += ", " + sg_next.date;
+    return tString( line.c_str() );
+}
+
+namespace
+{
+    // The signed-in player's page on the site: the address the site gave
+    // with their level, else their sign-in name, which is what the site's
+    // addresses are made of. Empty when nobody is signed in.
+    std::string PlayerSlug()
+    {
+        if ( !ePlayer::RclAuthenticated() )
+            return std::string();
+        if ( HasProgress() && !sg_progress.slug.empty() )
+            return sg_progress.slug;
+        tString const identity = ePlayer::RclIdentity();
+        int const at = identity.StrPos( "@" );
+        tString const name = at > 0 ? identity.SubStr( 0, at ) : identity;
+        return Slug( Lower( std::string( static_cast< char const * >( name ) ) ) );
+    }
+}
+
+bool gLeague::HasPlayerPage()
+{
+    return !PlayerSlug().empty();
+}
+
+void gLeague::OpenPlayerPage()
+{
+    std::string const slug = PlayerSlug();
+    if ( !slug.empty() )
+        OpenPage( "/player/" + slug );
+}
+
 #else
 
 void gLeague::Poll(){}
@@ -1700,5 +1742,8 @@ void gLeague::DrawHome( REAL ){}
 bool gLeague::HomeClick( REAL, REAL ){ return false; }
 void gLeague::LeaderboardMenu(){}
 void gLeague::EventsMenu(){}
+tString gLeague::NextEventLine(){ return tString(); }
+bool gLeague::HasPlayerPage(){ return false; }
+void gLeague::OpenPlayerPage(){}
 
 #endif

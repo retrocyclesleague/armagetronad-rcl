@@ -26,7 +26,8 @@ of the License, or (at your option) any later version.
 
 //! The servers the player plays on: how long, how often and when, kept in
 //! var/server-history.txt on this PC and nowhere else, so the main menu can
-//! offer the ones they like best, with who is on them now.
+//! offer the ones they like best, with who is on them now. The same asking,
+//! never waited on, counts who is on the league's servers for the Play page.
 namespace gServerHistory
 {
     //! what is known about who is on a server right now
@@ -76,16 +77,64 @@ namespace gServerHistory
     //! those with players first. None while the history is switched off.
     std::vector< Server > Favourites();
 
-    //! counts up whenever what Favourites() gives may have changed
+    //! counts up whenever what Favourites() or Counted() gives may have changed
     int Generation();
 
+    // ---- who is on: the main menu's favourites, the Play page's fleet ----
+
+    //! a server to ask who is on, by what it is connected by
+    struct Target
+    {
+        tString host;
+        unsigned int port;
+
+        Target(): port( 0 ){}
+        Target( tString const & h, unsigned int p ): host( h ), port( p ){}
+    };
+
+    //! what one server said when it was last asked
+    struct Heard
+    {
+        int live;               //!< a Live
+        int users, maxUsers;    //!< when live is Live_Answered
+        tString name;           //!< what it calls itself, colour codes kept
+        tString address;        //!< the number and port it was asked at: two names for one server have one
+        double when;            //!< tSysTimeFloat() of the answer, or of the silence
+
+        Heard(): live( Live_Unknown ), users( 0 ), maxUsers( 0 ), when( -1E10 ){}
+
+        //! whether it is recent enough to show
+        bool Fresh() const;
+    };
+
+    //! the pages that ask; one at a time has the asking
+    enum Asker
+    {
+        Asker_MainMenu,
+        Asker_PlayPage,
+        Asker_Count
+    };
+
+    //! Each frame of a page that shows who is on: now and then asks the
+    //! player's favourites (while the history is kept) and the page's own
+    //! servers who is on. Never waits: names are looked up on a thread and
+    //! answers are read as they come in. When another page asked last, what
+    //! it had out is given up first.
+    void CountFrame( int asker, std::vector< Target > const & others );
+
+    //! The page is about to hand over to something else (a row was chosen):
+    //! what was being asked is given up and the shared server list left
+    //! empty, for the browser and Play Now to start theirs in.
+    void CountLeaves();
+
+    //! what was last heard from host:port, one of the servers a page asked about
+    Heard Counted( tString const & host, unsigned int port );
+
     //! Each frame of the main menu, out of a game: now and then asks the
-    //! favourites who is on. Never waits.
+    //! favourites who is on. Never waits. (CountFrame for the main menu.)
     void MainMenuFrame();
 
-    //! The main menu is about to hand over to something else (a row was
-    //! chosen): what was being asked is given up and the shared server list
-    //! left empty, for the browser and Play Now to start theirs in.
+    //! the main menu is about to hand over (CountLeaves)
     void MainMenuLeaves();
 
     //! How much host:port counts as one of the player's own: their time there,

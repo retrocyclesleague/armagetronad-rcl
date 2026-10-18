@@ -20,6 +20,7 @@ of the License, or (at your option) any later version.
 #define ArmageTron_LEAGUE_H
 
 #include "defs.h"
+#include "tString.h"
 
 //! The league in the menus: its next event and the ones before, its ladders
 //! and where the player stands on them, the player's level, read from the
@@ -42,6 +43,16 @@ namespace gLeague
     //! the pages: every ladder as a table, and the events
     void LeaderboardMenu();
     void EventsMenu();
+
+    //! The next event in a few words ("ladle 183 in 14 days"), for a line
+    //! of copy; empty when none is known.
+    tString NextEventLine();
+
+    //! Whether someone is signed in whose page on the site can be opened:
+    //! the one the site named with their level, else their sign-in name.
+    bool HasPlayerPage();
+    //! opens that page in the player's browser
+    void OpenPlayerPage();
 }
 
 #endif

@@ -2539,7 +2539,7 @@ timer_hickup                Timer hiccup of \1 seconds detected and compensated.
 
 welcome_message_heading        Welcome to Retrocycles League
 
-welcome_message                Choose Play Now to jump into the best available RCL lobby. Fort, Sumobar and TST are one click away.
+welcome_message                Choose Play to see every way into a game: the practice servers, the pickup lobbies and the servers you play on.
 
 welcome_message_2_heading   We hope you enjoyed it so far.
 welcome_message_2           You will now enter the main menu. Play Now and Queue Now take you straight into RCL lobbies, Servers lists every public server, and Local Game starts a match against the AI.
@@ -2570,8 +2570,8 @@ rcl_play_now_tst_text          TST
 rcl_play_now_tst_help          Join an available RCL Team Sumo Tournament pickup lobby.
 rcl_play_now_finding           Finding the best available \1 lobby...\n
 rcl_play_now_connecting        Joining \1 (\2/\3 players).\n
-rcl_play_now_unavailable_title Play Now unavailable
-rcl_play_now_finding_title     Play Now
+rcl_play_now_unavailable_title Nothing to join
+rcl_play_now_finding_title     Play
 rcl_play_now_finding_text      Finding the best available \1 lobby... Press Escape to cancel.
 rcl_play_now_unavailable       No online, non-full \1 lobby answered. Please try again or use Online Multiplayer.
 rcl_queue_now_text             Queue Now
@@ -2580,6 +2580,29 @@ rcl_leaderboards_text          Leaderboards
 rcl_leaderboards_help          The league's ladders, TST, Sumobar, 2s and Fortress, and where you stand on each.
 rcl_events_text                Events
 rcl_events_help                The league's next event and who won the ones before.
+rcl_play_text                  Play
+rcl_play_help                  Every way into a game: your servers, the practice servers, the pickup lobbies, a local game and the server list.
+rcl_league_text                League
+rcl_league_help                The league's ladders and events, and your page on its site.
+rcl_player_page_text           Your page on the site
+rcl_player_page_help           Opens your player page on retrocyclesleague.com in your browser.
+rcl_home_join                  Join
+rcl_home_playing_on            \1 playing on \2
+rcl_play_section_yours         Your servers
+rcl_play_section_practice      Practice
+rcl_play_section_pickups       Pickups
+rcl_play_section_more          More
+rcl_play_playing               \1 playing
+rcl_play_empty                 Empty
+rcl_play_needs_sign_in         Needs a sign-in
+rcl_play_you                   You: \1
+rcl_play_local_text            Against bots, offline
+rcl_play_local_note            A local game
+rcl_play_browser_text          Every server
+rcl_play_browser_note          The server browser
+rcl_practice_fort_note         Six a side, bots fill the teams
+rcl_practice_sumobar_note      The beginners' sumobar
+rcl_practice_dojo_note         Sumo against bots
 rcl_your_server_help           You have played here \1, last \2. \3
 rcl_your_server_joining        Joining \1...\n
 rcl_your_server_moments        under a minute
@@ -2600,7 +2623,7 @@ rcl_queue_now_fort_help        Join an available Fortress lobby and send /add on
 rcl_queue_now_sumobar_help     Join an available Sumobar lobby and send /add once you have signed in to it.
 rcl_queue_now_tst_help         Join an available TST lobby and send /add once you have signed in to it.
 rcl_queue_now_authenticated    Sign-in answered as \1. Requesting the pickup queue.\n
-rcl_queue_now_failed           Queue Now: the server sign-in did not complete, so /add was not sent. Sign in under RCL Account, then type /add or use Queue Now again.\n
+rcl_queue_now_failed           Pickup queue: the server sign-in did not complete, so /add was not sent. Sign in under RCL Account, then type /add or choose the pickup on the Play page again.\n
 rcl_profile_text               Account
 rcl_profile_summary_help       \1, TST leaderboard #\2, \3 ranked matches. Enter to switch account.
 rcl_status_signed_in           Signed in as \1

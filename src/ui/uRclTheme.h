@@ -55,7 +55,8 @@ namespace uRclTheme
         Layout_Home,    //!< the main menu: wordmark and a navigation column
         Layout_Page,    //!< any other menu: a title and rows in a column
         Layout_Wide,    //!< a table across the window (the server browser)
-        Layout_Prompt   //!< one input row along the bottom (chat, console)
+        Layout_Prompt,  //!< one input row along the bottom (chat, console)
+        Layout_Hero     //!< the first screen: the scene across the window; the menu places its rows
     };
 
     //! what a row shows next to its label
