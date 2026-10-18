@@ -183,7 +183,7 @@ void sr_CleanInk( REAL & r, REAL & g, REAL & b );
 //! The colour a player's or a zone's own colour takes in the clean arena:
 //! with the glare taken out, so it sits on the pale floor like paint rather
 //! than like light. On the dark floor it stays a light, and one too dim to
-//! see there is brought up.
+//! see there is brought up. A channel over full counts as full, as GL has it.
 void sr_CleanPaint( REAL & r, REAL & g, REAL & b );
 
 #define rFLOOR_OFF        0

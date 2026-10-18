@@ -54,6 +54,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "gArena.h"
 #include "gSpawn.h"
 #include "gZone.h"
+#include "gLightCycle.h"
 
 #include "gRace.h"
 #include "gGame.h"
@@ -5330,7 +5331,34 @@ void gCycleWallsDisplayListManager::RenderAll( eCamera const * camera, gCycle * 
 bool sg_HideCycles = false;
 static tConfItem<bool> sg_HideCyclesConf("HIDE_CYCLES", sg_HideCycles);
 
-// ---- clean arena: the cycle is an arrow ----
+// ---- clean arena: the cycle is a light cycle, or an arrow ----
+
+// 0 the arrow, 1 the light cycle (gLightCycle.cpp); the light cycle is to be
+// tried before it is anyone's default
+static int sg_cycleModel = 0;
+static tConfItem<int> sg_cycleModelConf( "RCL_CYCLE_MODEL", sg_cycleModel );
+
+// What every other client shows of a bike. The classic cycle's texture is
+// tinted through a byte a channel (gTextureCycle::ProcessImage), so a channel
+// set over full wraps around while the trail of it is simply full: a setting
+// v over 15 shows a trail at full and a bike of (17v) mod 256 there. That is
+// how players get a bike of one colour and a trail of another, and the clean
+// arena shows the bike as they do. It is worked out as the texture does it,
+// from the same float, so it comes out the same to the bit.
+void sg_BikeColor( REAL & r, REAL & g, REAL & b )
+{
+    REAL * const channel[3] = { &r, &g, &b };
+    for ( int i = 0; i < 3; ++i )
+    {
+        REAL & c = *channel[i];
+        if ( c > 1 )
+        {
+            REAL const scaled = c * REAL( 255 );
+            unsigned char const shown = static_cast< unsigned char >( static_cast< int >( scaled ) );
+            c = shown / REAL( 255 );
+        }
+    }
+}
 
 namespace
 {
@@ -5374,9 +5402,11 @@ void sg_ArrowFace( gArrowPoint const * p, int count, eCoord const & dir,
         glVertex3f( p[i].x, p[i].y, p[i].z );
 }
 
-// The clean arena's cycle: a low, faceted arrow in the player's colour. It is
-// drawn in the cycle's own frame (x ahead, half size), where the classic body
-// and wheels would be. The wall leaves it through the notch in its tail.
+// The clean arena's cycle, in the colour every client shows its bike in: the
+// light cycle, or a low, faceted arrow. It is drawn in the cycle's own frame
+// (x ahead, half size), where the classic body and wheels would be. The wall
+// leaves the arrow through the notch in its tail, the light cycle through the
+// point of its tail.
 void sg_RenderCleanCycle( eCoord const & dir, gRealColor const & color )
 {
     static const gArrowPoint nose  = {  2.45f, 0, .10f };
@@ -5386,6 +5416,12 @@ void sg_RenderCleanCycle( eCoord const & dir, gRealColor const & color )
     static const gArrowPoint right = { -1.35f, -.82f, .12f };
 
     REAL r = color.r, g = color.g, b = color.b;
+    sg_BikeColor( r, g, b );
+    if ( sg_cycleModel != 0 )
+    {
+        sg_RenderLightCycle( dir, r, g, b );
+        return;
+    }
     sr_CleanPaint( r, g, b );
 
     // the top is a lighter tint of the paint, the flanks are a shade of it
@@ -5515,6 +5551,124 @@ void sg_RenderCleanCycleShadowAt( eCoord const & pos, eCoord const & dir )
     glPopAttrib();
     ModelMatrix();
     glPopMatrix();
+}
+
+// ---- the classic cycle, for a preview ----
+
+namespace
+{
+// Its model, and its textures tinted with the colour last asked for. Making
+// them is a copy, a recolouring and a mip chain of each image, a good part of
+// a tenth of a second, so a new colour has to have stayed a moment first;
+// until then the cycle keeps the colour it had.
+struct gClassicPreview
+{
+    bool tried;
+    rModel * body, * front, * rear;
+    gTextureCycle * bodyTexture, * wheelTexture;
+    gRealColor made, wanted;
+    double wantedSince;
+
+    gClassicPreview(): tried( false ), body( 0 ), front( 0 ), rear( 0 ), bodyTexture( 0 ), wheelTexture( 0 ), wantedSince( 0 ){}
+};
+gClassicPreview sg_classicPreview;
+
+bool sg_SameColor( gRealColor const & a, REAL r, REAL g, REAL b )
+{
+    return a.r == r && a.g == g && a.b == b;
+}
+}
+
+bool sg_RenderClassicCycleAt( eCoord const & pos, eCoord const & dir, REAL r, REAL g, REAL b )
+{
+    gClassicPreview & p = sg_classicPreview;
+    if ( !p.tried )
+    {
+        p.tried = true;
+        p.body = rModel::GetModel( "models/cycle_body.mod" );
+        p.front = rModel::GetModel( "models/cycle_front.mod" );
+        p.rear = rModel::GetModel( "models/cycle_rear.mod" );
+    }
+    if ( !p.body || !p.front || !p.rear )
+        return false;
+
+    double const now = tSysTimeFloat();
+    if ( !sg_SameColor( p.wanted, r, g, b ) )
+    {
+        p.wanted.r = r;
+        p.wanted.g = g;
+        p.wanted.b = b;
+        p.wantedSince = now;
+    }
+    if ( !p.bodyTexture || ( !sg_SameColor( p.made, r, g, b ) && now - p.wantedSince > .3 ) )
+    {
+        rSurface * const bodySurface = gCycleVisuals::LoadTextureSafe2( gCycleVisuals::SLOT_BODY, 0 );
+        rSurface * const wheelSurface = gCycleVisuals::LoadTextureSafe2( gCycleVisuals::SLOT_WHEEL, 0 );
+        if ( !bodySurface || !wheelSurface )
+            return false;
+        delete p.bodyTexture;
+        delete p.wheelTexture;
+        p.made = p.wanted;
+        // not marked as the built-in model's, which the clean arena would leave unmade
+        p.bodyTexture = tNEW( gTextureCycle )( *bodySurface, p.made, 0, 0, false, false );
+        p.wheelTexture = tNEW( gTextureCycle )( *wheelSurface, p.made, 0, 0, true, false );
+    }
+
+    // lit as gCycle::Render lights a cycle
+    static GLfloat white[4] = { 1, 1, 1, 1 };
+    static GLfloat keyPosition[4] = { 320, 240, 200, 0 };
+    static GLfloat fillPosition[4] = { -240, -100, 200, 0 };
+    static GLfloat key[4] = { 1, 1, 1, 1 };
+    static GLfloat fill[4] = { .55, .6, .68, 1 };
+
+    RenderEnd();
+    glPushAttrib( GL_ENABLE_BIT | GL_CURRENT_BIT | GL_LIGHTING_BIT | GL_TEXTURE_BIT | GL_POLYGON_BIT );
+    glMaterialfv( GL_FRONT_AND_BACK, GL_SPECULAR, white );
+    glMaterialfv( GL_FRONT_AND_BACK, GL_DIFFUSE, white );
+    glLightfv( GL_LIGHT0, GL_DIFFUSE, key );
+    glLightfv( GL_LIGHT0, GL_SPECULAR, key );
+    glLightfv( GL_LIGHT0, GL_POSITION, keyPosition );
+    glLightfv( GL_LIGHT1, GL_DIFFUSE, fill );
+    glLightfv( GL_LIGHT1, GL_SPECULAR, fill );
+    glLightfv( GL_LIGHT1, GL_POSITION, fillPosition );
+
+    sg_CleanCycleFrame( pos, dir );
+    glEnable( GL_LIGHT0 );
+    glEnable( GL_LIGHT1 );
+    glEnable( GL_LIGHTING );
+    TexMatrix();
+    IdentityMatrix();
+    ModelMatrix();
+    glEnable( GL_TEXTURE_2D );
+    glColor4f( 1, 1, 1, 1 );
+
+    p.bodyTexture->Select();
+    p.body->Render();
+    p.wheelTexture->Select();
+    glPushMatrix();
+    glTranslatef( 0, 0, .73 );
+    p.rear->Render();
+    glPopMatrix();
+    glPushMatrix();
+    glTranslatef( 1.84, 0, .43 );
+    p.front->Render();
+    glPopMatrix();
+
+    ModelMatrix();
+    glPopMatrix();
+    glPopAttrib();
+    return true;
+}
+
+void sg_ReleaseClassicCycle()
+{
+    gClassicPreview & p = sg_classicPreview;
+    delete p.bodyTexture;
+    delete p.wheelTexture;
+    p.bodyTexture = 0;
+    p.wheelTexture = 0;
+    p.made = gRealColor();
+    p.wanted = gRealColor();
 }
 
 void gCycle::Render(const eCamera *cam){

@@ -458,9 +458,22 @@ void sg_CleanShadowsEnd( REAL lowX, REAL lowY, REAL highX, REAL highY );
 void sg_CleanSheenBegin( int pass );
 void sg_CleanSheenEnd();
 
-//! the arrow a cycle is in the clean arena, at a place and heading, and the soft shadow under it
+//! the cycle as the clean arena draws it (the arrow, or the light cycle with
+//! RCL_CYCLE_MODEL 1), at a place and heading, and the soft shadow under it
 void sg_RenderCleanCycleAt( eCoord const & pos, eCoord const & dir, REAL r, REAL g, REAL b );
 void sg_RenderCleanCycleShadowAt( eCoord const & pos, eCoord const & dir );
+
+//! The colour the classic cycle shows of a cycle's colour, in place: its
+//! texture is tinted through a byte a channel, so a channel set over full
+//! wraps ((17v) mod 256 of a setting v). Channels up to full stay as they are.
+void sg_BikeColor( REAL & r, REAL & g, REAL & b );
+
+//! The classic cycle at a place and heading, tinted with the colour the way a
+//! cycle's textures are, lit as a cycle is: for a preview that is not a game.
+//! False where its model or textures cannot be had.
+bool sg_RenderClassicCycleAt( eCoord const & pos, eCoord const & dir, REAL r, REAL g, REAL b );
+//! lets go of the textures the preview made
+void sg_ReleaseClassicCycle();
 #endif
 
 #endif

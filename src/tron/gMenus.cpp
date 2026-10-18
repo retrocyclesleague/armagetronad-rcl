@@ -38,6 +38,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "rModel.h"
 #include "gGame.h"
 #include "gCycle.h"
+#include "gColourStudio.h"
 #include "gHud.h"
 #include "tRecorder.h"
 #include "rSysdep.h"
@@ -1423,6 +1424,12 @@ void sg_RclPlayerPage()
      "$rcl_fov_text",
      "$player_camera_fov_help",
      p->startFOV,30,160,5);
+
+    // under the three numbers: the bike and the trail they make, as such
+    uMenuItemFunction studio(&menu,
+                             "$rcl_colour_studio_text",
+                             "$rcl_colour_studio_help",
+                             &sg_ColourStudio);
 
     ArmageTron_color_menuitem B(&menu,"$player_blue_text",
                                 "$player_blue_help",

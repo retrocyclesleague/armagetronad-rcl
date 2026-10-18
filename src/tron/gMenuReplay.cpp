@@ -59,14 +59,19 @@ namespace
     // rebuilt from the match log). It carries no names.
     //
     // It is drawn the way the game draws a match: the same arena, walls,
-    // arrows, shadows and painted zones, through the clean arena's own
+    // cycles, shadows and painted zones, through the clean arena's own
     // functions, in the look the player has chosen. What happens in it
     // follows the servers' rules: walls as long as theirs, standing as long
     // after a death, a zone that falls when it was conquered.
     char const * const replayFile = "replays/menu_fort.rclreplay";
 
     float const wallSink     = .5f;   // seconds a dead cycle's walls take to go down once their time is up
-    float const tipLength    = 3.6f;  // the stretch behind a cycle over which its wall rises out of it
+    // A live cycle's wall leaves the tail of the cycle, low, and rises over a
+    // few lengths behind it, as the game's does (gWall.cpp); the stretch in
+    // front of that is inside the cycle.
+    float const tipStart     = .9f;   // how far behind the cycle's head the wall leaves it
+    float const tipLow       = .21f;  // and how high it is there
+    float const tipLength    = 3.6f;  // the stretch behind that over which it rises
     float const zoneCollapse = 2;     // seconds a conquered zone takes to close
     float const deathRing    = .7f;   // seconds the ring a cycle leaves behind is seen
     float const roundLeadOut = 1.5f;
@@ -663,6 +668,44 @@ namespace
         return true;
     }
 
+    // How high a wall is a stretch behind its cycle's head: while the cycle
+    // lives, rising out of its tail to full height a few units back.
+    float TipHeight(float behind, bool alive, float standing)
+    {
+        float rise = 1;
+        if (alive && behind < tipStart + tipLength)
+            rise = tipLow + (1 - tipLow) * std::max(0.0f, behind - tipStart) / tipLength;
+        return rise * standing;
+    }
+
+    // Hands a piece of a wall on to draw as the drawing needs it: of a live
+    // cycle's, what lies inside the cycle is left out, and the rise is a piece
+    // of its own, level from where the wall has its height. a is the older
+    // end, further behind the head.
+    template <class Draw>
+    void TipPieces(Vec a, Vec b, float behindA, float behindB, bool alive, Draw const & draw)
+    {
+        if (alive)
+        {
+            if (behindA <= tipStart)
+                return;
+            if (behindB < tipStart)
+            {
+                b = Mix(b, a, (tipStart - behindB) / (behindA - behindB));
+                behindB = tipStart;
+            }
+            float const full = tipStart + tipLength;
+            if (behindB < full && behindA > full)
+            {
+                Vec const at = Mix(b, a, (full - behindB) / (behindA - behindB));
+                draw(a, at, behindA, full);
+                draw(at, b, full, behindB);
+                return;
+            }
+        }
+        draw(a, b, behindA, behindB);
+    }
+
     // one pass of the clean arena's wall drawing over a life's wall
     struct WallPass
     {
@@ -673,14 +716,9 @@ namespace
 
         WallPass(Life const & l, int p): life(l), pass(p), alive(false), standing(1) {}
 
-        // A wall rises out of its cycle: low at the arrow's tail, full height
-        // a few units back.
         float Height(float behind) const
         {
-            float rise = 1;
-            if (alive && behind < tipLength)
-                rise = .22f + .78f * behind / tipLength;
-            return rise * standing;
+            return TipHeight(behind, alive, standing);
         }
 
         void Draw(Vec const & a, Vec const & b, float behindA, float behindB) const
@@ -692,17 +730,10 @@ namespace
         // a is the older end, further behind the head
         void operator()(Vec const & a, Vec const & b, float behindA, float behindB) const
         {
-            if (alive && behindB < tipLength && behindA > tipLength)
-            {
-                // level from where it has its height; the rise is a piece of its own
-                Vec const full = Mix(b, a, (tipLength - behindB) / (behindA - behindB));
-                Draw(a, full, behindA, tipLength);
-                Draw(full, b, tipLength, behindB);
-            }
-            else
-            {
-                Draw(a, b, behindA, behindB);
-            }
+            WallPass const & self = *this;
+            TipPieces(a, b, behindA, behindB, alive,
+                      [&self](Vec const & p, Vec const & q, float behindP, float behindQ)
+                      { self.Draw(p, q, behindP, behindQ); });
         }
     };
 
@@ -739,25 +770,18 @@ namespace
         // as the wall itself: rising out of its cycle
         float Height(float behind) const
         {
-            float rise = 1;
-            if (alive && behind < tipLength)
-                rise = .22f + .78f * behind / tipLength;
-            return rise * standing;
+            return TipHeight(behind, alive, standing);
         }
 
         void operator()(Vec const & a, Vec const & b, float behindA, float behindB) const
         {
-            if (alive && behindB < tipLength && behindA > tipLength)
-            {
-                Vec const full = Mix(b, a, (tipLength - behindB) / (behindA - behindB));
-                glVertex3f(a.x, a.y, Height(behindA));
-                glVertex3f(full.x, full.y, Height(tipLength));
-                glVertex3f(full.x, full.y, Height(tipLength));
-                glVertex3f(b.x, b.y, Height(behindB));
-                return;
-            }
-            glVertex3f(a.x, a.y, Height(behindA));
-            glVertex3f(b.x, b.y, Height(behindB));
+            WallLine const & self = *this;
+            TipPieces(a, b, behindA, behindB, alive,
+                      [&self](Vec const & p, Vec const & q, float behindP, float behindQ)
+                      {
+                          glVertex3f(p.x, p.y, self.Height(behindP));
+                          glVertex3f(q.x, q.y, self.Height(behindQ));
+                      });
         }
     };
 

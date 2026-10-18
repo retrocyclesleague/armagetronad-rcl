@@ -1144,15 +1144,16 @@ bool sr_CleanArenaRecent()
 
 void sr_CleanPaint( REAL & r, REAL & g, REAL & b )
 {
+    // A channel set over full is drawn full, as GL draws it in every other
+    // client: a trail of 40 15 8 is pale yellow everywhere. Divided by its
+    // brightest channel instead, as it was here, it came out orange. (A bike
+    // over full wraps; sg_BikeColor in gCycle.cpp has that done before it
+    // gets here.)
+    if ( r > 1 ) r = 1;
+    if ( g > 1 ) g = 1;
+    if ( b > 1 ) b = 1;
     REAL high = r > g ? r : g;
     if ( b > high ) high = b;
-    if ( high > 1 )
-    {
-        r /= high;
-        g /= high;
-        b /= high;
-        high = 1;
-    }
     REAL low = r < g ? r : g;
     if ( b < low ) low = b;
     if ( low < 0 ) low = 0;

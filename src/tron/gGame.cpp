@@ -89,6 +89,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "gRotation.h"
 #include "gLeague.h"
+#include "gColourStudio.h"
 #include "gServerHistory.h"
 #include "nSocket.h"
 
@@ -5237,7 +5238,8 @@ void MainMenu(bool ingame){
     // player sets (gMenus.cpp, sg_Rcl*Page). Everything else the client ever
     // had a menu for is still there, one level down under Advanced, on the
     // pages it always had. Rows made with new belong to their menu, which
-    // deletes them; the others are declared after it and go first.
+    // deletes them; the others are declared after it and go first. The
+    // colour studio sits on Settings under Player.
 
     tOutput title;
     if (!ingame)
@@ -5336,6 +5338,11 @@ void MainMenu(bool ingame){
                             "$rcl_player_menu_text",
                             "$rcl_player_menu_help",
                             &sg_RclPlayerPage ) );
+    // the bike and trail colours, with the game's own preview
+    settingsRows.push_back( tNEW( uMenuItemFunction )( &Settings,
+                            "$rcl_colour_studio_text",
+                            "$rcl_colour_studio_help",
+                            &sg_ColourStudio ) );
     settingsRows.push_back( tNEW( uMenuItemFunction )( &Settings,
                             "$rcl_controls_menu_text",
                             "$rcl_controls_menu_help",

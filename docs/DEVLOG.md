@@ -1,5 +1,27 @@
 # Dev log
 
+## 2026-10-18 - a colour studio, the two-tone bike everyone else sees, a light cycle to try; the player page crash
+
+Jamie: "we need a better colour studio both online in the tools and ingame now we have ingame we can do some fun stuff. we want to allow different colour bikes and trails and potentially expand into way more stuff in the future", with a concept image of a sleek light cycle ("like my screenshot").
+
+- **How colours reach other clients.** A player sends one setting, `COLOR_R/G/B_1`. Every client shows the trail at min(255, 17 * value) in each channel, and tints the classic bike at (17 * value) mod 256, because the texture tint wraps. So a channel set above 15 gives a full trail with a different bike: 40/15/8 is a #a8ff88 bike with a #ffff88 trail. In a team of two or more the game clamps to 15 and blends the team colour in.
+- **The clean arena showed neither.** `sr_CleanPaint` divided an overflowing colour by its brightest channel, so 40/15/8 came out one orange for bike and trail alike. It now clamps each channel, as GL does in every other client. The bike goes through `sg_BikeColor` (the classic tint's wrap), so the clean arena shows the two colours the others see.
+- **Colour studio** (Settings, under Player; `gColourStudio.cpp`).
+  - The bike and trail are chosen directly. The trail is 0–15 a channel or full; the bike is free in the channels where the trail is full, and otherwise follows the trail.
+  - The setting is worked out per channel: trail below full gives v = trail step; trail full gives v = 241 * bike mod 256, raised by 256 if under 15, because 17 * 241 = 4097, which is 1 mod 256.
+  - It shows the twelve pairs the website offers.
+  - It has a live preview drawn by the game itself, turning: 1 light arena, 2 dark arena, 3 the classic bike with its textures.
+  - Enter saves; Escape drops changes.
+- **A light cycle in the clean arena, opt-in** (`RCL_CYCLE_MODEL 1`; the arrow stays the default until Jamie has seen it; `gLightCycle.cpp`).
+  - The classic bike's layout, with flat facets and straight edges in dark graphite.
+  - The bike colour only as accents: wheel rims, tread lines, a chevron on each side, a spine and the tail.
+  - 642 triangles. Far away it takes on the bike colour, so it still reads from above.
+  - Its first form, a smooth bulging shell, was dropped after Jamie called a similar soft preview "terrible ... this isnt even the bikes style anymore".
+- **The menu replay** leaves its walls 0.9 behind each cycle, as the game does, not from its head.
+- **Crash on leaving the player page.** The main menu's count check put the network client-side (`sn_Bend`) and left it there. The player object made as the player page closed then waited on a server for an id and ended the game with "Not enough nNetObject IDs to distribute". The check now puts the network back to standalone when it began there (`gServerHistory`, `Finish`).
+
+Checked on Windows (off-screen test window, no recording so the count check ran, the history asking the real Frankfurt server): main menu, settings, player, Escape; the client stayed up and wrote no error. The colour studio from settings with 40/15/8: the light cycle in both arenas and the classic bike, bike green and trail yellow as every client shows them. Not checked: the light cycle and the two-tone in a real game, against other players; the preview's trail edge looks stepped; macOS, Linux and the dedicated server build.
+
 ## 2026-10-18 - one Play button; a Play page of cards; the watcher's keys alone
 
 Jamie: "i still think we can be more modern punchy simple throughout the menu experience we have a lot of options to start with maybe it could be less". Shown two drawn ways (`rcl-cfg/client-ui/simple-*.png`), he said "do it" to the one with a Play button and no rail.
