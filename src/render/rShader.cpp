@@ -187,6 +187,7 @@ void rShader::Forget()
 {
     program_ = 0;
     locations_.clear();
+    keys_.clear();
 }
 
 void rShader::Use()
@@ -207,6 +208,11 @@ void rShader::UseNone()
 
 int rShader::Location( char const * name )
 {
+    // Names come as string literals, whose place never changes: that is
+    // looked for first, the name itself only after, and GL asked once.
+    for ( size_t i = 0; i < keys_.size(); ++i )
+        if ( keys_[i] == name )
+            return locations_[i].second;
     for ( size_t i = 0; i < locations_.size(); ++i )
         if ( locations_[i].first == name )
             return locations_[i].second;
@@ -216,6 +222,7 @@ int rShader::Location( char const * name )
         location = glGetUniformLocation( program_, name );
 #endif
     locations_.push_back( std::make_pair( std::string( name ), location ) );
+    keys_.push_back( name );
     return location;
 }
 

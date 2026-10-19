@@ -50,7 +50,8 @@ public:
     //! back to fixed function
     static void UseNone();
 
-    //! uniforms by name, for the program in use
+    //! uniforms by name, for the program in use; the names must be string
+    //! literals (their places are what the lookup remembers)
     void Set( char const * name, float value );
     void Set( char const * name, float a, float b );
     void Set( char const * name, float a, float b, float c );
@@ -79,6 +80,7 @@ private:
     unsigned int program_;
     long stamp_[2];                     // when the files were last changed, as read
     std::vector< std::pair< std::string, int > > locations_;
+    std::vector< char const * > keys_;      // where each name was when first asked for
 };
 
 #endif // DEDICATED

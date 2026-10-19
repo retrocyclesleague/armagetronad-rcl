@@ -607,7 +607,10 @@ namespace
     // framebuffer it would have been drawn into, in its viewport
     void sr_Composite()
     {
-        glPushAttrib( GL_ALL_ATTRIB_BITS );
+        // Only what is changed here is saved: all of GL's state is costly to
+        // keep, every texture unit's most of all. The textures bound here are
+        // unbound at the end; whatever draws next binds its own.
+        glPushAttrib( GL_ENABLE_BIT | GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_VIEWPORT_BIT | GL_POLYGON_BIT );
         glPushClientAttrib( GL_CLIENT_VERTEX_ARRAY_BIT );
 
         glDisable( GL_DEPTH_TEST );
@@ -740,6 +743,8 @@ namespace
 
     // what is to be drawn over the scene once it is on the screen
     std::vector< void ( * )() > sr_afterScene;
+
+    unsigned sr_sceneSerial = 0;
 }
 
 bool rPost::BeginScene()
@@ -749,6 +754,7 @@ bool rPost::BeginScene()
     sr_post.open = true;
     sr_post.redirected = false;
     sr_post.path = 0;
+    ++sr_sceneSerial;
     rGPUTimer::Begin( rGPUTimer::Pass_World );
 
     if ( sr_render <= 0 || rDisplayList::IsRecording() )
@@ -813,6 +819,11 @@ void rPost::EndScene()
 bool rPost::InScene()
 {
     return sr_post.open && sr_post.redirected;
+}
+
+unsigned rPost::SceneSerial()
+{
+    return sr_sceneSerial;
 }
 
 void rPost::AfterScene( void ( *f )() )

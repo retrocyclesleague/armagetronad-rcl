@@ -990,12 +990,20 @@ bool sg_RenderCycleMesh( gCycleMeshPose const & pose, REAL r, REAL g, REAL b )
     if ( !sg_Ready( look ) )
         return false;
 
-    // how long it is on the screen, from what GL has been given to draw it with
-    GLfloat view[16], projection[16];
-    GLint viewport[4];
+    // How long it is on the screen, from what GL has been given to draw it
+    // with. Asking GL makes the driver's own thread catch up; the projection
+    // and the viewport stay for a scene, so they are asked once a scene.
+    static unsigned scene = 0;
+    static GLfloat projection[16];
+    static GLint viewport[4];
+    if ( scene != rPost::SceneSerial() )
+    {
+        scene = rPost::SceneSerial();
+        glGetFloatv( GL_PROJECTION_MATRIX, projection );
+        glGetIntegerv( GL_VIEWPORT, viewport );
+    }
+    GLfloat view[16];
     glGetFloatv( GL_MODELVIEW_MATRIX, view );
-    glGetFloatv( GL_PROJECTION_MATRIX, projection );
-    glGetIntegerv( GL_VIEWPORT, viewport );
     float const depth = -( view[2] * sg_middle[0] + view[6] * sg_middle[1] + view[10] * sg_middle[2] + view[14] );
     float const scale = std::sqrt( view[0] * view[0] + view[1] * view[1] + view[2] * view[2] );
     float const pixels = depth > 1E-3f ? sg_length * scale * projection[5] * viewport[3] * .5f / depth : 1E6f;

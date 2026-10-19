@@ -43,6 +43,8 @@ namespace rPost
     //! whether what is drawn now goes into a scene picture, and so through
     //! the post chain
     bool InScene();
+    //! counts the scenes begun, so what holds for one scene can be kept for it
+    unsigned SceneSerial();
     //! For what is drawn over a scene rather than in it (the names over the
     //! cycles): f is called once, right after the scene being drawn is on the
     //! screen, in its viewport. Only while InScene().

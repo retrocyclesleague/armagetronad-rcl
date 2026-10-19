@@ -21,7 +21,24 @@ of the License, or (at your option) any later version.
 
 #ifndef DEDICATED
 
+#include "rScreen.h"
+
 #include <cstdio>
+
+// The framebuffer bound for drawing, as this file last bound it. Asking GL
+// stops the driver's own thread until it catches up, so it is asked only
+// when nothing is known (a new context).
+namespace
+{
+    GLuint sr_bound = 0;
+    bool sr_boundKnown = false;
+
+    void sr_FramebufferForget()
+    {
+        sr_boundKnown = false;
+    }
+    rCallbackAfterScreenModeChange sr_framebufferForget( &sr_FramebufferForget );
+}
 
 rFramebuffer::rFramebuffer()
 : framebuffer_( 0 ), texture_( 0 ), colour_( 0 ), depth_( 0 ), width_( 0 ), height_( 0 ), samples_( 0 ),
@@ -123,7 +140,7 @@ bool rFramebuffer::Create( int width, int height, int colourFormat, int samples,
     while ( glGetError() != GL_NO_ERROR )
         ;
 
-    rGLExt::BindFramebuffer( RGL_FRAMEBUFFER, static_cast< GLuint >( previous ) );
+    Bind( static_cast< unsigned int >( previous ) );
     glBindTexture( GL_TEXTURE_2D, static_cast< GLuint >( texture ) );
 
     if ( status != RGL_FRAMEBUFFER_COMPLETE || glError != GL_NO_ERROR )
@@ -171,9 +188,7 @@ void rFramebuffer::Forget()
 
 void rFramebuffer::Bind() const
 {
-#ifdef RGL_EXT_AVAILABLE
-    rGLExt::BindFramebuffer( RGL_FRAMEBUFFER, framebuffer_ );
-#endif
+    Bind( framebuffer_ );
 }
 
 void rFramebuffer::BindRead() const
@@ -187,6 +202,8 @@ void rFramebuffer::BindDraw() const
 {
 #ifdef RGL_EXT_AVAILABLE
     rGLExt::BindFramebuffer( RGL_DRAW_FRAMEBUFFER, framebuffer_ );
+    sr_bound = framebuffer_;
+    sr_boundKnown = true;
 #endif
 }
 
@@ -197,19 +214,30 @@ void rFramebuffer::BindScreen()
 
 unsigned int rFramebuffer::Current()
 {
-    GLint current = 0;
 #ifdef RGL_EXT_AVAILABLE
-    if ( rGLExt::Framebuffers() )
-        glGetIntegerv( RGL_FRAMEBUFFER_BINDING, &current );
+    if ( !sr_boundKnown )
+    {
+        GLint current = 0;
+        if ( rGLExt::Framebuffers() )
+            glGetIntegerv( RGL_FRAMEBUFFER_BINDING, &current );
+        sr_bound = static_cast< GLuint >( current );
+        sr_boundKnown = true;
+    }
+    return sr_bound;
+#else
+    return 0;
 #endif
-    return static_cast< unsigned int >( current );
 }
 
 void rFramebuffer::Bind( unsigned int framebuffer )
 {
 #ifdef RGL_EXT_AVAILABLE
     if ( rGLExt::Framebuffers() )
+    {
         rGLExt::BindFramebuffer( RGL_FRAMEBUFFER, framebuffer );
+        sr_bound = framebuffer;
+        sr_boundKnown = true;
+    }
 #else
     (void)framebuffer;
 #endif
