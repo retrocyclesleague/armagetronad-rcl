@@ -194,6 +194,97 @@ namespace
             out[row] = m[row] * p[0] + m[4 + row] * p[1] + m[8 + row] * p[2] + m[12 + row] * w;
     }
 
+    // A point of the cycle's frame on the screen, in pixels, through the
+    // modelview, the projection and the viewport GL draws with. False where
+    // it lies at or behind the eye.
+    bool OnScreen( float const * view, float const * projection, GLint const * viewport,
+                   float const * point, float * pixel )
+    {
+        float eye[3];
+        Apply( view, point, 1, eye );
+        float clip[4];
+        for ( int row = 0; row < 4; ++row )
+            clip[row] = projection[row] * eye[0] + projection[4 + row] * eye[1] +
+                        projection[8 + row] * eye[2] + projection[12 + row];
+        if ( !( clip[3] > 1E-4f ) )
+            return false;
+        pixel[0] = viewport[0] + ( clip[0] / clip[3] + 1 ) * .5f * viewport[2];
+        pixel[1] = viewport[1] + ( clip[1] / clip[3] + 1 ) * .5f * viewport[3];
+        return true;
+    }
+
+    float Apart( float const * a, float const * b )
+    {
+        return std::sqrt( ( a[0] - b[0] ) * ( a[0] - b[0] ) + ( a[1] - b[1] ) * ( a[1] - b[1] ) );
+    }
+
+    // ---- what the stats overlay says of them (RCL_RENDER_STATS) ----
+
+    // Over the frame drawn last: the mesh cycles drawn at each level, those
+    // handed to the light cycle (too small on the screen, or the mesh could
+    // not draw there), and the shortest and longest on the screen of those
+    // whose size was worked out. A cycle the floor mirrors counts twice.
+    struct gMeshStats
+    {
+        int drawn[ sg_maxLods ], fallback, small;
+        float least, most;
+    };
+    gMeshStats sg_stats = { { 0, 0, 0, 0 }, 0, 0, 1E30f, 0 };
+
+    void sg_CountSize( float pixels )
+    {
+        sg_stats.least = std::min( sg_stats.least, pixels );
+        sg_stats.most = std::max( sg_stats.most, pixels );
+    }
+
+    void sg_CountDrawn( int level, float pixels )
+    {
+        if ( !rGPUTimer::OverlayWanted() )
+            return;
+        ++sg_stats.drawn[ level ];
+        sg_CountSize( pixels );
+    }
+
+    // pixels below 0: not worked out
+    void sg_CountFallback( float pixels )
+    {
+        if ( !rGPUTimer::OverlayWanted() )
+            return;
+        ++sg_stats.fallback;
+        if ( pixels >= 0 )
+        {
+            ++sg_stats.small;
+            sg_CountSize( pixels );
+        }
+    }
+
+    char const * sg_MeshStatsLine()
+    {
+        static std::string line;
+        gMeshStats const & s = sg_stats;
+        int drawn = 0;
+        for ( int i = 0; i < sg_maxLods; ++i )
+            drawn += s.drawn[i];
+        char text[256];
+        if ( drawn + s.fallback == 0 )
+            std::snprintf( text, sizeof( text ), "mesh cycles: none asked for" );
+        else
+            std::snprintf( text, sizeof( text ),
+                           "mesh cycles: lod0 %d  lod1 %d  lod2 %d  model 1 %d (%d too small)  on screen %.0f-%.0f px",
+                           s.drawn[0], s.drawn[1], s.drawn[2] + s.drawn[3], s.fallback, s.small,
+                           s.most > 0 ? s.least : 0.f, s.most );
+        line = text;
+        sg_stats = gMeshStats();
+        sg_stats.least = 1E30f;
+        return line.c_str();
+    }
+
+    struct gMeshStatsLineSet
+    {
+        gMeshStatsLineSet(){ rGPUTimer::AddLine( &sg_MeshStatsLine ); }
+    };
+    gMeshStatsLineSet sg_meshStatsLineSet;
+
     // ---- files ----
 
     std::string sg_Path( char const * name )
@@ -1025,13 +1116,15 @@ bool sg_RenderCycleMesh( gCycleMeshPose const & pose, REAL r, REAL g, REAL b )
 {
 #ifndef RGL_EXT_AVAILABLE
     (void)pose; (void)r; (void)g; (void)b;
+    sg_CountFallback( -1 );
     return false;
 #else
-    if ( !rPost::InScene() || rDisplayList::IsRecording() )
-        return false;
     int const look = sr_cleanDark ? 1 : 0;
-    if ( !sg_Ready( look ) )
+    if ( !rPost::InScene() || rDisplayList::IsRecording() || !sg_Ready( look ) )
+    {
+        sg_CountFallback( -1 );
         return false;
+    }
 
     // How long it is on the screen, from what GL has been given to draw it
     // with. Asking GL makes the driver's own thread catch up; the projection
@@ -1047,19 +1140,37 @@ bool sg_RenderCycleMesh( gCycleMeshPose const & pose, REAL r, REAL g, REAL b )
     }
     GLfloat view[16];
     glGetFloatv( GL_MODELVIEW_MATRIX, view );
-    float const depth = -( view[2] * sg_middle[0] + view[6] * sg_middle[1] + view[10] * sg_middle[2] + view[14] );
-    float const scale = std::sqrt( view[0] * view[0] + view[1] * view[1] + view[2] * view[2] );
-    float const pixels = depth > 1E-3f ? sg_length * scale * projection[5] * viewport[3] * .5f / depth : 1E6f;
-    if ( !( pixels >= sg_cycleFar ) )
-        return false;
-    int level = pixels < sg_cycleLod2 ? 2 : ( pixels < sg_cycleLod1 ? 1 : 0 );
-    if ( level >= int( sg_mesh.lods.size() ) )
-        level = int( sg_mesh.lods.size() ) - 1;
-    gLod const & lod = sg_mesh.lods[ level ];
 
     // The model in the light cycle's frame: scaled to its length, its nose at
     // the light cycle's nose, so its tail is where the wall leaves.
     float const fit = sg_length / ( sg_mesh.hi[0] - sg_mesh.lo[0] );
+
+    // Its nose and tail, and its foot and top, taken onto the screen: the
+    // longer of the two lines is its size there. A size worked out from its
+    // depth alone took a cycle seen from behind and above, foreshortened, as
+    // its whole length across, and drew 20 pixels of it as the mesh. The
+    // height keeps one seen nose on from counting as tiny. Partly behind the
+    // eye, it is as near as can be.
+    float pixels = 1E6f;
+    {
+        float const nose[3] = { sg_nose, 0, sg_middle[2] }, tail[3] = { sg_nose - sg_length, 0, sg_middle[2] };
+        float const foot[3] = { sg_middle[0], 0, sg_mesh.lo[2] * fit }, top[3] = { sg_middle[0], 0, sg_mesh.hi[2] * fit };
+        float n[2], t[2], f[2], h[2];
+        if ( OnScreen( view, projection, viewport, nose, n ) && OnScreen( view, projection, viewport, tail, t ) &&
+             OnScreen( view, projection, viewport, foot, f ) && OnScreen( view, projection, viewport, top, h ) )
+            pixels = std::max( Apart( n, t ), Apart( f, h ) );
+    }
+    if ( !( pixels >= sg_cycleFar ) )
+    {
+        sg_CountFallback( pixels );
+        return false;
+    }
+    int level = pixels < sg_cycleLod2 ? 2 : ( pixels < sg_cycleLod1 ? 1 : 0 );
+    if ( level >= int( sg_mesh.lods.size() ) )
+        level = int( sg_mesh.lods.size() ) - 1;
+    gLod const & lod = sg_mesh.lods[ level ];
+    sg_CountDrawn( level, pixels );
+
     float place[16], size[16], to[16], local[16];
     Translation( place, sg_nose, 0, 0 );
     Identity( size );

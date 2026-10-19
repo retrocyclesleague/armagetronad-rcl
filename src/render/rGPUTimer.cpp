@@ -213,6 +213,20 @@ void rGPUTimer::SetStatus( char const * ( *status )() )
     sr_renderStatus = status;
 }
 
+// lines others add to the overlay (the mesh cycles' counts); constant
+// initialised, so they can be added from static constructors
+static char const * ( *sr_overlayLines[4] )() = { 0, 0, 0, 0 };
+
+void rGPUTimer::AddLine( char const * ( *line )() )
+{
+    for ( int i = 0; i < 4; ++i )
+        if ( !sr_overlayLines[i] || sr_overlayLines[i] == line )
+        {
+            sr_overlayLines[i] = line;
+            return;
+        }
+}
+
 // The overlay, bottom left: what the renderer is doing, the GPU's
 // milliseconds per pass and their sum, averaged twice a second, and the frame
 // time the CPU sees, so it shows which of the two holds a frame up.
@@ -275,6 +289,12 @@ static void sr_RenderStats()
     text << "0xffffff" << status.c_str() << "\n";
     text << "0xffffff" << gpu.str().c_str() << "\n";
     text << "0xffffff" << cpu.str().c_str() << "\n";
+    for ( int i = 0; i < 4; ++i )
+    {
+        char const * const line = sr_overlayLines[i] ? sr_overlayLines[i]() : 0;
+        if ( line && *line )
+            text << "0xffffff" << line << "\n";
+    }
 }
 static rPerFrameTask sr_renderStatsTask( &sr_RenderStats );
 

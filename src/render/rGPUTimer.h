@@ -53,6 +53,9 @@ namespace rGPUTimer
     bool OverlayWanted();
     //! where the overlay's first line, what the renderer is doing, comes from
     void SetStatus( char const * ( *status )() );
+    //! A line more for the overlay, under the others: line is asked for it
+    //! once a frame while the overlay shows (at most four such lines).
+    void AddLine( char const * ( *line )() );
 
     void FrameBegin();      //!< after the swap
     void FrameEnd();        //!< before the swap
