@@ -253,6 +253,11 @@ public:
     void RenderList(bool list, gWallRenderMode );
     virtual void RenderNormal(const eCoord &x1,const eCoord &x2,REAL ta,REAL te,REAL r,REAL g,REAL b,REAL a, gWallRenderMode mode );
     virtual void RenderBegin(const eCoord &x1,const eCoord &x2,REAL ta,REAL te,REAL ra,REAL rb,REAL r,REAL g,REAL b,REAL a, gWallRenderMode mode );
+
+    //! The clean arena draws the corners of a cycle's wall round
+    //! (RCL_TRAIL_ROUND): works out, once a frame, which of the cycle's
+    //! corners are, and how much of each wall's ends they take. Drawing only.
+    static void RoundCorners( gCycle * cycle );
 #endif
 
     virtual bool ActionOnQuit();
@@ -292,6 +297,18 @@ private:
     tArray<gPlayerWallCoord> coords_;
 
     int displayListInhibition_;
+
+#ifndef DEDICATED
+    // Drawing only (RoundCorners): what of each end, 0 its start and 1 its
+    // end, a round corner takes, 0 where the corner is sharp; and which way
+    // the wall before it ran, for the corner at its start, which it draws.
+    REAL roundCut_[2];
+    eCoord roundFrom_;
+
+    void RenderRoundCorner( REAL r, REAL g, REAL b, REAL a, gWallRenderMode mode );
+    //! where the unbroken stretch of wall (no hole) that reaches its start ends, or the one that reaches its end starts
+    REAL SolidUntil( bool fromEnd ) const;
+#endif
 };
 
 extern tList<gNetPlayerWall> sg_netPlayerWalls;
@@ -312,6 +329,10 @@ void sg_CleanWallPiece( eCoord const & p1, eCoord const & p2, REAL h1, REAL h2,
 //! renderer (RCL_GLOW_TRAIL), as rEmissive takes it; at 1 or less it is
 //! not drawn at all.
 REAL sg_CleanTrailGlow();
+
+//! The radius the clean arena draws the corners of cycles' walls with
+//! (RCL_TRAIL_ROUND); 0 for sharp corners.
+REAL sg_CleanTrailRound();
 
 //! How far behind its cycle, along the trail, a cycle's own wall is first
 //! drawn in the clean arena: the arrow's notch, or the mesh cycle's tail

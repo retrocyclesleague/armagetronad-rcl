@@ -4727,6 +4727,7 @@ gCycleWallsDisplayListManager::gCycleWallsDisplayListManager()
     , wallsInDisplayList_(0)
     , glowIntensity_(0)
     , shadowsUnited_(-1)
+    , roundedAt_(-1)
 {
 }
 
@@ -4986,6 +4987,9 @@ void gCycleWallsDisplayListManager::RenderAll( eCamera const * camera, gCycle * 
 
 void gCycleWallsDisplayListManager::RenderShadows( eCamera const * camera, gCycle * cycle )
 {
+    // the first pass of a frame that has it: the round corners come first
+    gNetPlayerWall::RoundCorners( cycle );
+
     // Which walls are finished and cached is settled when the walls
     // themselves are drawn, later in the frame; here the two lists are as the
     // last frame left them, and every wall is in one of them.
@@ -5005,6 +5009,8 @@ void gCycleWallsDisplayListManager::RenderShadows( eCamera const * camera, gCycl
 
 void gCycleWallsDisplayListManager::RenderSheen( eCamera const * camera, gCycle * cycle )
 {
+    gNetPlayerWall::RoundCorners( cycle );
+
     // as RenderShadows, for what the floor mirrors
     if ( sg_HideCyclesWalls )
     {
@@ -5265,6 +5271,9 @@ void sg_CleanSheenEnd()
 
 void gCycleWallsDisplayListManager::RenderAll( eCamera const * camera, gCycle * cycle )
 {
+    // which corners are drawn round, if the shadows and the sheen did not say already
+    gNetPlayerWall::RoundCorners( cycle );
+
     // The lists hold the passes of one look, not of all three. A negative
     // glow intensity marks them as one of the clean arena's: -1 the pale
     // one, -2 the dark.

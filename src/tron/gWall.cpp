@@ -47,8 +47,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "eTess2.h"
 #include "eFloor.h"
 #include "nConfig.h"
+#include "tSysTime.h"
 
+#include <algorithm>
 #include <fstream>
+#include <vector>
 
 /* **********************************************
    Wall
@@ -926,6 +929,22 @@ REAL sg_CleanTrailGlow()
     return sg_glowTrail > 64 ? 64 : sg_glowTrail;
 }
 
+// The clean arena draws the corners of every cycle's wall as circles' arcs
+// of this radius, as far as half of each straight beside a corner allows; 0
+// draws them sharp. Drawing only: the walls the game plays with, and every
+// other way they are drawn (the classic arena, the map), keep their corners.
+// Looks like Jamie's curved trails, plays like the classic game.
+static REAL sg_trailRound = .4f;
+static tConfItem< REAL > sg_trailRoundConf( "RCL_TRAIL_ROUND", sg_trailRound );
+
+REAL sg_CleanTrailRound()
+{
+    // finite and sane; NaN compares false and turns it off
+    if ( !( sg_trailRound > 0 ) )
+        return 0;
+    return sg_trailRound > 16 ? 16 : sg_trailRound;
+}
+
 bool gNetPlayerWall::TrailGlowEnabled()
 {
     return sg_trailGlow && sr_alphaBlend && TrailGlowIntensity() > 0;
@@ -1476,7 +1495,13 @@ void sg_CleanTip( gCleanTipPoint * point, int points, REAL r, REAL g, REAL b, RE
     // along the top of the wall and is gone by the time the wall has its
     // width: where the wall is thinner than a line on the screen, the line is
     // what is seen of it. It leaves the arrow as pale as it is there and
-    // takes on the wall's paint on the way.
+    // takes on the wall's paint on the way. Where none of it is left (a round
+    // corner's piece, grown), there is nothing to draw.
+    bool anyLine = false;
+    for ( int i = 0; i < points; ++i )
+        anyLine = anyLine || point[i].line > 0;
+    if ( !anyLine )
+        return;
     static const REAL spine = .85f;
     RenderEnd();
     sr_DepthOffset( true );
@@ -1594,6 +1619,14 @@ void gNetPlayerWall::RenderList(bool list, gWallRenderMode renderMode ){
         REAL a=1;
 
 #define SEGLEN 2.5
+        // The clean arena's round corners (RoundCorners): this wall leaves
+        // what its ends give to them, and draws the one at its start.
+        bool const clean = ( renderMode & gWallRenderMode_Clean ) != 0;
+        REAL const roundLow = clean ? BegPos() + roundCut_[0] : -1E30f;
+        REAL const roundHigh = clean ? EndPos() - roundCut_[1] : 1E30f;
+        if ( clean && roundCut_[0] > 0 && coords_(0).IsDangerous )
+            RenderRoundCorner( r, g, b, a, renderMode );
+
         //REAL ta=startTime*3;
         //REAL te=endTime*3;
         for ( int i = coords_.Len()-2; i>=0; --i )
@@ -1605,6 +1638,13 @@ void gNetPlayerWall::RenderList(bool list, gWallRenderMode renderMode ){
 
             REAL pa = coord[0].Pos;
             REAL pe = coord[1].Pos;
+            if ( roundCut_[0] > 0 || roundCut_[1] > 0 )
+            {
+                pa = pa < roundLow ? roundLow : ( pa > roundHigh ? roundHigh : pa );
+                pe = pe < roundLow ? roundLow : ( pe > roundHigh ? roundHigh : pe );
+                if ( !( pe > pa ) && !( pa > pe ) )
+                    continue;
+            }
 
             REAL aa = Alpha( pa );
             REAL ae = Alpha( pe );
@@ -2157,6 +2197,245 @@ void gNetPlayerWall::RenderBegin(const eCoord &p1,const eCoord &pp2,REAL ta,REAL
     // don't mix strips of different wall segments
     RenderEnd();
 }
+
+// ---- clean arena: round corners (RCL_TRAIL_ROUND) ----
+
+namespace
+{
+    // an arc's pieces are no longer than this, and turn no more than this
+    static const REAL sg_roundPiece = .5f;
+    static const REAL sg_roundPieceTurn = .2618f;   // 15 degrees
+
+    // a wall of a cycle, with what its ends give to round corners this frame
+    struct gRoundWall
+    {
+        gNetPlayerWall * wall;
+        bool cached;        // drawn from the cycle's display lists
+        REAL cut[2];
+        eCoord from;
+    };
+
+    bool sg_RoundEarlier( gRoundWall const & a, gRoundWall const & b )
+    {
+        return a.wall->BegPos() < b.wall->BegPos();
+    }
+}
+
+REAL gNetPlayerWall::SolidUntil( bool fromEnd ) const
+{
+    // stretch i runs from coords_(i) to coords_(i+1), a wall where coords_(i) says so
+    int const last = coords_.Len() - 2;
+    if ( last < 0 )
+        return fromEnd ? EndPos() : BegPos();
+    if ( fromEnd )
+    {
+        int i = last;
+        while ( i > 0 && coords_(i - 1).IsDangerous )
+            --i;
+        return coords_(i).Pos;
+    }
+    int i = 0;
+    while ( i < last && coords_(i + 1).IsDangerous )
+        ++i;
+    return coords_(i + 1).Pos;
+}
+
+// Where two walls of a cycle meet, the corner is drawn as a circle's arc
+// that touches both, of the radius asked for or less: what it takes from
+// each wall is never more than half of the unbroken stretch beside it, so
+// two corners never overlap. A wall still being laid will be as long as it
+// gets, so the newest corner takes all it asks of it; and it is only drawn
+// round once the wall is drawn at least that far past it, so a corner is
+// never rounded ahead of what is there. Everything else about the walls,
+// what the game plays with, the map and the classic arena keep the corners.
+void gNetPlayerWall::RoundCorners( gCycle * cycle )
+{
+    if ( !cycle )
+        return;
+    gCycleWallsDisplayListManager & lists = cycle->displayList_;
+    double const frame = tSysTimeFloat();
+    if ( lists.roundedAt_ == frame )
+        return;
+    lists.roundedAt_ = frame;
+
+    static std::vector< gRoundWall > walls;
+    walls.clear();
+    for ( int list = 0; list < 2; ++list )
+        for ( gNetPlayerWall * run = list ? lists.wallList_ : lists.wallsWithDisplayList_; run; run = run->Next() )
+        {
+            gRoundWall const wall = { run, list == 0, { 0, 0 }, eCoord() };
+            walls.push_back( wall );
+        }
+
+    REAL const round = sr_cleanArena ? sg_CleanTrailRound() : 0;
+    if ( round > 0 && walls.size() >= 2 )
+    {
+        std::sort( walls.begin(), walls.end(), sg_RoundEarlier );
+
+        // how far the wall is drawn, as RenderList has it: from where a
+        // wall of limited length is cut, to where it leaves the cycle
+        REAL time = cycle->currentWall ? cycle->currentWall->EndPos() : cycle->GetDistance();
+        if ( !cycle->Alive() )
+            time += ( se_GameTime() - cycle->deathTime ) * SEGLEN;
+        REAL const drawnEnd = time - ( sg_simpleTrail ? REAL( gBEG_LEN_GIVEUP * SEGLEN ) : sg_CleanWallStart() );
+        REAL const drawnStart = gCycle::WallsLength() > 0 ? cycle->GetDistance() - cycle->ThisWallsLength() : -1E30f;
+
+        static const REAL touching = .01f;
+        for ( size_t i = 0; i < walls.size(); ++i )
+        {
+            gNetPlayerWall * const a = walls[i].wall;
+            if ( a->coords_.Len() < 2 || !a->coords_( a->coords_.Len() - 2 ).IsDangerous )
+                continue;
+            REAL const inLength = sqrt( a->dir.NormSquared() );
+            if ( !( inLength > 0 ) )
+                continue;
+            eCoord const in = a->dir * ( 1 / inLength );
+            // what of it is drawn up to the corner, unbroken
+            REAL const before = a->EndPos() - std::max( a->SolidUntil( true ), drawnStart );
+
+            // the walls that start where it ends
+            for ( size_t j = i + 1; j < walls.size() && walls[j].wall->BegPos() <= a->EndPos() + touching; ++j )
+            {
+                gNetPlayerWall * const b = walls[j].wall;
+                if ( fabs( b->BegPos() - a->EndPos() ) > touching || ( b->beg - a->end ).NormSquared() > touching * touching ||
+                     b->coords_.Len() < 2 || !b->coords_( 0 ).IsDangerous )
+                    continue;
+                REAL const outLength = sqrt( b->dir.NormSquared() );
+                if ( !( outLength > 0 ) )
+                    continue;
+                eCoord const out = b->dir * ( 1 / outLength );
+                REAL const cross = in.x * out.y - in.y * out.x;
+                REAL const turn = atan2( fabs( cross ), in.x * out.x + in.y * out.y );
+                // no corner to speak of, or a turn right round
+                if ( turn < .02f || turn > 3.12f )
+                    continue;
+
+                REAL cut = round * tan( turn * .5f );
+                cut = std::min( cut, before * .5f );
+                if ( b != cycle->currentWall )
+                    cut = std::min( cut, ( b->SolidUntil( false ) - b->BegPos() ) * .5f );
+                if ( !( cut > 1E-3f ) || drawnEnd < b->BegPos() + cut )
+                    continue;
+
+                walls[i].cut[1] = cut;
+                walls[j].cut[0] = cut;
+                walls[j].from = in;
+            }
+        }
+    }
+
+    // what changed; a wall whose drawing is cached needs the lists made again
+    bool stale = false;
+    for ( size_t i = 0; i < walls.size(); ++i )
+    {
+        gRoundWall const & w = walls[i];
+        gNetPlayerWall * const wall = w.wall;
+        bool const differs = fabs( wall->roundCut_[0] - w.cut[0] ) > 1E-4f || fabs( wall->roundCut_[1] - w.cut[1] ) > 1E-4f ||
+                             ( w.cut[0] > 0 && ( wall->roundFrom_ - w.from ).NormSquared() > 1E-8f );
+        if ( !differs )
+            continue;
+        wall->roundCut_[0] = w.cut[0];
+        wall->roundCut_[1] = w.cut[1];
+        wall->roundFrom_ = w.from;
+        stale = stale || w.cached;
+    }
+    if ( stale )
+        lists.Clear( 0 );
+}
+
+// The corner at this wall's start, with the wall before it: a circle's arc
+// that touches both, in pieces, in the given pass. Each point of it counts as
+// lying as far along the trail as on the sharp corner, from where the wall
+// before stops to where this one starts, so that near the cycle it comes up
+// out of it and grows to its width as the walls beside it do.
+void gNetPlayerWall::RenderRoundCorner( REAL r, REAL g, REAL b, REAL a, gWallRenderMode mode )
+{
+    REAL const cut = roundCut_[0];
+    REAL const fromLength = sqrt( roundFrom_.NormSquared() ), toLength = sqrt( dir.NormSquared() );
+    if ( !( cut > 0 ) || !( fromLength > 0 ) || !( toLength > 0 ) || !cycle_ )
+        return;
+    eCoord const in = roundFrom_ * ( 1 / fromLength ), out = dir * ( 1 / toLength );
+    REAL const cross = in.x * out.y - in.y * out.x;
+    REAL const turn = atan2( fabs( cross ), in.x * out.x + in.y * out.y );
+    REAL const half = tan( turn * .5f );
+    if ( !( half > 1E-3f ) )
+        return;
+    REAL const radius = cut / half;
+
+    // a dead cycle's walls sink and pale, as RenderNormal has them
+    REAL hfrac = 1;
+    if ( !cycle_->Alive() && gCycle::WallsStayUpDelay() >= 0 )
+    {
+        REAL const dt = ( se_GameTime() - cycle_->deathTime - gCycle::WallsStayUpDelay() ) * 2;
+        if ( dt > 1 )
+            return;
+        if ( dt >= 0 )
+        {
+            REAL const ca = REAL( .5 / ( dt + .5 ) );
+            r += ca;
+            g += ca;
+            b += ca;
+            a *= 1 - dt;
+            hfrac = 1 - dt;
+        }
+    }
+    if ( !( hfrac > 0 ) )
+        return;
+
+    // how far behind the cycle each point is, as RenderList measures it
+    REAL time = cycle_->currentWall ? cycle_->currentWall->EndPos() : cycle_->GetDistance();
+    if ( !cycle_->Alive() )
+        time += ( se_GameTime() - cycle_->deathTime ) * SEGLEN;
+    // as RenderBegin rises out of the cycle
+    REAL const notchBack = sg_CleanWallStart();
+    static const REAL notchHeight = .21f, riseLength = 3.6f, arrowTint = .30f;
+
+    // from where the wall before stops, round the inside of the turn
+    eCoord const inside = cross > 0 ? eCoord( -in.y, in.x ) : eCoord( in.y, -in.x );
+    eCoord const start = beg - in * cut;
+    eCoord const centre = start + inside * radius;
+    eCoord const spoke = start - centre;
+    REAL const sense = cross > 0 ? 1 : -1;
+    int pieces = int( ceil( turn / sg_roundPieceTurn ) );
+    int const byLength = int( ceil( radius * turn / sg_roundPiece ) );
+    if ( pieces < byLength )
+        pieces = byLength;
+    if ( pieces < 2 )
+        pieces = 2;
+    if ( pieces > 64 )
+        pieces = 64;
+    REAL const corner = BegPos();
+
+    gCleanTipPoint point[2];
+    for ( int k = 0; k < pieces; ++k )
+    {
+        for ( int e = 0; e < 2; ++e )
+        {
+            REAL const f = REAL( k + e ) / pieces;
+            REAL const angle = sense * turn * f;
+            REAL const c = cos( angle ), s = sin( angle );
+            gCleanTipPoint & p = point[e];
+            p.at = centre + eCoord( spoke.x * c - spoke.y * s, spoke.x * s + spoke.y * c );
+            REAL rise = 1;
+            if ( !sg_simpleTrail )
+            {
+                REAL const back = time - ( corner - cut + 2 * cut * f );
+                rise = ( back - notchBack ) / riseLength;
+                if ( rise > 1 ) rise = 1;
+                if ( rise < 0 ) rise = 0;
+            }
+            REAL const eased = rise * rise * ( 3 - 2 * rise );
+            p.height = hfrac * ( notchHeight + ( 1 - notchHeight ) * eased );
+            p.width = eased;
+            p.fresh = arrowTint * ( 1 - rise ) * ( 1 - rise );
+            p.line = ( 1 - eased ) * ( 1 - eased );
+        }
+        // the line along the top is a strip of its own (sg_CleanTip)
+        if ( !( mode & gWallRenderMode_Top ) )
+            BeginQuads();
+        sg_CleanTip( point, 2, r, g, b, a, mode );
+    }
+}
 #endif
 
 void gNetPlayerWall::SetEndTime(REAL t){
@@ -2522,6 +2801,9 @@ gNetPlayerWall::gNetPlayerWall(gCycle *cyc,
     obsoleted_=-100;
     gridding=1E+20;
     displayListInhibition_=2;
+#ifndef DEDICATED
+    roundCut_[0] = roundCut_[1] = 0;
+#endif
     MyInitAfterCreation();
 }
 
@@ -2902,6 +3184,9 @@ gNetPlayerWall::gNetPlayerWall(nMessage &m)
     unsigned short cid;
     gridding=1E+20;
     displayListInhibition_=2;
+#ifndef DEDICATED
+    roundCut_[0] = roundCut_[1] = 0;
+#endif
     m.Read(cid);
     cycle_=static_cast<gCycle *>(Object(cid));
 
