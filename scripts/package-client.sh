@@ -93,7 +93,7 @@ done
 
 # Keep the archive self-contained. These are the only source-tree directories
 # the runtime is allowed to read from the package.
-RUNTIME_DATA_DIRS="config language models replays sound textures"
+RUNTIME_DATA_DIRS="config language models replays shaders sound textures"
 for data_dir in ${RUNTIME_DATA_DIRS}; do
   if test ! -d "${ROOT}/${data_dir}"; then
     echo "error: runtime data directory not found: ${ROOT}/${data_dir}" >&2
@@ -138,6 +138,7 @@ for required_file in \
   language/languages.txt \
   models/cycle_body.mod \
   resource/included/map.dtd \
+  shaders/tonemap.frag \
   sound/cyclrun.wav \
   textures/title.png \
   textures/ui/space-grotesk.fnt; do

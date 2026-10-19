@@ -103,7 +103,9 @@ librender_a_SOURCES=${render_extra} render/rConsole.cpp render/rConsoleGraph.cpp
     render/rDisplayList.h render/rDisplayList.cpp \
 	render/rRender.h render/rScreen.cpp render/rScreen.h render/rSDL.h render/rSysdep.cpp render/rSysdep.h\
 	render/rTexture.cpp render/rTexture.h render/rViewport.cpp render/rViewport.h\
-	render/rGLExt.cpp render/rGLExt.h render/rGPUTimer.cpp render/rGPUTimer.h
+	render/rGLExt.cpp render/rGLExt.h render/rShader.cpp render/rShader.h\
+	render/rFramebuffer.cpp render/rFramebuffer.h render/rGPUTimer.cpp render/rGPUTimer.h\
+	render/rPost.cpp render/rPost.h
 
 libtron_a_SOURCES=tron/gAIBase.cpp tron/gAIBase.h tron/gAICharacter.cpp tron/gAICharacter.h tron/gArena.cpp tron/gArena.h\
 	tron/gCamera.cpp tron/gCamera.h tron/gColourStudio.cpp tron/gColourStudio.h tron/gCycle.cpp tron/gCycle.h tron/gCycleMovement.cpp\

@@ -124,7 +124,7 @@ Source base revision: ${SOURCE_REVISION}
 Corresponding source: ${SOURCE_URL}
 EOF
 
-for data_dir in config language models replays sound textures; do
+for data_dir in config language models replays shaders sound textures; do
   cp -R "${ROOT}/${data_dir}" "${RESOURCES}/${data_dir}"
 done
 mkdir -p "${RESOURCES}/resource"
@@ -135,6 +135,7 @@ for required_file in \
   language/languages.txt \
   models/cycle_body.mod \
   resource/included/map.dtd \
+  shaders/tonemap.frag \
   sound/cyclrun.wav \
   textures/ui/space-grotesk.fnt \
   replays/menu_fort.rclreplay \

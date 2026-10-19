@@ -7,6 +7,7 @@ texturedir=${armadatadir}
 sounddir=${armadatadir}
 languagedir=${armadatadir}
 modeldir=${armadatadir}
+shaderdir=${armadatadir}
 
 # include $(top_srcdir)/Makefile.paths
 include $(top_srcdir)/Makefile.manual
@@ -15,7 +16,7 @@ include $(top_srcdir)/Makefile.manual
 EXTRA_DIST = README-DEVELOPER README-Subversion README-SDL README-RCL.md \
 AGENTS.md COPYING.txt THIRD_PARTY_NOTICES.md \
 armagetron.kdevelop armagetron.kdevelop.pcs armagetron.kdevses tron.ico \
-models sound textures bootstrap.sh accustomdir.m4 fingerprint Dockerfile language \
+models sound textures shaders bootstrap.sh accustomdir.m4 fingerprint Dockerfile language \
 docs/CLIENT_ARCHITECTURE.md docs/CLIENT_BETA.md docs/DEVLOG.md docs/INDEX.md \
 docs/VERSION_POLICY.md resources/client-beta/manifest.example.json \
 build-macos.sh scripts/build-linux-client.sh scripts/build-windows-client.sh \
@@ -65,6 +66,8 @@ nobase_sound_DATA=sound/cyclrun.wav sound/cyclhigh.wav sound/cyclboost.wav \
 	sound/README-RCL.md
 
 nobase_model_DATA=models/cycle_body.mod models/cycle_front.mod models/cycle_rear.mod
+
+nobase_shader_DATA=shaders/post.vert shaders/tonemap.frag
 endif
 
 # generate configure.ac with version hardcoded and ChangeLog

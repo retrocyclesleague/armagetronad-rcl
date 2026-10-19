@@ -31,7 +31,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "eCamera.h"
 #include "eSound.h"
 #include "rScreen.h"
-#include "rGPUTimer.h"
+#include "rPost.h"
 #include "eGameObject.h"
 #include "uInputQueue.h"
 //#include "eTess.h"
@@ -1922,18 +1922,22 @@ void eCamera::Render(){
         if (zNear < -.1 )
             zNear = .1;
 
-        // the GPU's time for the world (RCL_RENDER_STATS, RCL_FRAME_LOG)
-        rGPUTimer::Begin( rGPUTimer::Pass_World );
-        grid->Render( this, id, zNear );
-        rGPUTimer::End( rGPUTimer::Pass_World );
-
-        zNear *= .3f;
-        if ( zNear < 0.0001f )
         {
-            zNear = 0.0001f;
-        }
+            // The world is a scene of its own: with the new renderer it is
+            // drawn into a picture and put on the screen through the post
+            // chain (rPost); what is drawn over it afterwards is not.
+            rScene scene;
 
-        if (c) c->RenderCockpitVirtual();
+            grid->Render( this, id, zNear );
+
+            zNear *= .3f;
+            if ( zNear < 0.0001f )
+            {
+                zNear = 0.0001f;
+            }
+
+            if (c) c->RenderCockpitVirtual();
+        }
         if (!draw_center && c) c->AddToList();
 
         /*

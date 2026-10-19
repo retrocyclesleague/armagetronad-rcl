@@ -36,6 +36,7 @@ void sg_ColourStudio(){}
 #include "gWall.h"
 #include "nNetwork.h"
 #include "rGL.h"
+#include "rPost.h"
 #include "rRender.h"
 #include "rScreen.h"
 #include "tConfiguration.h"
@@ -437,6 +438,9 @@ namespace
         glDepthMask( GL_TRUE );
         glClear( GL_DEPTH_BUFFER_BIT );
 
+        // a scene of its own, as the world is (rPost)
+        rPost::BeginScene();
+
         bool const wasDark = sr_cleanDark;
         bool const classic = look == 2;
         sr_cleanDark = look != 0;
@@ -562,6 +566,7 @@ namespace
         if ( !classic || !sg_RenderClassicCycleAt( pos, dir, bike[0], bike[1], bike[2] ) )
             sg_RenderCleanCycleAt( pos, dir, bike[0], bike[1], bike[2] );
 
+        rPost::EndScene();
 
         sr_cleanDark = wasDark;
         glPopAttrib();

@@ -31,6 +31,7 @@ bool gMenuReplay::Render() { return false; }
 
 #include "defs.h"
 #include "rGL.h"
+#include "rPost.h"
 #include "rRender.h"
 #include "rScreen.h"
 #include "tConfiguration.h"
@@ -1045,6 +1046,10 @@ bool gMenuReplay::Render()
     glDepthMask(GL_TRUE);
     glClear(GL_DEPTH_BUFFER_BIT);
 
+    // a scene of its own, as the world is (rPost); the cut through the
+    // floor's colour belongs to it
+    rPost::BeginScene();
+
     ApplyCamera(pose);
     DrawScene(round, t, pose.eye);
 
@@ -1070,6 +1075,8 @@ bool gMenuReplay::Render()
         Vertex(-1, 1);
         RenderEnd();
     }
+
+    rPost::EndScene();
 
     sr_cleanDark = wasDark;
 
