@@ -77,6 +77,12 @@ static tConfItem< REAL > sg_cycleLod2Conf( "RCL_CYCLE_LOD2", sg_cycleLod2 );
 static REAL sg_cycleFar = 24;
 static tConfItem< REAL > sg_cycleFarConf( "RCL_CYCLE_FAR", sg_cycleFar );
 
+// From this length on the screen down to RCL_CYCLE_FAR, the cycle takes on
+// its bike's paint more and more, until it looks as the light cycle drawn
+// there does, so that it reads as its colour from the game's camera.
+static REAL sg_cycleTintPx = 160;
+static tConfItem< REAL > sg_cycleTintPxConf( "RCL_CYCLE_TINT_PX", sg_cycleTintPx );
+
 // The sun as a light of its own, by this share of its strength, on top of the
 // cubemaps, which hold the sun already; without them it is always there.
 static REAL sg_cycleSun = 0;
@@ -1086,6 +1092,16 @@ bool sg_RenderCycleMesh( gCycleMeshPose const & pose, REAL r, REAL g, REAL b )
     bool const cubes = env.levels > 0 && sg_cycleEnv > 0;
     bool const maps = sg_cycleMaps > 0;
 
+    // Far away, the bike's paint (sr_CleanPaint, as the light cycle's body
+    // takes it) by its length on the screen, reaching at RCL_CYCLE_FAR as much
+    // as the light cycle has there, so the one meets the other.
+    REAL pr = r, pg = g, pb = b;
+    sr_CleanPaint( pr, pg, pb );
+    float tint = 0;
+    if ( sg_cycleTintPx > sg_cycleFar )
+        tint = std::max( 0.f, std::min( 1.f, float( ( sg_cycleTintPx - pixels ) / ( sg_cycleTintPx - sg_cycleFar ) ) ) );
+    tint *= float( sg_LightCycleRemote( sg_cycleFar ) );
+
     // the bike's colour as light, as the light cycle's lights burn
     float glow[3], light[3];
     sg_LightCycleLightColour( r, g, b, glow );
@@ -1155,6 +1171,8 @@ bool sg_RenderCycleMesh( gCycleMeshPose const & pose, REAL r, REAL g, REAL b )
                    maps && lod.hasOrm ? 1.f : 0.f, maps && lod.hasEmit ? 1.f : 0.f );
     sg_shader.Set( "u_eye", eye[0], eye[1], eye[2] );
     sg_shader.Set( "u_light", light[0], light[1], light[2] );
+    sg_shader.Set( "u_paint", float( pr ), float( pg ), float( pb ) );
+    sg_shader.Set( "u_tint", tint );
 
     sg_Bind( 5, GL_TEXTURE_2D, sg_mesh.brdf );
     sg_Bind( 4, RGL_TEXTURE_CUBE_MAP, cubes ? env.irradiance : 0 );

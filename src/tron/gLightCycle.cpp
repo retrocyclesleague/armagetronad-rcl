@@ -611,6 +611,11 @@ REAL sg_LightCycleGlow()
     return sg_CycleGlow();
 }
 
+REAL sg_LightCycleRemote( REAL pixels )
+{
+    return std::max( 0.0f, std::min( 1.0f, float( 60 - pixels ) / 40 ) );
+}
+
 void sg_RenderLightCycle( eCoord const & dir, REAL r, REAL g, REAL b )
 {
     if ( !sg_mesh.built )
@@ -619,7 +624,7 @@ void sg_RenderLightCycle( eCoord const & dir, REAL r, REAL g, REAL b )
         return;
 
     // from this many pixels long on the screen down, the body gives way to the bike's colour
-    float const remote = std::max( 0.0f, std::min( 1.0f, ( 60 - Pixels() ) / 40 ) );
+    float const remote = sg_LightCycleRemote( Pixels() );
 
     // the sun, in the cycle's frame
     eCoord toSun;

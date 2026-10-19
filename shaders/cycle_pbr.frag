@@ -34,6 +34,8 @@ uniform vec3 u_ground;
 uniform vec3 u_base;                // the material, where there are no maps
 uniform vec4 u_surface;             // roughness, metal, clear gloss, emissive
 uniform vec3 u_light;               // the bike's colour as light, glow and all
+uniform vec3 u_paint;               // the bike's colour as the arena paints it (display values)
+uniform float u_tint;               // how far the cycle has given way to its paint, far away
 
 varying vec3 v_pos;
 varying vec3 v_normal;
@@ -177,6 +179,18 @@ void main()
     }
 
     colour += Sun( n, v, base, rough, metal );
+
+    // Far away, where it is a few pixels long, the cycle takes on its paint,
+    // lit flat by the sun as the light cycle's body is (gLightCycle.cpp), so
+    // its colour still says whose it is and it meets the light cycle drawn
+    // further off. The lights stay lights.
+    if ( u_tint > 0.0 )
+    {
+        float lit = clamp( ( dot( normal, u_sun ) + 0.15 ) / 0.75, 0.0, 1.0 );
+        vec3 far = pow( u_paint * ( 0.64 + 0.36 * lit ), vec3( 2.2 ) );
+        colour = mix( colour, far, u_tint * ( 1.0 - emit ) );
+    }
+
     colour += emit * u_light;
     gl_FragColor = vec4( pow( max( colour, vec3( 0.0 ) ), vec3( 1.0 / 2.2 ) ), 1.0 );
 }

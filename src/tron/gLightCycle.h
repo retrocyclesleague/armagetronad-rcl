@@ -38,6 +38,10 @@ void sg_LightCycleLightColour( REAL r, REAL g, REAL b, float * glow );
 
 //! how brightly the lights glow with the new renderer (RCL_GLOW_CYCLE), as rEmissive takes it
 REAL sg_LightCycleGlow();
+
+//! how far the light cycle's body has given way to the bike's paint at this
+//! length on the screen, 0 to 1 (from 60 pixels down to 20)
+REAL sg_LightCycleRemote( REAL pixels );
 #endif
 
 #endif
