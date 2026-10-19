@@ -5398,12 +5398,17 @@ static tConfItem<int> sg_cycleModelConf( "RCL_CYCLE_MODEL", sg_cycleModel );
 static REAL sg_cycleTailGap = -1;
 static tConfItem< REAL > sg_cycleTailGapConf( "RCL_CYCLE_TAIL_GAP", sg_cycleTailGap );
 
-REAL sg_CleanWallStart()
+REAL sg_CleanWallStart( int model )
 {
     static const REAL notch = .9f;
-    if ( sg_cycleModel != 2 || sg_cycleTailGap == 0 || !sg_CycleMeshDraws() )
+    if ( model != 2 || sg_cycleTailGap == 0 || !sg_CycleMeshDraws() )
         return notch;
     return sg_cycleTailGap > 0 ? sg_cycleTailGap : sg_CycleMeshTailGap();
+}
+
+REAL sg_CleanWallStart()
+{
+    return sg_CleanWallStart( sg_cycleModel );
 }
 
 // What every other client shows of a bike. The classic cycle's texture is
@@ -5610,6 +5615,27 @@ void sg_RenderCleanCycleAt( eCoord const & pos, eCoord const & dir, REAL r, REAL
     gCycleMeshPose pose;
     sg_CycleMeshPose( pose, pos, dir, 1, 0, 0 );
     sg_RenderCleanCycle( dir, color, pose );
+    ModelMatrix();
+    glPopMatrix();
+}
+
+void sg_RenderMeshCycleAt( eCoord const & pos, eCoord const & dir, REAL lean, REAL distance,
+                           REAL r, REAL g, REAL b )
+{
+    // leaning as gCycle::Render leans a cycle by its skew, in the frame the
+    // mesh's pose has too
+    REAL const c = cos( lean ), s = sin( lean );
+    sg_CleanCycleFrame( pos, dir );
+    GLfloat const sk[4][4] = { { 1, 0, 0, 0 },
+                               { 0, c, s, 0 },
+                               { 0, -s, c, 0 },
+                               { 0, 0, 0, 1 } };
+    glMultMatrixf( &sk[0][0] );
+    gCycleMeshPose pose;
+    sg_CycleMeshPose( pose, pos, dir, c, s, distance );
+    sg_BikeColor( r, g, b );
+    if ( !sg_RenderCycleMesh( pose, r, g, b ) )
+        sg_RenderLightCycle( dir, r, g, b );
     ModelMatrix();
     glPopMatrix();
 }

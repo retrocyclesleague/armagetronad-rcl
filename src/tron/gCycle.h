@@ -468,6 +468,13 @@ void sg_CleanSheenEnd();
 void sg_RenderCleanCycleAt( eCoord const & pos, eCoord const & dir, REAL r, REAL g, REAL b );
 void sg_RenderCleanCycleShadowAt( eCoord const & pos, eCoord const & dir );
 
+//! The light cycle mesh (RCL_CYCLE_MODEL 2) whatever that setting says, at a
+//! place and heading, leaning by lean radians (to its right for lean > 0, as
+//! a cycle's skew leans it), its wheels turned by distance, the way come; the
+//! light cycle where the mesh cannot draw, as in the game. For the curve lab.
+void sg_RenderMeshCycleAt( eCoord const & pos, eCoord const & dir, REAL lean, REAL distance,
+                           REAL r, REAL g, REAL b );
+
 //! The colour the classic cycle shows of a cycle's colour, in place: its
 //! texture is tinted through a byte a channel, so a channel set over full
 //! wraps ((17v) mod 256 of a setting v). Channels up to full stay as they are.

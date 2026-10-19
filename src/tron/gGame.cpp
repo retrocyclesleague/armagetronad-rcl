@@ -90,6 +90,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "gRotation.h"
 #include "gLeague.h"
 #include "gColourStudio.h"
+#include "gCurveLab.h"
 #include "gServerHistory.h"
 #include "nSocket.h"
 
@@ -4617,6 +4618,9 @@ static void sg_RclPlayPage()
                           &sg_SinglePlayerGame );
     tNEW( gRclPlayCard )( &page, "$rcl_play_browser_text", "$network_menu_help", "$rcl_play_browser_note",
                           &sg_RclServers );
+    // curved trails, tried on a floor of their own
+    tNEW( gRclPlayCard )( &page, "$rcl_curve_lab_text", "$rcl_curve_lab_help", "$rcl_curve_lab_note",
+                          &sg_CurveLab );
 
     // room under the last row, so the last cards clear the end of the list
     tNEW( gRclPlayHeading )( &page, NULL );
@@ -5450,6 +5454,10 @@ void MainMenu(bool ingame){
 #ifndef DEDICATED
     if ( !ingame )
         MainMenu.SetHero( rows, chip );
+
+    // RCL_CURVE_LAB_START 1: the curve lab, as the main menu first shows
+    if ( !ingame && sg_CurveLabAtStart() )
+        st_ToDo( &sg_CurveLab );
 #endif
 
     MainMenu.Enter();

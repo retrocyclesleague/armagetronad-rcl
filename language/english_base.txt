@@ -2600,6 +2600,9 @@ rcl_play_local_text            Against bots, offline
 rcl_play_local_note            A local game
 rcl_play_browser_text          Every server
 rcl_play_browser_note          The server browser
+rcl_curve_lab_text             Curve lab
+rcl_curve_lab_note             Curved trails, a demo
+rcl_curve_lab_help             Try curved trails: corners drawn round on the classic line, or curves the delay sets. A demo on a floor of its own, with no server; the game itself is unchanged.
 rcl_practice_fort_note         Six a side, bots fill the teams
 rcl_practice_sumobar_note      The beginners' sumobar
 rcl_practice_dojo_note         Sumo against bots

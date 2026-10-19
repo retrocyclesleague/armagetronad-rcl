@@ -318,6 +318,8 @@ REAL sg_CleanTrailGlow();
 //! while that is drawn (RCL_CYCLE_TAIL_GAP; gCycle.cpp). The wall rises from
 //! there as always. Drawing only.
 REAL sg_CleanWallStart();
+//! the same for a cycle drawn as the given RCL_CYCLE_MODEL, whatever the setting is
+REAL sg_CleanWallStart( int model );
 
 //! the marking on the floor that stands for the arena's rim, along one edge of it
 void sg_CleanRimMarking( eCoord const & a, eCoord const & b );
