@@ -82,6 +82,15 @@ static tConfItem< REAL > sg_cycleFarConf( "RCL_CYCLE_FAR", sg_cycleFar );
 static REAL sg_cycleSun = 0;
 static tConfItem< REAL > sg_cycleSunConf( "RCL_CYCLE_SUN", sg_cycleSun );
 
+// The arena's light on the cycle, as a factor; and the most light (in linear
+// units, before exposure) a reflection may bring, so the cubemaps' brightest
+// spots (34 times white in the pale arena, 55 at night) show as bright streaks
+// and not as glowing blobs (0: no limit). The lights are not touched.
+static REAL sg_cycleEnvStrength = 1;
+static tConfItem< REAL > sg_cycleEnvStrengthConf( "RCL_CYCLE_ENV_STRENGTH", sg_cycleEnvStrength );
+static REAL sg_cycleSpecClamp = 4;
+static tConfItem< REAL > sg_cycleSpecClampConf( "RCL_CYCLE_SPEC_CLAMP", sg_cycleSpecClamp );
+
 // 0: leave the cubemaps or the baked maps out, to see what they bring
 static int sg_cycleEnv = 1;
 static tSettingItem< int > sg_cycleEnvConf( "RCL_CYCLE_ENV", sg_cycleEnv );
@@ -1134,6 +1143,8 @@ bool sg_RenderCycleMesh( gCycleMeshPose const & pose, REAL r, REAL g, REAL b )
         sg_shader.Set( "u_envTop", float( env.levels > 0 ? env.levels - 1 : 0 ) );
         sg_shader.Set( "u_brdfMap", sg_mesh.brdf ? 1.f : 0.f );
         sg_shader.Set( "u_envTurn", std::cos( turn ), std::sin( turn ) );
+        sg_shader.Set( "u_envStrength", sg_cycleEnvStrength > 0 ? float( sg_cycleEnvStrength ) : 0.f );
+        sg_shader.Set( "u_specClamp", sg_cycleSpecClamp > 0 ? float( sg_cycleSpecClamp ) : 0.f );
         sg_shader.Set( "u_sun", sun[0], sun[1], sun[2] );
         sg_shader.Set( "u_sunLight", sunColour[0] * sunShare, sunColour[1] * sunShare, sunColour[2] * sunShare );
         sg_shader.Set( "u_sky", sky[0], sky[1], sky[2] );

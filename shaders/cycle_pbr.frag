@@ -21,6 +21,8 @@ uniform float u_envLods;            // the roughness of the last level the bake 
 uniform float u_envTop;             // the last level there is
 uniform float u_brdfMap;
 uniform vec2 u_envTurn;             // cos, sin: the arena turned into the cubemaps' frame
+uniform float u_envStrength;        // the arena's light, times this (RCL_CYCLE_ENV_STRENGTH)
+uniform float u_specClamp;          // the most light a reflection may bring, 0 for no limit (RCL_CYCLE_SPEC_CLAMP)
 
 uniform vec3 u_eye;
 uniform vec3 u_sun;                 // towards the sun
@@ -53,7 +55,7 @@ vec3 Sky( vec3 d )
     return mix( u_horizon, u_ground, min( 1.0, -d.z * 8.0 ) );
 }
 
-vec3 Reflected( vec3 r, float rough )
+vec3 ReflectedRaw( vec3 r, float rough )
 {
     if ( u_envMaps < 0.5 )
         return mix( Sky( r ), 0.5 * ( u_sky + u_ground ), rough * rough );
@@ -66,11 +68,24 @@ vec3 Reflected( vec3 r, float rough )
 #endif
 }
 
+// What a surface reflects of the arena. The cubemaps' brightest spots (the
+// studio panels, the sun) are tens of times white; reflected whole they glow
+// into a blob. Over the limit a reflection is scaled down, keeping its hue,
+// so a panel stays a bright streak.
+vec3 Reflected( vec3 r, float rough )
+{
+    vec3 c = ReflectedRaw( r, rough ) * u_envStrength;
+    float top = max( c.r, max( c.g, c.b ) );
+    if ( u_specClamp > 0.0 && top > u_specClamp )
+        c *= u_specClamp / top;
+    return c;
+}
+
 vec3 Irradiance( vec3 n )
 {
     if ( u_envMaps < 0.5 )
-        return mix( u_ground, mix( u_horizon, u_sky, 0.5 ), n.z * 0.5 + 0.5 );
-    return textureCube( u_irradiance, ToCube( n ) ).rgb;
+        return mix( u_ground, mix( u_horizon, u_sky, 0.5 ), n.z * 0.5 + 0.5 ) * u_envStrength;
+    return textureCube( u_irradiance, ToCube( n ) ).rgb * u_envStrength;
 }
 
 // the split-sum table, or Karis's fit of it (Unreal, 2014)
