@@ -45,8 +45,9 @@ void sg_CycleMeshPose( gCycleMeshPose & pose, eCoord const & pos, eCoord const &
 //! same nose, the same tail the wall leaves, the same length. Returns false
 //! and draws nothing where it cannot: the new renderer is not drawing this
 //! scene, the mesh or its shader could not be had, or the cycle is too small
-//! on the screen for it; the light cycle is drawn then.
-bool sg_RenderCycleMesh( gCycleMeshPose const & pose, REAL r, REAL g, REAL b );
+//! on the screen for it; the light cycle is drawn then. Without farTint it
+//! keeps its own colours however small it is (RCL_CYCLE_TINT_PX).
+bool sg_RenderCycleMesh( gCycleMeshPose const & pose, REAL r, REAL g, REAL b, bool farTint = true );
 
 //! whether the mesh is drawn in the scene being drawn now (the new renderer
 //! draws it, the mesh and its shader are there)

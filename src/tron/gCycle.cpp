@@ -5629,7 +5629,7 @@ void sg_RenderCleanCycleAt( eCoord const & pos, eCoord const & dir, REAL r, REAL
 }
 
 void sg_RenderMeshCycleAt( eCoord const & pos, eCoord const & dir, REAL lean, REAL distance,
-                           REAL r, REAL g, REAL b )
+                           REAL r, REAL g, REAL b, bool farTint )
 {
     // leaning as gCycle::Render leans a cycle by its skew, in the frame the
     // mesh's pose has too
@@ -5643,7 +5643,7 @@ void sg_RenderMeshCycleAt( eCoord const & pos, eCoord const & dir, REAL lean, RE
     gCycleMeshPose pose;
     sg_CycleMeshPose( pose, pos, dir, c, s, distance );
     sg_BikeColor( r, g, b );
-    if ( !sg_RenderCycleMesh( pose, r, g, b ) )
+    if ( !sg_RenderCycleMesh( pose, r, g, b, farTint ) )
         sg_RenderLightCycle( dir, r, g, b );
     ModelMatrix();
     glPopMatrix();

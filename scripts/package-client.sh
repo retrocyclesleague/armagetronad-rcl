@@ -139,6 +139,10 @@ for required_file in \
   models/cycle_body.mod \
   resource/included/map.dtd \
   shaders/tonemap.frag \
+  shaders/cycle_pbr.frag \
+  models/rcl/lightcycle.rclmesh \
+  textures/rcl/brdf_lut_ggx.png \
+  textures/rcl/lightcycle_lod0_basecolor.png \
   sound/cyclrun.wav \
   textures/title.png \
   textures/ui/space-grotesk.fnt; do

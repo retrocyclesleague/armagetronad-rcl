@@ -146,6 +146,15 @@ namespace
         V3 eye, target, up;
     };
 
+    // how far up from the middle the view reaches at a distance of 1: the
+    // player's field of view, as the game's viewports take it (rViewport)
+    float ViewTangent( float aspect )
+    {
+        ePlayer const * const player = ePlayer::PlayerConfig( 0 );
+        float const fov = player && player->startFOV > 10 ? float( player->startFOV ) : 90.f;
+        return tanf( fov * 3.14159265f / 360 ) / std::min( aspect, 5.f / 3.f );
+    }
+
     double Wrapped( double angle )
     {
         double const whole = 4 * sim::quarter;
@@ -196,15 +205,21 @@ namespace
         double clock;               // real time of the last update
         int steps;
         double leaves;              // how far behind the bike its wall leaves, as last drawn
+        int slow;                   // 0 real time, 1 half, 2 a quarter (S)
+        float aspect;               // the window's, as last drawn
+        // top-down: the stretch of floor framed, its middle and half its size
+        double frameX, frameY, frameHalfX, frameHalfY;
+        bool snapFrame;
 
         Lab()
         : model( Model_Look ), speed( 30 ), delay( .25 ), roundness( .15 ), roundLook( .4 ),
-          ghostShown( true ), dark( !sr_cleanArena || sr_cleanDark ), camera( Camera_Chase ),
+          ghostShown( false ), dark( !sr_cleanArena || sr_cleanDark ), camera( Camera_Chase ),
           demo( true ), demoIndex( 0 ), demoWaiting( false ), demoAt( 1 ), keysAt( -100 ),
           hits( 0 ), touching( false ), offMeasured( 0 ), fading( 0 ), fadeStart( 0 ),
           chaseAngle( sim::quarter ), highAngle( sim::quarter ), orbitAngle( -2.2 ),
           previousCamera( Camera_Chase ), cameraSince( -100 ), snapCamera( true ),
-          clock( tSysTimeFloat() ), steps( 0 ), leaves( .9 )
+          clock( tSysTimeFloat() ), steps( 0 ), leaves( .9 ), slow( 0 ), aspect( 16.f / 9 ),
+          frameX( 0 ), frameY( 0 ), frameHalfX( 15 ), frameHalfY( 15 ), snapFrame( true )
         {
             Configure();
             Restart();
@@ -244,7 +259,10 @@ namespace
             demoWaiting = false;
             demoAt = 1;
             snapCamera = true;
+            snapFrame = true;
         }
+
+        double TimeScale() const { return slow == 0 ? 1 : slow == 1 ? .5 : .25; }
 
         void AddKey( int direction, double now )
         {
@@ -303,11 +321,11 @@ namespace
                 return;
             if ( demoWaiting )
             {
-                // a straight after each, longer for slow turns
+                // a straight after each, a second and a half or more, so it can be seen
                 if ( bike.Idle() && ghost.Idle() )
                 {
                     demoWaiting = false;
-                    demoAt = bike.time + std::max( 1.1, 1.5 * delay + .6 );
+                    demoAt = bike.time + std::max( 1.5, 1 + 2 * delay );
                 }
                 return;
             }
@@ -387,8 +405,9 @@ namespace
             if ( dt > .1 )
                 dt = .1;
 
-            // both riders on the same clock; the demo and the hits in step with them
-            double const target = bike.time + dt;
+            // both riders on the same clock, slowed down if asked; the demo
+            // and the hits in step with them
+            double const target = bike.time + dt * TimeScale();
             while ( bike.time < target )
             {
                 DemoStep( now );
@@ -426,6 +445,66 @@ namespace
             // the game's custom camera turns at 4 (CAMERA_CUSTOM_TURN_SPEED)
             highAngle += Wrapped( yaw - highAngle ) * ( 1 - std::exp( -dt * 4 ) );
             orbitAngle += dt * .3;
+            Frame( dt );
+        }
+
+        // the box round the last `way` of a rider's trail, to its head
+        static void Around( sim::Rider const & rider, double way, double & lowX, double & lowY,
+                            double & highX, double & highY )
+        {
+            double const from = rider.along - way;
+            sim::Vertex const ends[2] = { sim::TrailAt( rider, from ), sim::TrailPoint( rider, rider.trail.size() ) };
+            for ( int e = 0; e < 2; ++e )
+            {
+                lowX = std::min( lowX, ends[e].x );
+                highX = std::max( highX, ends[e].x );
+                lowY = std::min( lowY, ends[e].y );
+                highY = std::max( highY, ends[e].y );
+            }
+            for ( size_t i = 0; i < rider.trail.size(); ++i )
+            {
+                sim::Vertex const & v = rider.trail[i];
+                if ( v.along < from )
+                    continue;
+                lowX = std::min( lowX, v.x );
+                highX = std::max( highX, v.x );
+                lowY = std::min( lowY, v.y );
+                highY = std::max( highY, v.y );
+            }
+        }
+
+        // Top-down frames what was just ridden, not only the bike: the last
+        // four seconds of both trails and the bike, with room round them and
+        // never less than 30 across. It follows smoothly, takes room at once
+        // and gives it back slowly, so it does not pump; the bike stays in.
+        void Frame( double dt )
+        {
+            double lowX = bike.x, highX = bike.x, lowY = bike.y, highY = bike.y;
+            double const way = speed * 4;
+            Around( bike, way, lowX, lowY, highX, highY );
+            if ( ghostShown )
+                Around( ghost, way, lowX, lowY, highX, highY );
+            static const double margin = 8, least = 15;
+            double const x = ( lowX + highX ) * .5, y = ( lowY + highY ) * .5;
+            double const halfX = std::max( least, ( highX - lowX ) * .5 + margin );
+            double const halfY = std::max( least, ( highY - lowY ) * .5 + margin );
+            if ( snapFrame )
+            {
+                frameX = x;
+                frameY = y;
+                frameHalfX = halfX;
+                frameHalfY = halfY;
+                snapFrame = false;
+                return;
+            }
+            double const follow = 1 - std::exp( -dt / .4 );
+            double const grow = 1 - std::exp( -dt / .25 ), give = 1 - std::exp( -dt / 1.6 );
+            frameX += ( x - frameX ) * follow;
+            frameY += ( y - frameY ) * follow;
+            frameHalfX += ( halfX - frameHalfX ) * ( halfX > frameHalfX ? grow : give );
+            frameHalfY += ( halfY - frameHalfY ) * ( halfY > frameHalfY ? grow : give );
+            frameHalfX = std::max( frameHalfX, std::fabs( bike.x - frameX ) + margin * .5 );
+            frameHalfY = std::max( frameHalfY, std::fabs( bike.y - frameY ) + margin * .5 );
         }
 
         Pose ShotOf( Camera which ) const
@@ -455,9 +534,12 @@ namespace
             }
             case Camera_Top:
             {
-                // straight down, north up, high enough for a few turns around
-                pose.eye = at + Make( 0, 0, float( 55 + 2 * DelayDistance() ) );
-                pose.target = at;
+                // straight down, north up, over what was just ridden (Frame)
+                float const tall = ViewTangent( aspect ), wide = tall * aspect;
+                float const height = float( std::max( frameHalfY / tall, frameHalfX / wide ) );
+                V3 const middle = Make( float( frameX ), float( frameY ), 0 );
+                pose.eye = middle + Make( 0, 0, height );
+                pose.target = middle;
                 pose.up = Make( 0, 1, 0 );
                 break;
             }
@@ -512,11 +594,7 @@ namespace
 
     void ApplyCamera( Pose const & pose, float aspect )
     {
-        // the player's field of view, as the game's viewports take it
-        ePlayer const * const player = ePlayer::PlayerConfig( 0 );
-        float const fov = player && player->startFOV > 10 ? float( player->startFOV ) : 90.f;
-        float const ratio = std::min( aspect, 5.f / 3.f );
-        float const top = tanf( fov * 3.14159265f / 360 ) / ratio;
+        float const top = ViewTangent( aspect );
         float const nearPlane = .3f;
         double const farPlane = 1E+20;
 
@@ -766,6 +844,7 @@ namespace
         if ( viewport[2] < 16 || viewport[3] < 16 )
             return;
         float const aspect = float( viewport[2] ) / viewport[3];
+        lab.aspect = aspect;
 
         RenderEnd();
         ProjMatrix();
@@ -800,6 +879,7 @@ namespace
             for ( int i = 0; i < 4; ++i )
                 sg_CleanRimMarking( corner[i], corner[i + 1] );
 
+            // the bike in its own colours however small: the lab is for looking at it
             REAL bike[3], trail[3];
             PlayerColours( bike, trail );
             eCoord const pos( REAL( lab.bike.x ), REAL( lab.bike.y ) );
@@ -813,7 +893,7 @@ namespace
                 glPushMatrix();
                 glScalef( 1, 1, -1 );
                 glFrontFace( GL_CW );
-                sg_RenderMeshCycleAt( pos, dir, lean, distance, bike[0], bike[1], bike[2] );
+                sg_RenderMeshCycleAt( pos, dir, lean, distance, bike[0], bike[1], bike[2], false );
                 ModelMatrix();
                 glPopMatrix();
                 glFrontFace( GL_CCW );
@@ -875,7 +955,7 @@ namespace
             glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
             glDisable( GL_CULL_FACE );
             DrawTrail( bikePath, leaves, trail, 2 );
-            sg_RenderMeshCycleAt( pos, dir, lean, distance, bike[0], bike[1], bike[2] );
+            sg_RenderMeshCycleAt( pos, dir, lean, distance, bike[0], bike[1], bike[2], false );
 
             // the line along the trail's top, as light, where the scene can glow
             if ( rPost::Glows( sg_CleanTrailGlow() ) )
@@ -971,10 +1051,11 @@ namespace
         else
             std::snprintf( mode, sizeof( mode ), "by hand%s%s \xb7 0 or space for the demo", lab.showing.empty() ? "" : ": ",
                            lab.showing.c_str() );
-        std::snprintf( view, sizeof( view ), "camera %s \xb7 arena %s \xb7 ghost %s", sg_cameraNames[ lab.camera ],
-                       lab.dark ? "night" : "pale", lab.ghostShown ? "on" : "off" );
+        std::snprintf( view, sizeof( view ), "camera %s \xb7 arena %s \xb7 ghost %s \xb7 time %gx",
+                       sg_cameraNames[ lab.camera ], lab.dark ? "night" : "pale", lab.ghostShown ? "on" : "off",
+                       lab.TimeScale() );
         static char const * const help1 = "left right turn \xb7 1 2 3 4 presets, shift mirrors \xb7 0 space demo \xb7 [ ] delay \xb7 - = speed \xb7 , . roundness";
-        static char const * const help2 = "t model \xb7 g ghost \xb7 c camera \xb7 l arena \xb7 r reset \xb7 esc back";
+        static char const * const help2 = "t model \xb7 g ghost \xb7 c camera \xb7 l arena \xb7 s slow motion \xb7 r reset \xb7 esc back";
 
         // from the foot up
         static const REAL line = 21;
@@ -1114,6 +1195,8 @@ namespace
                 {
                     // another way of turning starts the run again: one trail, one rule
                     lab_.model = Model( ( lab_.model + 1 ) % Model_Count );
+                    // look only rides the ghost's own line: there it would only double the wall
+                    lab_.ghostShown = lab_.model != Model_Look;
                     lab_.Configure();
                     lab_.Restart();
                     uMenu::MenuSound( uMenu::Sound_Adjust );
@@ -1137,6 +1220,13 @@ namespace
                 if ( !again )
                 {
                     lab_.dark = !lab_.dark;
+                    uMenu::MenuSound( uMenu::Sound_Adjust );
+                }
+                return;
+            case SDLK_s:
+                if ( !again )
+                {
+                    lab_.slow = ( lab_.slow + 1 ) % 3;
                     uMenu::MenuSound( uMenu::Sound_Adjust );
                 }
                 return;

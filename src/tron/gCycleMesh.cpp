@@ -79,9 +79,13 @@ static tConfItem< REAL > sg_cycleFarConf( "RCL_CYCLE_FAR", sg_cycleFar );
 
 // From this length on the screen down to RCL_CYCLE_FAR, the cycle takes on
 // its bike's paint more and more, until it looks as the light cycle drawn
-// there does, so that it reads as its colour from the game's camera.
-static REAL sg_cycleTintPx = 160;
+// there does, so that it reads as its colour from the game's camera. For
+// specks: at 160 a cycle in plain view, 60 to 100 pixels long, was a blob of
+// paint. A profile that saved that first default is moved to this one, once.
+static REAL sg_cycleTintPx = 48;
 static tConfItem< REAL > sg_cycleTintPxConf( "RCL_CYCLE_TINT_PX", sg_cycleTintPx );
+static bool sg_cycleTintMoved = false;
+static tConfItem< bool > sg_cycleTintMovedConf( "RCL_CYCLE_TINT_MOVED", sg_cycleTintMoved );
 
 // The sun as a light of its own, by this share of its strength, on top of the
 // cubemaps, which hold the sun already; without them it is always there.
@@ -1112,7 +1116,7 @@ REAL sg_CycleMeshTailGap()
     return ( 1.5f - x ) * .5f;
 }
 
-bool sg_RenderCycleMesh( gCycleMeshPose const & pose, REAL r, REAL g, REAL b )
+bool sg_RenderCycleMesh( gCycleMeshPose const & pose, REAL r, REAL g, REAL b, bool farTint )
 {
 #ifndef RGL_EXT_AVAILABLE
     (void)pose; (void)r; (void)g; (void)b;
@@ -1206,12 +1210,20 @@ bool sg_RenderCycleMesh( gCycleMeshPose const & pose, REAL r, REAL g, REAL b )
     // Far away, the bike's paint (sr_CleanPaint, as the light cycle's body
     // takes it) by its length on the screen, reaching at RCL_CYCLE_FAR as much
     // as the light cycle has there, so the one meets the other.
+    if ( !sg_cycleTintMoved )
+    {
+        if ( sg_cycleTintPx == 160 )
+            sg_cycleTintPx = 48;
+        sg_cycleTintMoved = true;
+    }
     REAL pr = r, pg = g, pb = b;
     sr_CleanPaint( pr, pg, pb );
     float tint = 0;
     if ( sg_cycleTintPx > sg_cycleFar )
         tint = std::max( 0.f, std::min( 1.f, float( ( sg_cycleTintPx - pixels ) / ( sg_cycleTintPx - sg_cycleFar ) ) ) );
     tint *= float( sg_LightCycleRemote( sg_cycleFar ) );
+    if ( !farTint )
+        tint = 0;
 
     // the bike's colour as light, as the light cycle's lights burn
     float glow[3], light[3];

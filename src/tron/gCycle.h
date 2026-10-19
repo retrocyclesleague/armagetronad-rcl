@@ -472,9 +472,10 @@ void sg_RenderCleanCycleShadowAt( eCoord const & pos, eCoord const & dir );
 //! The light cycle mesh (RCL_CYCLE_MODEL 2) whatever that setting says, at a
 //! place and heading, leaning by lean radians (to its right for lean > 0, as
 //! a cycle's skew leans it), its wheels turned by distance, the way come; the
-//! light cycle where the mesh cannot draw, as in the game. For the curve lab.
+//! light cycle where the mesh cannot draw, as in the game. For the curve lab;
+//! without farTint the mesh never takes on its paint far away.
 void sg_RenderMeshCycleAt( eCoord const & pos, eCoord const & dir, REAL lean, REAL distance,
-                           REAL r, REAL g, REAL b );
+                           REAL r, REAL g, REAL b, bool farTint = true );
 
 //! The colour the classic cycle shows of a cycle's colour, in place: its
 //! texture is tinted through a byte a channel, so a channel set over full
