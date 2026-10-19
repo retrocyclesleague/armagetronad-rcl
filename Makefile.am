@@ -77,10 +77,6 @@ nobase_shader_DATA=shaders/post.vert shaders/bloom_down.frag shaders/bloom_up.fr
 nobase_rcltexture_DATA=textures/rcl/brdf_lut_ggx.png \
 	textures/rcl/lightcycle_lod0_normal.png textures/rcl/lightcycle_lod0_basecolor.png \
 	textures/rcl/lightcycle_lod0_ao.png textures/rcl/lightcycle_lod0_roughness.png textures/rcl/lightcycle_lod0_mask.png \
-	textures/rcl/lightcycle_lod1_normal.png textures/rcl/lightcycle_lod1_basecolor.png \
-	textures/rcl/lightcycle_lod1_ao.png textures/rcl/lightcycle_lod1_roughness.png textures/rcl/lightcycle_lod1_mask.png \
-	textures/rcl/lightcycle_lod2_normal.png textures/rcl/lightcycle_lod2_basecolor.png \
-	textures/rcl/lightcycle_lod2_ao.png textures/rcl/lightcycle_lod2_roughness.png textures/rcl/lightcycle_lod2_mask.png \
 	textures/rcl/env_pale_irradiance.hdr textures/rcl/env_pale_spec_m0.hdr textures/rcl/env_pale_spec_m1.hdr \
 	textures/rcl/env_pale_spec_m2.hdr textures/rcl/env_pale_spec_m3.hdr textures/rcl/env_pale_spec_m4.hdr \
 	textures/rcl/env_pale_spec_m5.hdr \
