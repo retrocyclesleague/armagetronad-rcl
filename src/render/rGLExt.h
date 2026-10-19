@@ -76,6 +76,7 @@ typedef GLuint64EXT rGLtime;
 #define RGL_QUERY_RESULT               0x8866
 #define RGL_QUERY_RESULT_AVAILABLE     0x8867
 #define RGL_RGB16F                     0x881B
+#define RGL_R11F_G11F_B10F             0x8C3A
 #define RGL_TEXTURE_CUBE_MAP           0x8513
 #define RGL_TEXTURE_CUBE_MAP_POSITIVE_X 0x8515
 #define RGL_TEXTURE_CUBE_MAP_SEAMLESS  0x884F
@@ -102,6 +103,7 @@ namespace rGLExt
     int MaxSamples();               //!< the most samples a renderbuffer can have
     bool FloatColour();             //!< half float colour targets that keep values over 1
     bool FloatTextures();           //!< half float textures (light over 1 in a cubemap)
+    bool PackedFloat();             //!< R11F_G11F_B10F colour: floats in 32 bits a pixel, no alpha
     bool SeamlessCube();            //!< cubemaps filtered across their faces' edges
     bool TimerQueries();            //!< GPU time spent between two points
     char const * Missing();         //!< what is missing of the above, for the console; empty if nothing

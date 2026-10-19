@@ -25,19 +25,30 @@ of the License, or (at your option) any later version.
 
 #include <string>
 
+// The colour a picture is kept in: 8 bits a channel; half floats, where
+// values over 1 are wanted; or floats packed in 32 bits a pixel, which hold
+// light over 1 at half the bandwidth but have no alpha (the clean arena
+// gathers its shadows in alpha, so a scene there needs one).
+enum rColourFormat
+{
+    rColour_RGBA8 = 0,
+    rColour_RGBA16F,
+    rColour_R11G11B10F
+};
+
 // A picture drawn into instead of the screen. Single-sampled, its colour is a
 // texture the post chain reads; multisampled, colour and depth are
 // renderbuffers, resolved into a single-sampled one before anything reads
-// them. The colour is half float where values over 1 are wanted, else 8 bits
-// a channel; both have alpha, which the clean arena gathers its shadows in.
+// them.
 class rFramebuffer
 {
 public:
     rFramebuffer();
     ~rFramebuffer();
 
-    //! makes it anew; depthBits 0 for none. On failure says why and holds nothing.
-    bool Create( int width, int height, bool floatColour, int samples, int depthBits, std::string & error );
+    //! makes it anew (format an rColourFormat; depthBits 0 for none). On failure says why and holds nothing.
+    bool Create( int width, int height, int format, int samples, int depthBits, std::string & error );
+    static char const * FormatName( int format );
     //! deletes what it holds; the context must still be there
     void Release();
     //! drops what it holds without deleting it: its context is gone
@@ -59,7 +70,8 @@ public:
     int Width() const { return width_; }
     int Height() const { return height_; }
     int Samples() const { return samples_; }
-    bool Float() const { return float_; }
+    bool Float() const { return format_ != rColour_RGBA8; }
+    int Format() const { return format_; }
     int DepthBits() const { return depthBits_; }
 
 private:
@@ -68,7 +80,7 @@ private:
 
     unsigned int framebuffer_, texture_, colour_, depth_;
     int width_, height_, samples_, depthBits_;
-    bool float_;
+    int format_;
 };
 
 #endif // DEDICATED

@@ -56,6 +56,16 @@ static tSettingItem< int > sr_renderFailConf( "RCL_RENDER_FAIL", sr_renderFail )
 static int sr_hdr = 1;
 static tConfItem< int > sr_hdrConf( "RCL_HDR", sr_hdr );
 
+// The float colour: 0 picks, 1 half floats with alpha (RGBA16F) throughout, 2
+// floats packed in 32 bits (R11G11B10F: half the bandwidth, no alpha) for the
+// scenes too. Picking takes the packed one for the glow's chain only. The
+// scenes keep alpha: the clean arena gathers its shadows there
+// (sg_ShadowsBegin in gCycle.cpp; the menu's replay and the colour studio do
+// as well, whichever arena the player has), and without it they are drawn
+// wall by wall and double up where walls overlap. 2 shows that.
+static int sr_hdrFormat = 0;
+static tConfItem< int > sr_hdrFormatConf( "RCL_HDR_FORMAT", sr_hdrFormat );
+
 // The view transform: 0 none (clipped at white), 1 AgX as Blender has it, 2
 // the game's own colours with only what goes over white rolled off. 2 by
 // default: AgX turns a #ffff88 trail tan and the pale arena grey, and a
@@ -103,7 +113,7 @@ namespace
         rFramebuffer bloom[ sr_levels ];
         bool bloomReady;
         bool bloomFailed;       // could not be made: the session goes without glow
-        bool hdrWanted;         // what the targets were made for
+        int formatWanted;       // what the targets were made for
         int samplesWanted;
         std::string notes;      // what had to be given up, for the overlay
 
@@ -117,7 +127,7 @@ namespace
 
         gPost()
         : failed( false ), shadersTried( false ), screenDepthBits( -1 ), reloadCheckedAt( 0 ),
-          bloomReady( false ), bloomFailed( false ), hdrWanted( false ), samplesWanted( 0 ),
+          bloomReady( false ), bloomFailed( false ), formatWanted( -1 ), samplesWanted( 0 ),
           open( false ), redirected( false ), previous( 0 ), path( 0 )
         {
             viewport[0] = viewport[1] = viewport[2] = viewport[3] = 0;
@@ -351,12 +361,18 @@ namespace
         bool const hdr = sr_hdr > 0 && rGLExt::FloatColour();
         int const samples = sr_Samples();
 
+        // the float colour of the scene and of the glow's chain (RCL_HDR_FORMAT)
+        bool const packed = rGLExt::PackedFloat() && sr_hdrFormat != 1;
+        int const sceneFloat = packed && sr_hdrFormat == 2 ? rColour_R11G11B10F : rColour_RGBA16F;
+        int const format = hdr ? sceneFloat : rColour_RGBA8;
+        int const bloomFormat = packed ? rColour_R11G11B10F : rColour_RGBA16F;
+
         if ( sr_post.scene.Ready() && sr_post.scene.Width() == width && sr_post.scene.Height() == height &&
-             sr_post.hdrWanted == hdr && sr_post.samplesWanted == samples )
+             sr_post.formatWanted == format && sr_post.samplesWanted == samples )
             return true;
 
         sr_ReleaseTargets();
-        sr_post.hdrWanted = hdr;
+        sr_post.formatWanted = format;
         sr_post.samplesWanted = samples;
         sr_post.notes.clear();
         if ( sr_hdr > 0 && !hdr )
@@ -372,27 +388,29 @@ namespace
         }
         int const depth = sr_post.screenDepthBits;
 
-        struct gTry { bool hdr; int samples; } const tries[4] =
+        // the packed floats give way to half floats, those to 8 bits, then multisampling goes
+        struct gTry { int format; int samples; } const tries[6] =
         {
-            { hdr, samples }, { false, samples }, { hdr, 0 }, { false, 0 }
+            { format, samples }, { hdr ? rColour_RGBA16F : format, samples }, { rColour_RGBA8, samples },
+            { format, 0 }, { hdr ? rColour_RGBA16F : format, 0 }, { rColour_RGBA8, 0 }
         };
         std::string error, firstError;
         bool made = false;
-        for ( int i = 0; i < 4 && !made; ++i )
+        for ( int i = 0; i < 6 && !made; ++i )
         {
             bool tried = false;
             for ( int j = 0; j < i; ++j )
-                tried = tried || ( tries[j].hdr == tries[i].hdr && tries[j].samples == tries[i].samples );
+                tried = tried || ( tries[j].format == tries[i].format && tries[j].samples == tries[i].samples );
             if ( tried )
                 continue;
-            if ( sr_post.scene.Create( width, height, tries[i].hdr, tries[i].samples, depth, error ) )
+            if ( sr_post.scene.Create( width, height, tries[i].format, tries[i].samples, depth, error ) )
             {
                 made = true;
-                if ( tries[i].hdr != hdr || tries[i].samples != samples )
+                if ( tries[i].format != format || tries[i].samples != samples )
                 {
                     std::string given;
-                    if ( tries[i].hdr != hdr )
-                        given = "float colour (no glow)";
+                    if ( tries[i].format != format )
+                        given = tries[i].format == rColour_RGBA8 ? "float colour (no glow)" : "packed floats";
                     if ( tries[i].samples != samples )
                         given += given.empty() ? "multisampling" : " and multisampling";
                     if ( !sr_post.notes.empty() )
@@ -411,13 +429,14 @@ namespace
         }
 
         if ( sr_post.scene.Samples() > 0 &&
-             !sr_post.resolved.Create( width, height, sr_post.scene.Float(), 0, 0, error ) )
+             !sr_post.resolved.Create( width, height, sr_post.scene.Format(), 0, 0, error ) )
         {
             sr_Fail( "no framebuffer to resolve the multisampled scene into: " + error );
             return false;
         }
 
-        // the glow's chain: half the size, and halved again for every level
+        // the glow's chain: half the size, and halved again for every level;
+        // it needs no alpha
         sr_post.bloomReady = false;
         if ( sr_post.scene.Float() && !sr_post.bloomFailed )
         {
@@ -425,7 +444,9 @@ namespace
             for ( int i = 0; i < sr_levels && ok; ++i )
             {
                 int const w = width >> ( i + 1 ), h = height >> ( i + 1 );
-                ok = sr_post.bloom[i].Create( w > 0 ? w : 1, h > 0 ? h : 1, true, 0, 0, error );
+                ok = sr_post.bloom[i].Create( w > 0 ? w : 1, h > 0 ? h : 1, bloomFormat, 0, 0, error );
+                if ( !ok && bloomFormat != rColour_RGBA16F )
+                    ok = sr_post.bloom[i].Create( w > 0 ? w : 1, h > 0 ? h : 1, rColour_RGBA16F, 0, 0, error );
             }
             if ( ok )
                 sr_post.bloomReady = true;
@@ -684,7 +705,7 @@ namespace
             char const * const transforms[] = { "no view transform",
                                                 sr_agx.texture ? "AgX (Blender's, table)" : "AgX (approximated)", "soft" };
             s << "new renderer: " << sr_post.scene.Width() << 'x' << sr_post.scene.Height() << ' '
-              << ( sr_post.scene.Float() ? "RGBA16F" : "RGBA8" );
+              << rFramebuffer::FormatName( sr_post.scene.Format() );
             if ( sr_post.scene.Samples() > 0 )
                 s << " msaa " << sr_post.scene.Samples();
             if ( sr_hdr <= 0 )
@@ -693,7 +714,7 @@ namespace
             {
                 s << ", " << transforms[ sr_tonemap >= 0 && sr_tonemap <= 2 ? sr_tonemap : 0 ];
                 if ( sr_post.bloomReady && sr_bloom > 0 )
-                    s << ", glow";
+                    s << ", glow " << rFramebuffer::FormatName( sr_post.bloom[0].Format() );
             }
             if ( !sr_post.notes.empty() )
                 s << " (" << sr_post.notes << ")";

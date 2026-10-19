@@ -25,7 +25,7 @@ of the License, or (at your option) any later version.
 
 rFramebuffer::rFramebuffer()
 : framebuffer_( 0 ), texture_( 0 ), colour_( 0 ), depth_( 0 ), width_( 0 ), height_( 0 ), samples_( 0 ),
-  depthBits_( 0 ), float_( false )
+  depthBits_( 0 ), format_( rColour_RGBA8 )
 {}
 
 rFramebuffer::~rFramebuffer()
@@ -33,11 +33,16 @@ rFramebuffer::~rFramebuffer()
     // the context may be gone by now; the driver frees what is left with it
 }
 
-bool rFramebuffer::Create( int width, int height, bool floatColour, int samples, int depthBits, std::string & error )
+char const * rFramebuffer::FormatName( int format )
+{
+    return format == rColour_RGBA16F ? "RGBA16F" : format == rColour_R11G11B10F ? "R11G11B10F" : "RGBA8";
+}
+
+bool rFramebuffer::Create( int width, int height, int colourFormat, int samples, int depthBits, std::string & error )
 {
     Release();
 #ifndef RGL_EXT_AVAILABLE
-    (void)width; (void)height; (void)floatColour; (void)samples; (void)depthBits;
+    (void)width; (void)height; (void)colourFormat; (void)samples; (void)depthBits;
     error = "built without GLEW";
     return false;
 #else
@@ -68,7 +73,9 @@ bool rFramebuffer::Create( int width, int height, bool floatColour, int samples,
     GLint texture = 0;
     glGetIntegerv( GL_TEXTURE_BINDING_2D, &texture );
 
-    GLenum const format = floatColour ? RGL_RGBA16F : RGL_RGBA8;
+    bool const floatColour = colourFormat != rColour_RGBA8;
+    GLenum const format = colourFormat == rColour_RGBA16F ? RGL_RGBA16F :
+                          colourFormat == rColour_R11G11B10F ? RGL_R11F_G11F_B10F : RGL_RGBA8;
     GLuint id = 0;
     rGLExt::GenFramebuffers( 1, &id );
     framebuffer_ = id;
@@ -91,7 +98,7 @@ bool rFramebuffer::Create( int width, int height, bool floatColour, int samples,
         glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
         glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, RGL_CLAMP_TO_EDGE );
         glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, RGL_CLAMP_TO_EDGE );
-        glTexImage2D( GL_TEXTURE_2D, 0, format, width, height, 0, GL_RGBA,
+        glTexImage2D( GL_TEXTURE_2D, 0, format, width, height, 0, colourFormat == rColour_R11G11B10F ? GL_RGB : GL_RGBA,
                       floatColour ? GL_FLOAT : GL_UNSIGNED_BYTE, NULL );
         rGLExt::FramebufferTexture2D( RGL_FRAMEBUFFER, RGL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture_, 0 );
     }
@@ -123,7 +130,7 @@ bool rFramebuffer::Create( int width, int height, bool floatColour, int samples,
     {
         char why[120];
         std::snprintf( why, sizeof( why ), "%s %dx%d%s%s not complete (status 0x%x, error 0x%x)",
-                       floatColour ? "RGBA16F" : "RGBA8", width, height, samples ? ", multisampled" : "",
+                       FormatName( colourFormat ), width, height, samples ? ", multisampled" : "",
                        depthBits > 0 ? ", with depth" : "", static_cast< unsigned >( status ),
                        static_cast< unsigned >( glError ) );
         error = why;
@@ -135,7 +142,7 @@ bool rFramebuffer::Create( int width, int height, bool floatColour, int samples,
     height_ = height;
     samples_ = samples;
     depthBits_ = depthBits;
-    float_ = floatColour;
+    format_ = colourFormat;
     return true;
 #endif
 }
@@ -159,7 +166,7 @@ void rFramebuffer::Forget()
 {
     framebuffer_ = texture_ = colour_ = depth_ = 0;
     width_ = height_ = samples_ = depthBits_ = 0;
-    float_ = false;
+    format_ = rColour_RGBA8;
 }
 
 void rFramebuffer::Bind() const
