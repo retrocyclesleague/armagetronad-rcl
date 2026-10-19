@@ -1,5 +1,27 @@
 # Dev log
 
+## 2026-10-20 - curve lab: curved trails tried with D2; rounded wall corners; the D2 fixes
+
+Jamie: "i had a thought about curved trails using the cycle delay as some radius of a circle so delays can make big circles ... lets make a curved trails demo to go with our new model", then "maybe the radius should actually be really tiny so mazes actually work ... those lines make it look like they are far off the 'true' path for high precision scenarios", then "go with look only first, build the lab".
+
+- **Three models** (worked out in `rcl-cfg/curves`, `curves_ref.py`).
+  - **Arc = delay**, the first reading: a turn is a quarter circle as long as the delay distance. Big loops, but every turn lands about a radius off the classic line, and it adds up.
+  - **Rounded**: the delay still spaces turns, so lines and gaps are the classic ones. Each corner is an arc of `r = f x D` (`f` up to 0.5), and each turn lands `r` later.
+  - **Look only**: the bike rides the classic path, and only the drawn wall is rounded, behind the bike.
+- **Curve lab** (`gCurveLab`, `gCurveLabSim.h`; a Play-page card, or `RCL_CURVE_LAB_START 1`). A local sandbox: no server, nothing recorded.
+  - D2 on the clean arena; look only by default, `T` for the other models.
+  - The classic ghost, rings where a trail meets itself, and presets for the reverse triple, regular triple, double and four the same.
+  - Four cameras, including a top-down one that frames the last move; slow motion.
+  - The simulation matches `curves_ref.py` to 0.001 on 16 cases.
+- **Rounded corners on game walls** (`RCL_TRAIL_ROUND`, 0.4; 0 is sharp). Drawing only: walls, shadow, floor mirror and top line. A corner is rounded once the drawn wall reaches past it.
+- **D2:**
+  - The pack with the closed rear tyre.
+  - Size on screen from the projected nose, tail and height. Far tint below 48 px.
+  - Detail levels: lod1 below 120 px, lod2 below 40.
+  - Stats line: mesh cycles per level.
+
+Checked on Windows (off-screen test window): the lab in each camera, both arena looks and each model; the presets top-down; slow motion. Rounded corners in rounds watched as a spectator, where the joins are clean; the package started once into the lab. Installed as z3990 for Jamie. Not checked: the lab by a person's hands, curve mode in real play (not built: it needs the server), macOS, Linux.
+
 ## 2026-10-19 - render-next P3: the D2 light cycle, shaded like the render
 
 Jamie picked the D2 design. `RCL_CYCLE_MODEL 2` draws it with the new renderer (`gCycleMesh.cpp`, `shaders/cycle_pbr.*`); the arrow (0) stays the default.
