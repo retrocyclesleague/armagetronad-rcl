@@ -817,6 +817,11 @@ int rPost::Path()
     return sr_post.path;
 }
 
+bool rPost::ReloadWanted()
+{
+    return sr_shaderReload > 0;
+}
+
 char const * rPost::Status()
 {
     sr_UpdateStatus();

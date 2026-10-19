@@ -237,12 +237,33 @@ void rShader::Set( char const * name, float a, float b )
 #endif
 }
 
+void rShader::Set( char const * name, float a, float b, float c )
+{
+#ifdef RGL_EXT_AVAILABLE
+    int const location = Location( name );
+    if ( location >= 0 )
+        glUniform3f( location, a, b, c );
+#endif
+}
+
 void rShader::Set( char const * name, float a, float b, float c, float d )
 {
 #ifdef RGL_EXT_AVAILABLE
     int const location = Location( name );
     if ( location >= 0 )
         glUniform4f( location, a, b, c, d );
+#endif
+}
+
+void rShader::SetMatrix4( char const * name, float const * matrix )
+{
+#ifdef RGL_EXT_AVAILABLE
+    int const location = Location( name );
+    if ( location >= 0 )
+        glUniformMatrix4fv( location, 1, GL_FALSE, matrix );
+#else
+    (void)name;
+    (void)matrix;
 #endif
 }
 

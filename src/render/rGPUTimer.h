@@ -24,9 +24,11 @@ of the License, or (at your option) any later version.
 #ifndef DEDICATED
 
 // How long the GPU spends on each pass of a frame, from timer queries. Only
-// one such query can run at a time, so the passes follow one another and
-// never nest: whatever is drawn outside the named passes (the clear, HUD,
-// console, menus) is counted as "other", so the passes add up to the frame.
+// one such query can run at a time, so a pass begun inside another stops it
+// and it goes on when the inner one ends (the cycles inside the world): each
+// pass counts only its own time. Whatever is drawn outside the named passes
+// (the clear, HUD, console, menus) is counted as "other", so the passes add
+// up to the frame.
 // The answers come a few frames late; nothing ever waits for them. Queries
 // are only made while someone looks: the stats overlay (RCL_RENDER_STATS 1)
 // or the frame log (RCL_FRAME_LOG).
@@ -34,7 +36,8 @@ namespace rGPUTimer
 {
     enum Pass
     {
-        Pass_World = 0,     //!< the 3D scenes: arena, walls, cycles, zones, mirror, shadows
+        Pass_World = 0,     //!< the 3D scenes: arena, walls, zones, mirror, shadows; the rest of the cycles
+        Pass_Cycles,        //!< the light cycle meshes (RCL_CYCLE_MODEL 2), inside the world
         Pass_Resolve,       //!< multisampled scene to a single sample
         Pass_Bloom,         //!< the glow, down and up
         Pass_Tonemap,       //!< the scene onto the screen

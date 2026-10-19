@@ -513,20 +513,8 @@ namespace
         sr_CleanPaint( pr, pg, pb );
         Set( look.paint, pr, pg, pb );
 
-        // The lights are lights in either arena: the colour as it is,
-        // brought up where so little of it would show that it could be
-        // missed (as the dark arena does with walls). At night they burn a
-        // little whiter at the core.
-        float glow[3] = { std::max( 0.0f, std::min( 1.0f, float( r ) ) ), std::max( 0.0f, std::min( 1.0f, float( g ) ) ),
-                          std::max( 0.0f, std::min( 1.0f, float( b ) ) ) };
-        static const float least = .22f;
-        float const seen = .299f * glow[0] + .587f * glow[1] + .114f * glow[2];
-        if ( seen < least )
-            for ( int i = 0; i < 3; ++i )
-                glow[i] += ( 1 - glow[i] ) * ( least - seen ) / ( 1 - seen );
-        if ( dark )
-            for ( int i = 0; i < 3; ++i )
-                glow[i] += ( 1 - glow[i] ) * .12f;
+        float glow[3];
+        sg_LightCycleLightColour( r, g, b, glow );
         for ( int i = 0; i < 3; ++i )
         {
             look.light[i] = glow[i];
@@ -598,6 +586,29 @@ namespace
             out[3] = 1;
         }
     }
+}
+
+void sg_LightCycleLightColour( REAL r, REAL g, REAL b, float * glow )
+{
+    // The lights are lights in either arena: the colour as it is, brought up
+    // where so little of it would show that it could be missed (as the dark
+    // arena does with walls). At night they burn a little whiter at the core.
+    glow[0] = std::max( 0.0f, std::min( 1.0f, float( r ) ) );
+    glow[1] = std::max( 0.0f, std::min( 1.0f, float( g ) ) );
+    glow[2] = std::max( 0.0f, std::min( 1.0f, float( b ) ) );
+    static const float least = .22f;
+    float const seen = .299f * glow[0] + .587f * glow[1] + .114f * glow[2];
+    if ( seen < least )
+        for ( int i = 0; i < 3; ++i )
+            glow[i] += ( 1 - glow[i] ) * ( least - seen ) / ( 1 - seen );
+    if ( sr_cleanDark )
+        for ( int i = 0; i < 3; ++i )
+            glow[i] += ( 1 - glow[i] ) * .12f;
+}
+
+REAL sg_LightCycleGlow()
+{
+    return sg_CycleGlow();
 }
 
 void sg_RenderLightCycle( eCoord const & dir, REAL r, REAL g, REAL b )

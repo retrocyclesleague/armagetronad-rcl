@@ -56,6 +56,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "gSpawn.h"
 #include "gZone.h"
 #include "gLightCycle.h"
+#include "gCycleMesh.h"
 
 #include "gRace.h"
 #include "gGame.h"
@@ -5381,8 +5382,10 @@ static tConfItem<bool> sg_HideCyclesConf("HIDE_CYCLES", sg_HideCycles);
 
 // ---- clean arena: the cycle is a light cycle, or an arrow ----
 
-// 0 the arrow, 1 the light cycle (gLightCycle.cpp); the light cycle is to be
-// tried before it is anyone's default
+// 0 the arrow, 1 the light cycle (gLightCycle.cpp), 2 the light cycle from
+// the Blender model with the new renderer's shading (gCycleMesh.cpp; the
+// light cycle where it cannot be drawn). Either is to be tried before it is
+// anyone's default.
 static int sg_cycleModel = 0;
 static tConfItem<int> sg_cycleModelConf( "RCL_CYCLE_MODEL", sg_cycleModel );
 
@@ -5453,9 +5456,10 @@ void sg_ArrowFace( gArrowPoint const * p, int count, eCoord const & dir,
 // The clean arena's cycle, in the colour every client shows its bike in: the
 // light cycle, or a low, faceted arrow. It is drawn in the cycle's own frame
 // (x ahead, half size), where the classic body and wheels would be. The wall
-// leaves the arrow through the notch in its tail, the light cycle through the
-// point of its tail.
-void sg_RenderCleanCycle( eCoord const & dir, gRealColor const & color )
+// leaves the arrow through the notch in its tail, the light cycles through the
+// point of their tails. pose says where the frame is in the arena, for the
+// mesh cycle, which shades in the arena's frame.
+void sg_RenderCleanCycle( eCoord const & dir, gRealColor const & color, gCycleMeshPose const & pose )
 {
     static const gArrowPoint nose  = {  2.45f, 0, .10f };
     static const gArrowPoint crest = {   .60f, 0, .72f };
@@ -5465,6 +5469,8 @@ void sg_RenderCleanCycle( eCoord const & dir, gRealColor const & color )
 
     REAL r = color.r, g = color.g, b = color.b;
     sg_BikeColor( r, g, b );
+    if ( sg_cycleModel == 2 && sg_RenderCycleMesh( pose, r, g, b ) )
+        return;
     if ( sg_cycleModel != 0 )
     {
         sg_RenderLightCycle( dir, r, g, b );
@@ -5583,7 +5589,10 @@ void sg_RenderCleanCycleAt( eCoord const & pos, eCoord const & dir, REAL r, REAL
     color.r = r;
     color.g = g;
     color.b = b;
-    sg_RenderCleanCycle( dir, color );
+    // upright, wheels standing: the menu's replay and the colour studio
+    gCycleMeshPose pose;
+    sg_CycleMeshPose( pose, pos, dir, 1, 0, 0 );
+    sg_RenderCleanCycle( dir, color, pose );
     ModelMatrix();
     glPopMatrix();
 }
@@ -5865,8 +5874,12 @@ void gCycle::Render(const eCamera *cam){
 
             if ( !blinking && sr_cleanArena )
             {
-                // no body and wheels there; the cycle is an arrow
-                sg_RenderCleanCycle( dir, color_ );
+                // no body and wheels there; the cycle is an arrow, or a light
+                // cycle placed as the frame above has it, its wheels turned
+                // by the way come
+                gCycleMeshPose pose;
+                sg_CycleMeshPose( pose, p, dir, ske.x, ske.y, GetDistance() );
+                sg_RenderCleanCycle( dir, color_, pose );
             }
             else if ( !blinking )
             {

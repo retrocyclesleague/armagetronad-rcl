@@ -53,8 +53,11 @@ public:
     //! uniforms by name, for the program in use
     void Set( char const * name, float value );
     void Set( char const * name, float a, float b );
+    void Set( char const * name, float a, float b, float c );
     void Set( char const * name, float a, float b, float c, float d );
     void SetSampler( char const * name, int unit );
+    //! a 4x4 matrix, column by column as GL keeps them
+    void SetMatrix4( char const * name, float const * matrix );
 
     //! whether either file changed on disk since it was read
     bool FilesChanged() const;

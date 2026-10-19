@@ -75,6 +75,17 @@ typedef GLuint64EXT rGLtime;
 #define RGL_TIME_ELAPSED               0x88BF
 #define RGL_QUERY_RESULT               0x8866
 #define RGL_QUERY_RESULT_AVAILABLE     0x8867
+#define RGL_RGB16F                     0x881B
+#define RGL_TEXTURE_CUBE_MAP           0x8513
+#define RGL_TEXTURE_CUBE_MAP_POSITIVE_X 0x8515
+#define RGL_TEXTURE_CUBE_MAP_SEAMLESS  0x884F
+#define RGL_TEXTURE_BASE_LEVEL         0x813C
+#define RGL_TEXTURE_MAX_LEVEL          0x813D
+#define RGL_GENERATE_MIPMAP            0x8191
+#define RGL_ARRAY_BUFFER               0x8892
+#define RGL_ELEMENT_ARRAY_BUFFER       0x8893
+#define RGL_STATIC_DRAW                0x88E4
+#define RGL_TEXTURE2                   0x84C2
 
 namespace rGLExt
 {
@@ -90,6 +101,8 @@ namespace rGLExt
     bool Multisample();             //!< multisampled renderbuffers
     int MaxSamples();               //!< the most samples a renderbuffer can have
     bool FloatColour();             //!< half float colour targets that keep values over 1
+    bool FloatTextures();           //!< half float textures (light over 1 in a cubemap)
+    bool SeamlessCube();            //!< cubemaps filtered across their faces' edges
     bool TimerQueries();            //!< GPU time spent between two points
     char const * Missing();         //!< what is missing of the above, for the console; empty if nothing
     char const * Describe();        //!< the GL and GLSL versions, for the stats overlay

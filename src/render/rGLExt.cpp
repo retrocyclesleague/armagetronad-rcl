@@ -31,13 +31,14 @@ namespace
 {
     struct gFeatures
     {
-        bool loaded, shaders, framebuffers, core, blit, multisample, floatColour, timer, timerCore;
+        bool loaded, shaders, framebuffers, core, blit, multisample, floatColour, floatTextures, seamless, timer, timerCore;
         int maxSamples;
         std::string missing, describe;
 
         gFeatures()
         : loaded( false ), shaders( false ), framebuffers( false ), core( false ), blit( false ),
-          multisample( false ), floatColour( false ), timer( false ), timerCore( false ), maxSamples( 0 )
+          multisample( false ), floatColour( false ), floatTextures( false ), seamless( false ), timer( false ),
+          timerCore( false ), maxSamples( 0 )
         {}
     };
 
@@ -155,6 +156,8 @@ void rGLExt::Init()
     // Values over 1 survive only where colours are not clamped on the way
     // into a float target: core in 3.0, an extension before that.
     sr_ext.floatColour = GLEW_VERSION_3_0 || ( GLEW_ARB_texture_float && GLEW_ARB_color_buffer_float );
+    sr_ext.floatTextures = GLEW_VERSION_3_0 || GLEW_ARB_texture_float;
+    sr_ext.seamless = GLEW_VERSION_3_2 || GLEW_ARB_seamless_cube_map;
 
     sr_ext.timerCore = ( GLEW_VERSION_3_3 || GLEW_ARB_timer_query ) && glGetQueryObjectui64v;
     sr_ext.timer = glGenQueries && glBeginQuery && glEndQuery && glGetQueryObjectiv &&
@@ -171,6 +174,8 @@ void rGLExt::Init()
     sr_ext.multisample = HasExtension( "GL_EXT_framebuffer_multisample" );
     sr_ext.floatColour = AtLeast( major, minor, 3, 0 ) ||
                          ( HasExtension( "GL_ARB_texture_float" ) && HasExtension( "GL_ARB_color_buffer_float" ) );
+    sr_ext.floatTextures = AtLeast( major, minor, 3, 0 ) || HasExtension( "GL_ARB_texture_float" );
+    sr_ext.seamless = HasExtension( "GL_ARB_seamless_cube_map" );
     sr_ext.timerCore = false;
     sr_ext.timer = HasExtension( "GL_EXT_timer_query" ) || HasExtension( "GL_ARB_timer_query" );
 #endif
@@ -204,6 +209,8 @@ bool rGLExt::Blit(){ return sr_ext.blit; }
 bool rGLExt::Multisample(){ return sr_ext.multisample; }
 int rGLExt::MaxSamples(){ return sr_ext.maxSamples; }
 bool rGLExt::FloatColour(){ return sr_ext.floatColour; }
+bool rGLExt::FloatTextures(){ return sr_ext.floatTextures; }
+bool rGLExt::SeamlessCube(){ return sr_ext.seamless; }
 bool rGLExt::TimerQueries(){ return sr_ext.timer; }
 char const * rGLExt::Missing(){ return sr_ext.missing.c_str(); }
 char const * rGLExt::Describe(){ return sr_ext.describe.c_str(); }

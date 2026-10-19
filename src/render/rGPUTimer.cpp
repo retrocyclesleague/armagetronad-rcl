@@ -56,6 +56,8 @@ namespace
     int sr_next = 0;                // where the next one goes
     int sr_serial = 0;
     int sr_active = -1;             // the pass whose query runs; -1 none
+    int sr_waiting[8];              // passes stopped by one begun inside them, innermost last
+    int sr_waitingCount = 0;
     std::vector< GLuint > sr_free;  // queries not in use
 
     double sr_last[ rGPUTimer::Pass_Count ];
@@ -190,7 +192,7 @@ static tSettingItem< int > sr_renderStatsConf( "RCL_RENDER_STATS", sr_renderStat
 
 char const * rGPUTimer::Name( int pass )
 {
-    static char const * const names[ Pass_Count ] = { "world", "resolve", "bloom", "tonemap", "other" };
+    static char const * const names[ Pass_Count ] = { "world", "cycles", "resolve", "bloom", "tonemap", "other" };
     return pass >= 0 && pass < Pass_Count ? names[ pass ] : "?";
 }
 
@@ -296,6 +298,7 @@ void rGPUTimer::FrameBegin()
     frame.serial = ++sr_serial;
     sr_current = sr_next;
     sr_next = ( sr_next + 1 ) % sr_frames;
+    sr_waitingCount = 0;
     sr_Start( Pass_Other );
 #endif
 }
@@ -306,6 +309,7 @@ void rGPUTimer::FrameEnd()
     if ( sr_current < 0 )
         return;
     sr_Stop();
+    sr_waitingCount = 0;
     sr_frame[ sr_current ].closed = true;
     sr_current = -1;
     sr_Collect();
@@ -317,6 +321,9 @@ void rGPUTimer::Begin( Pass pass )
 #ifdef RGL_EXT_AVAILABLE
     if ( sr_current < 0 || sr_active == pass )
         return;
+    // the pass this one is begun in waits for it to end
+    if ( sr_active >= 0 && sr_waitingCount < 8 )
+        sr_waiting[ sr_waitingCount++ ] = sr_active;
     sr_Stop();
     sr_Start( pass );
 #else
@@ -330,7 +337,7 @@ void rGPUTimer::End( Pass pass )
     if ( sr_current < 0 || sr_active != pass )
         return;
     sr_Stop();
-    sr_Start( Pass_Other );
+    sr_Start( sr_waitingCount > 0 ? sr_waiting[ --sr_waitingCount ] : Pass_Other );
 #else
     (void)pass;
 #endif
@@ -377,6 +384,7 @@ void rGPUTimer::Forget()
     sr_free.clear();
     sr_current = -1;
     sr_active = -1;
+    sr_waitingCount = 0;
     sr_next = 0;
 }
 

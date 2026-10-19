@@ -108,7 +108,7 @@ librender_a_SOURCES=${render_extra} render/rConsole.cpp render/rConsoleGraph.cpp
 	render/rPost.cpp render/rPost.h
 
 libtron_a_SOURCES=tron/gAIBase.cpp tron/gAIBase.h tron/gAICharacter.cpp tron/gAICharacter.h tron/gArena.cpp tron/gArena.h\
-	tron/gCamera.cpp tron/gCamera.h tron/gColourStudio.cpp tron/gColourStudio.h tron/gCycle.cpp tron/gCycle.h tron/gCycleMovement.cpp\
+	tron/gCamera.cpp tron/gCamera.h tron/gColourStudio.cpp tron/gColourStudio.h tron/gCycle.cpp tron/gCycle.h tron/gCycleMesh.cpp tron/gCycleMesh.h tron/gCycleMovement.cpp\
 	tron/gCycleMovement.h tron/gExplosion.cpp tron/gExplosion.h tron/gGame.cpp tron/gGame.h\
 	tron/gHud.cpp tron/gHud.h tron/gLanguageMenu.cpp tron/gLanguageMenu.h tron/gLeague.cpp tron/gLeague.h tron/gLightCycle.cpp tron/gLightCycle.h tron/gLogo.cpp tron/gLogo.h tron/gMenuReplay.cpp tron/gMenuReplay.h\
 	tron/gMenus.cpp tron/gMenus.h tron/gParser.cpp tron/gParser.h tron/gParticles.cpp tron/gParticles.h\

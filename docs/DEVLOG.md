@@ -1,5 +1,19 @@
 # Dev log
 
+## 2026-10-19 - render-next P3: the D2 light cycle, shaded like the render
+
+Jamie picked the D2 design. `RCL_CYCLE_MODEL 2` draws it with the new renderer (`gCycleMesh.cpp`, `shaders/cycle_pbr.*`); the arrow (0) stays the default.
+
+- **Where it stands:** in the light cycle's frame (`gLightCycle`), scaled uniformly to its length (3.02 in the frame, 1.51 in the arena) with the nose at the light cycle's nose, so the tail the wall leaves is where it was. D2 is wider than the light cycle at that length: 0.99 across in the frame (0.49 in the arena) against 0.68; the arrow is 1.64. It leans with the cycle; its wheels turn by the way come over their own radii, as the classic wheels do.
+- **What it reads** (`scripts/install-cycle-assets.py` puts the Blender pack there): `models/rcl/lightcycle.rclmesh` (`scripts/convert-cycle-mesh.py`, from the .glb files with Blender's tangents); per level of detail `textures/rcl/lightcycle_lod<N>_{normal,basecolor,ao,roughness,mask}.png` (each level has its own UVs); `env_{pale,night}_spec_m0..5.hdr` and `_irradiance.hdr` (RGBE strips of six GL faces, GGX-prefiltered, roughness = level / 5); `brdf_lut_ggx.png` (16 bits).
+- **Shading:** metal and roughness, the arena look's cubemap for reflections and its irradiance for the rest through the split-sum table, a clear coat where the mask says gloss, the lights in the bike's colour (`sg_BikeColor`, so two-tone holds) times `RCL_GLOW_CYCLE` into the glow. Where a map is missing, each material has its own colour, roughness and metal; without a look's cubemaps a sky and floor from the arena's colours and the sun as a light (GGX, Smith, Schlick); without the table Karis's fit of it. The cubemaps were baked with the game's sun, so the reflections fall the way the shadows do; `RCL_CYCLE_SUN` adds the sun as a light on top.
+- **Levels of detail** by its length on the screen: `RCL_CYCLE_LOD1` 240 px, `RCL_CYCLE_LOD2` 80, under `RCL_CYCLE_FAR` 24 the light cycle with its far-away colour. The floor's mirror draws the mesh mirrored and shades the real cycle as seen from under the floor. The colour studio shows it in both arenas.
+- **When it is not drawn:** with `RCL_RENDER 0`, outside the new renderer's scenes, without the mesh file, or once its shader has failed (for the session, with a console line), the light cycle (model 1) is drawn.
+- `RCL_CYCLE_ENV 0` and `RCL_CYCLE_MAPS 0` leave the cubemaps or the maps out, to see what each brings. `RCL_SHADER_RELOAD 1` also reads the mesh, maps and cubemaps again when they change or appear.
+- The GPU timers have a `cycles` pass, inside the world, which no longer counts the meshes.
+
+Checked: it compiles on Windows, as the dedicated server, without GLEW and on the macOS code path; the shaders pass `glslangValidator`; the converter on the D2 .glb files (lod0 13544 vertices, 17515 triangles; lod1 4380; lod2 675). Not checked: nothing of it has been drawn yet.
+
 ## 2026-10-19 - render-next: GPU timers, the scene in a framebuffer, glow and Blender's view transform
 
 Branch `rcl/render-next`, phases P0 to P2 of `rcl-cfg/rendering/EXPERIMENTAL_BRANCH_SPEC.md`. Jamie: "lets go for a build of this ingame given what we have discussed".

@@ -8,6 +8,7 @@ sounddir=${armadatadir}
 languagedir=${armadatadir}
 modeldir=${armadatadir}
 shaderdir=${armadatadir}
+rcltexturedir=${armadatadir}
 
 # include $(top_srcdir)/Makefile.paths
 include $(top_srcdir)/Makefile.manual
@@ -65,10 +66,27 @@ nobase_sound_DATA=sound/cyclrun.wav sound/cyclhigh.wav sound/cyclboost.wav \
 	sound/ui_hover.wav sound/ui_adjust.wav sound/ui_activate.wav sound/ui_back.wav \
 	sound/README-RCL.md
 
-nobase_model_DATA=models/cycle_body.mod models/cycle_front.mod models/cycle_rear.mod
+nobase_model_DATA=models/cycle_body.mod models/cycle_front.mod models/cycle_rear.mod \
+	models/rcl/lightcycle.rclmesh
 
 nobase_shader_DATA=shaders/post.vert shaders/bloom_down.frag shaders/bloom_up.frag \
-	shaders/tonemap.frag shaders/emissive.vert shaders/emissive.frag shaders/agx.cube
+	shaders/tonemap.frag shaders/emissive.vert shaders/emissive.frag shaders/agx.cube \
+	shaders/cycle_pbr.vert shaders/cycle_pbr.frag
+
+# the light cycle's maps and the arena looks' light (scripts/install-cycle-assets.py)
+nobase_rcltexture_DATA=textures/rcl/brdf_lut_ggx.png \
+	textures/rcl/lightcycle_lod0_normal.png textures/rcl/lightcycle_lod0_basecolor.png \
+	textures/rcl/lightcycle_lod0_ao.png textures/rcl/lightcycle_lod0_roughness.png textures/rcl/lightcycle_lod0_mask.png \
+	textures/rcl/lightcycle_lod1_normal.png textures/rcl/lightcycle_lod1_basecolor.png \
+	textures/rcl/lightcycle_lod1_ao.png textures/rcl/lightcycle_lod1_roughness.png textures/rcl/lightcycle_lod1_mask.png \
+	textures/rcl/lightcycle_lod2_normal.png textures/rcl/lightcycle_lod2_basecolor.png \
+	textures/rcl/lightcycle_lod2_ao.png textures/rcl/lightcycle_lod2_roughness.png textures/rcl/lightcycle_lod2_mask.png \
+	textures/rcl/env_pale_irradiance.hdr textures/rcl/env_pale_spec_m0.hdr textures/rcl/env_pale_spec_m1.hdr \
+	textures/rcl/env_pale_spec_m2.hdr textures/rcl/env_pale_spec_m3.hdr textures/rcl/env_pale_spec_m4.hdr \
+	textures/rcl/env_pale_spec_m5.hdr \
+	textures/rcl/env_night_irradiance.hdr textures/rcl/env_night_spec_m0.hdr textures/rcl/env_night_spec_m1.hdr \
+	textures/rcl/env_night_spec_m2.hdr textures/rcl/env_night_spec_m3.hdr textures/rcl/env_night_spec_m4.hdr \
+	textures/rcl/env_night_spec_m5.hdr
 endif
 
 # generate configure.ac with version hardcoded and ChangeLog

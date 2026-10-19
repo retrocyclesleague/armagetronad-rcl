@@ -1,0 +1,4 @@
+# never touched by line-ending conversion: the renderer reads these byte for byte
+*.hdr binary
+*.rclmesh binary
+*.png binary

@@ -30,6 +30,14 @@ class eCoord;
 //! has the classic cycle's place and size: 3.02 long, 1.30 high and .68 wide
 //! in that frame, its wheels on the floor where the classic cycle's stand.
 void sg_RenderLightCycle( eCoord const & dir, REAL r, REAL g, REAL b );
+
+//! The colour the light cycle's lights burn in for a bike colour (display
+//! values, 0 to 1): the colour itself, brought up where it is too dim to
+//! see, a little whiter at night. The mesh cycle's lights take it too.
+void sg_LightCycleLightColour( REAL r, REAL g, REAL b, float * glow );
+
+//! how brightly the lights glow with the new renderer (RCL_GLOW_CYCLE), as rEmissive takes it
+REAL sg_LightCycleGlow();
 #endif
 
 #endif

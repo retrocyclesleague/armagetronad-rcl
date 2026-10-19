@@ -56,6 +56,8 @@ namespace rPost
 
     //! 1 if the last scene went through the new renderer, else 0
     int Path();
+    //! whether files the renderer reads are to be read again when they change (RCL_SHADER_RELOAD)
+    bool ReloadWanted();
     //! a line saying what the renderer does, for the overlay
     char const * Status();
 }
