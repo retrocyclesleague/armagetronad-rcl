@@ -70,9 +70,9 @@ of the License, or (at your option) any later version.
 // the levels of detail by the cycle's length on the screen, in pixels: under
 // the first the second level, under the second the third, under the last the
 // light cycle, whose far-away look holds the bike's colour
-static REAL sg_cycleLod1 = 240;
+static REAL sg_cycleLod1 = 120;   // a bike costs next to nothing; keep detail on longer
 static tConfItem< REAL > sg_cycleLod1Conf( "RCL_CYCLE_LOD1", sg_cycleLod1 );
-static REAL sg_cycleLod2 = 80;
+static REAL sg_cycleLod2 = 40;
 static tConfItem< REAL > sg_cycleLod2Conf( "RCL_CYCLE_LOD2", sg_cycleLod2 );
 static REAL sg_cycleFar = 24;
 static tConfItem< REAL > sg_cycleFarConf( "RCL_CYCLE_FAR", sg_cycleFar );
