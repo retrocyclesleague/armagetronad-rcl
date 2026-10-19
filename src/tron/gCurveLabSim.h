@@ -334,6 +334,54 @@ namespace gCurveLab
         }
     };
 
+    // ---- Jamie's sequence ----
+
+    //! "delays can make big circles and then you can reverse triple left
+    //! right right right to do a U turn and go back into the big circle
+    //! regular triple right right right left", as rcl-cfg/curves/big_circle.py
+    //! (sequence(), one lap) presses it: a lap of the circle, right once a
+    //! delay; the reverse triple L R R R, `quick` apart; `gap` of riding after
+    //! its four turns; the regular triple R R R L; `gap` again; a lap of the
+    //! circle again. From t0 on; mirror -1 swaps every key. marks: where the
+    //! four parts start, and where it is over (the last circle press and .6 s).
+    inline void BigCircle( double delay, double gap, double t0, double quick, int mirror,
+                           std::vector< Press > & presses, double marks[5] )
+    {
+        static const int lap = 4;
+        static const int reverse[4] = { -1, 1, 1, 1 }, regular[4] = { 1, 1, 1, -1 };
+        presses.clear();
+        double t = t0;
+        marks[0] = t0;
+        for ( int i = 0; i < lap; ++i )
+        {
+            Press const p = { t, mirror };
+            presses.push_back( p );
+            t += delay;
+        }
+        double const rev = t;
+        marks[1] = rev;
+        for ( int i = 0; i < 4; ++i )
+        {
+            Press const p = { rev + i * quick, reverse[i] * mirror };
+            presses.push_back( p );
+        }
+        double const reg = rev + 4 * delay + gap;
+        marks[2] = reg;
+        for ( int i = 0; i < 4; ++i )
+        {
+            Press const p = { reg + i * quick, regular[i] * mirror };
+            presses.push_back( p );
+        }
+        double const again = reg + 4 * delay + gap;
+        marks[3] = again;
+        for ( int i = 0; i < lap; ++i )
+        {
+            Press const p = { again + i * delay, mirror };
+            presses.push_back( p );
+        }
+        marks[4] = again + lap * delay + .6;
+    }
+
     // ---- measures ----
 
     inline double SegmentDistance( double px, double py, double ax, double ay, double bx, double by )

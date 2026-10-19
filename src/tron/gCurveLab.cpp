@@ -182,6 +182,15 @@ namespace
         double demoAt;
         std::string showing;        // what was played last, for the HUD
 
+        // Preset 5, Jamie's sequence (sim::BigCircle): playing, where its parts
+        // start on the riders' clock and when it is over, mirrored or not;
+        // and the model the demo switched from to play it in arc = delay
+        bool big;
+        double bigMarks[5], bigAlong;   // and how far the bike had come when it began
+        int bigMirror, bigPart;
+        bool bigSwitched;
+        Model bigFrom;
+
         std::string keys;           // the last presses, as a strip
         double keysAt;
 
@@ -214,7 +223,8 @@ namespace
         Lab()
         : model( Model_Look ), speed( 30 ), delay( .25 ), roundness( .15 ), roundLook( .4 ),
           ghostShown( false ), dark( !sr_cleanArena || sr_cleanDark ), camera( Camera_Chase ),
-          demo( true ), demoIndex( 0 ), demoWaiting( false ), demoAt( 1 ), keysAt( -100 ),
+          demo( true ), demoIndex( 0 ), demoWaiting( false ), demoAt( 1 ),
+          big( false ), bigAlong( 0 ), bigMirror( 1 ), bigPart( -1 ), bigSwitched( false ), bigFrom( Model_Look ), keysAt( -100 ),
           hits( 0 ), touching( false ), offMeasured( 0 ), fading( 0 ), fadeStart( 0 ),
           chaseAngle( sim::quarter ), highAngle( sim::quarter ), orbitAngle( -2.2 ),
           previousCamera( Camera_Chase ), cameraSince( -100 ), snapCamera( true ),
@@ -260,6 +270,19 @@ namespace
             demoAt = 1;
             snapCamera = true;
             snapFrame = true;
+            big = false;
+            bigPart = -1;
+            if ( bigSwitched )
+                GiveModelBack();
+        }
+
+        // the model the demo had before it played the big circles in arc = delay
+        void GiveModelBack()
+        {
+            bigSwitched = false;
+            model = bigFrom;
+            ghostShown = model != Model_Look;
+            Configure();
         }
 
         double TimeScale() const { return slow == 0 ? 1 : slow == 1 ? .5 : .25; }
@@ -286,6 +309,7 @@ namespace
         void Turn( int direction, double now )
         {
             demo = false;
+            bigSwitched = false;
             showing.clear();
             Press( bike.time, direction );
             AddKey( direction, now );
@@ -294,7 +318,15 @@ namespace
         void Play( int preset, bool mirrored, double now, bool byHand )
         {
             if ( byHand )
+            {
                 demo = false;
+                bigSwitched = false;
+            }
+            if ( preset == 4 )
+            {
+                PlayBig( mirrored, now, byHand );
+                return;
+            }
             Preset const & p = sg_presets[ preset ];
             keysAt = -100;
             for ( int i = 0; i < p.count; ++i )
@@ -304,6 +336,69 @@ namespace
                 AddKey( direction, now );
             }
             showing = std::string( p.name ) + ( mirrored ? ", mirrored" : "" );
+        }
+
+        // Preset 5: Jamie's sequence, in arc = delay, the model it was thought
+        // of in. By hand it starts a run of its own in that model; the demo
+        // plays it where it is, between presets, where nothing is under way,
+        // and gives the model back after.
+        void PlayBig( bool mirrored, double now, bool byHand )
+        {
+            if ( model != Model_Arc )
+            {
+                if ( byHand )
+                {
+                    model = Model_Arc;
+                    ghostShown = true;
+                    Configure();
+                    Restart();
+                }
+                else
+                {
+                    bigFrom = model;
+                    bigSwitched = true;
+                    model = Model_Arc;
+                    ghostShown = true;
+                    Configure();
+                }
+            }
+            std::vector< sim::Press > presses;
+            bigMirror = mirrored ? -1 : 1;
+            sim::BigCircle( delay, delay, bike.time + .3, sg_presetGap, bigMirror, presses, bigMarks );
+            for ( size_t i = 0; i < presses.size(); ++i )
+                Press( presses[i].time, presses[i].direction );
+            big = true;
+            bigAlong = bike.along;
+            bigPart = -1;
+            keysAt = -100;
+            (void)now;
+            showing = std::string( "big circles" ) + ( mirrored ? ", mirrored" : "" );
+        }
+
+        // which part of the sequence is playing, -1 none
+        int BigPart() const
+        {
+            if ( !big )
+                return -1;
+            int part = -1;
+            for ( int i = 0; i < 4; ++i )
+                if ( bike.time >= bigMarks[i] )
+                    part = i;
+            return part;
+        }
+
+        // the keys of a part, as pressed
+        std::string BigKeys( int part ) const
+        {
+            static const int pressed[4][4] = { { 1, 1, 1, 1 }, { -1, 1, 1, 1 }, { 1, 1, 1, -1 }, { 1, 1, 1, 1 } };
+            std::string strip;
+            for ( int i = 0; i < 4 && part >= 0; ++i )
+            {
+                if ( i )
+                    strip += ' ';
+                strip += pressed[ part ][i] * bigMirror > 0 ? 'R' : 'L';
+            }
+            return strip;
         }
 
         void StartDemo()
@@ -324,6 +419,8 @@ namespace
                 // a straight after each, a second and a half or more, so it can be seen
                 if ( bike.Idle() && ghost.Idle() )
                 {
+                    if ( bigSwitched )
+                        GiveModelBack();
                     demoWaiting = false;
                     demoAt = bike.time + std::max( 1.5, 1 + 2 * delay );
                 }
@@ -331,8 +428,8 @@ namespace
             }
             if ( bike.time < demoAt )
                 return;
-            // the four, then the four mirrored, so the bike stays about the middle
-            Play( demoIndex % 4, ( demoIndex / 4 ) % 2 == 1, now, false );
+            // the five, then the five mirrored, so the bike stays about the middle
+            Play( demoIndex % 5, ( demoIndex / 5 ) % 2 == 1, now, false );
             ++demoIndex;
             demoWaiting = true;
         }
@@ -419,6 +516,23 @@ namespace
             }
             MeasureOff();
 
+            // the big circles: the keys of the part playing, until it is over
+            if ( big )
+            {
+                int const part = BigPart();
+                if ( part != bigPart )
+                {
+                    bigPart = part;
+                    if ( part >= 0 )
+                    {
+                        keys = BigKeys( part );
+                        keysAt = now;
+                    }
+                }
+                if ( bike.time >= bigMarks[4] )
+                    big = false;
+            }
+
             // near the edge: fade out, start again in the middle, fade in
             if ( fading == 0 && ( NearEdge( bike ) || NearEdge( ghost ) ) )
             {
@@ -480,7 +594,8 @@ namespace
         void Frame( double dt )
         {
             double lowX = bike.x, highX = bike.x, lowY = bike.y, highY = bike.y;
-            double const way = speed * 4;
+            // the big circles last longer than that: all of them while they play
+            double const way = big ? std::max( speed * 4, bike.along - bigAlong ) : speed * 4;
             Around( bike, way, lowX, lowY, highX, highY );
             if ( ghostShown )
                 Around( ghost, way, lowX, lowY, highX, highY );
@@ -629,7 +744,7 @@ namespace
         out.push_back( sim::TrailPoint( rider, rider.trail.size() ) );
     }
 
-    // Look only: the classic line with every corner drawn as a quarter circle
+    // Look only: the classic line with every corner drawn as a circle's arc
     // of the given radius, as far as half of each line beside it allows. The
     // newest corner's next line is still being laid; the delay keeps it at
     // least D long, so half of D stands in for it. The radius is never more
@@ -646,9 +761,6 @@ namespace
                               b = sim::TrailPoint( rider, i + 1 );
             double const inX = c.x - a.x, inY = c.y - a.y, inLength = std::sqrt( inX * inX + inY * inY );
             double outX = b.x - c.x, outY = b.y - c.y, outLength = std::sqrt( outX * outX + outY * outY );
-            double r = std::min( round, std::min( inLength * .5, rider.DelayDistance() * .5 ) );
-            if ( i + 1 < n )
-                r = std::min( r, outLength * .5 );
             if ( outLength < 1E-6 )
             {
                 // the head is at the corner: its heading is the next line's
@@ -656,20 +768,42 @@ namespace
                 outY = std::sin( rider.heading );
                 outLength = 1;
             }
-            if ( !( r > 1E-4 ) || !( inLength > 1E-6 ) )
+            if ( !( inLength > 1E-6 ) )
             {
                 out.push_back( c );
                 continue;
             }
             double const ux = inX / inLength, uy = inY / inLength, vx = outX / outLength, vy = outY / outLength;
-            double const cx = c.x - ux * r + vx * r, cy = c.y - uy * r + vy * r;
-            int const pieces = std::max( 6, int( std::ceil( sim::quarter * r / sim::Rider::MaxPiece() ) ) );
+            // the turn there: a classic corner is a quarter; what an arc left
+            // behind (after the big circles) is a few degrees, and stays near enough as it is
+            double const cross = ux * vy - uy * vx;
+            double const turn = std::atan2( std::fabs( cross ), ux * vx + uy * vy );
+            double const half = std::tan( turn * .5 );
+            // how far along each line the arc reaches
+            double cut = round * half;
+            cut = std::min( cut, std::min( inLength * .5, rider.DelayDistance() * .5 ) );
+            if ( i + 1 < n )
+                cut = std::min( cut, outLength * .5 );
+            if ( !( cut > 1E-4 ) || !( half > 1E-3 ) )
+            {
+                out.push_back( c );
+                continue;
+            }
+            double const r = cut / half;
+            // into the turn from where the arc starts: its middle, and the way round
+            double const sense = cross > 0 ? 1 : -1;
+            double const sx = c.x - ux * cut, sy = c.y - uy * cut;
+            double const cx = sx - sense * uy * r, cy = sy + sense * ux * r;
+            double const spokeX = sx - cx, spokeY = sy - cy;
+            int pieces = int( std::ceil( turn / sim::Rider::MaxPieceTurn() ) );
+            pieces = std::max( pieces, int( std::ceil( r * turn / sim::Rider::MaxPiece() ) ) );
+            pieces = std::max( 1, std::min( 64, pieces ) );
             for ( int k = 0; k <= pieces; ++k )
             {
-                double const angle = sim::quarter * k / pieces;
+                double const angle = sense * turn * k / pieces;
                 double const cosine = std::cos( angle ), sine = std::sin( angle );
-                sim::Vertex const p = { cx - vx * r * cosine + ux * r * sine, cy - vy * r * cosine + uy * r * sine,
-                                        c.along - r + 2 * r * k / pieces };
+                sim::Vertex const p = { cx + spokeX * cosine - spokeY * sine, cy + spokeX * sine + spokeY * cosine,
+                                        c.along - cut + 2 * cut * k / pieces };
                 out.push_back( p );
             }
         }
@@ -1054,7 +1188,7 @@ namespace
         std::snprintf( view, sizeof( view ), "camera %s \xb7 arena %s \xb7 ghost %s \xb7 time %gx",
                        sg_cameraNames[ lab.camera ], lab.dark ? "night" : "pale", lab.ghostShown ? "on" : "off",
                        lab.TimeScale() );
-        static char const * const help1 = "left right turn \xb7 1 2 3 4 presets, shift mirrors \xb7 0 space demo \xb7 [ ] delay \xb7 - = speed \xb7 , . roundness";
+        static char const * const help1 = "left right turn \xb7 1 2 3 4 presets, 5 big circles, shift mirrors \xb7 0 space demo \xb7 [ ] delay \xb7 - = speed \xb7 , . roundness";
         static char const * const help2 = "t model \xb7 g ghost \xb7 c camera \xb7 l arena \xb7 s slow motion \xb7 r reset \xb7 esc back";
 
         // from the foot up
@@ -1070,7 +1204,18 @@ namespace
             if ( lines[i] )
                 width = std::max( width, TextWidth( lines[i], 13, 400 ) );
         width = width / W( 1 ) + 70;
-        FillRect( X( margin - 16 ), Y( y[0] - 20 ), X( margin + width ), Y( bottom + 16 ), canvas, .74f * alpha, 6 );
+        // the big circles: what they are played in, and the part playing, over the rest
+        int const part = lab.BigPart();
+        REAL const extra = part >= 0 ? 2 * line : 0;
+        FillRect( X( margin - 16 ), Y( y[0] - 20 - extra ), X( margin + width ), Y( bottom + 16 ), canvas, .74f * alpha, 6 );
+        if ( part >= 0 )
+        {
+            static char const * const parts[4] = { "circle", "reverse triple", "regular triple", "circle again" };
+            std::string const playing = part == 1 || part == 2 ? std::string( parts[ part ] ) + ": " + lab.BigKeys( part )
+                                                           : std::string( parts[ part ] );
+            Text( X( margin ), Y( y[0] - 2 * line ), 13, 500, accent, alpha, "big circles: arc = delay; T to change" );
+            Text( X( margin ), Y( y[0] - line ), 15, 500, textPrimary, alpha, playing.c_str() );
+        }
 
         Text( X( margin ), Y( y[0] ), 13, 500, textPrimary, alpha, model );
         Text( X( margin ), Y( y[1] ), 13, 400, textSecondary, alpha, pace );
@@ -1107,7 +1252,7 @@ namespace
     class gCurveLabRow: public uMenuItem
     {
     public:
-        explicit gCurveLabRow( uMenu * menu ): uMenuItem( menu, tOutput() ){}
+        explicit gCurveLabRow( uMenu * lab ): uMenuItem( lab, tOutput() ){}
         virtual bool OwnsRow(){ return true; }
         virtual void Render( REAL x, REAL y, REAL alpha, bool selected ){ (void)x; (void)y; (void)alpha; (void)selected; }
         // the lab covers the window: the menus' own backdrop would only be drawn under it
@@ -1169,6 +1314,7 @@ namespace
             case SDLK_2: case SDLK_KP2: preset = 1; break;
             case SDLK_3: case SDLK_KP3: preset = 2; break;
             case SDLK_4: case SDLK_KP4: preset = 3; break;
+            case SDLK_5: case SDLK_KP5: preset = 4; break;
             case SDLK_0: case SDLK_KP0: case SDLK_SPACE:
                 if ( !again )
                 {
@@ -1193,7 +1339,9 @@ namespace
             case SDLK_t:
                 if ( !again )
                 {
-                    // another way of turning starts the run again: one trail, one rule
+                    // another way of turning starts the run again: one trail, one
+                    // rule; the one chosen stays, whatever the demo had borrowed
+                    lab_.bigSwitched = false;
                     lab_.model = Model( ( lab_.model + 1 ) % Model_Count );
                     // look only rides the ghost's own line: there it would only double the wall
                     lab_.ghostShown = lab_.model != Model_Look;
