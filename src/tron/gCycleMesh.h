@@ -52,7 +52,8 @@ bool sg_RenderCycleMesh( gCycleMeshPose const & pose, REAL r, REAL g, REAL b );
 //! draws it, the mesh and its shader are there)
 bool sg_CycleMeshDraws();
 
-//! how far behind the cycle, in the arena, the mesh's tail is where it is placed
+//! how far behind the cycle, in the arena, the mesh's rear axle is where it is
+//! placed: where the wall leaves while the mesh draws
 REAL sg_CycleMeshTailGap();
 #endif
 

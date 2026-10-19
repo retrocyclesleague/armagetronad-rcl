@@ -5390,12 +5390,11 @@ static int sg_cycleModel = 0;
 static tConfItem<int> sg_cycleModelConf( "RCL_CYCLE_MODEL", sg_cycleModel );
 
 // Where a cycle's own wall is first drawn behind it. The arrow's notch is .9
-// behind the cycle, and the walls have always started there. The mesh cycle
-// reaches further back, its tail 1.1 behind; a wall drawn from .9 would run
-// inside it and show through its open rear. So while it draws, the wall
-// starts at its tail (RCL_CYCLE_TAIL_GAP: -1 there, else this far back in
-// arena units, 0 as for the others). Drawing only: the wall the game plays
-// with starts at the cycle as always.
+// behind the cycle, and the walls have always started there. While the mesh
+// cycle draws, the wall starts at its rear axle, so the tyre stands in front
+// of where it leaves, as Jamie drew it (RCL_CYCLE_TAIL_GAP: -1 there, else
+// this far back in arena units, 0 as for the others). Drawing only: the wall
+// the game plays with starts at the cycle as always.
 static REAL sg_cycleTailGap = -1;
 static tConfItem< REAL > sg_cycleTailGapConf( "RCL_CYCLE_TAIL_GAP", sg_cycleTailGap );
 

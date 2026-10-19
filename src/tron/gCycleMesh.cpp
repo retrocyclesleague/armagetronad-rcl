@@ -995,9 +995,15 @@ bool sg_CycleMeshDraws()
 
 REAL sg_CycleMeshTailGap()
 {
-    // The frame is the cycle's at half size, the cycle itself at 1.5 in it;
-    // the mesh is placed with its tail one length back from the nose.
-    return ( 1.5f - ( sg_nose - sg_length ) ) * .5f;
+    // The wall leaves behind the rear wheel, at its axle, so the tyre stands
+    // in front of where it starts. The frame is the cycle's at half size, the
+    // cycle itself at 1.5 in it; the mesh is placed with its nose at the
+    // light cycle's and scaled to its length. Before the mesh is read, its
+    // tail stands in.
+    float x = sg_nose - sg_length;
+    if ( !sg_mesh.lods.empty() )
+        x = sg_nose + ( sg_mesh.pivot[2][0] - sg_mesh.hi[0] ) * sg_length / ( sg_mesh.hi[0] - sg_mesh.lo[0] );
+    return ( 1.5f - x ) * .5f;
 }
 
 bool sg_RenderCycleMesh( gCycleMeshPose const & pose, REAL r, REAL g, REAL b )
