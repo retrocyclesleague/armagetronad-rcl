@@ -441,6 +441,8 @@ namespace
     gMesh sg_mesh;
     rShader sg_shader( "cycle_pbr.vert", "cycle_pbr.frag" );
     bool sg_shaderTried = false;
+    int sg_shaderLinks = 0;                     // counts the programs made, which start without uniforms
+    int sg_sceneKey[5] = { -1, -1, -1, -1, -1 };  // what the uniforms set once a scene were set for
 
     void sg_DeleteTexture( GLuint & texture )
     {
@@ -860,7 +862,10 @@ namespace
         {
             std::string error;
             if ( sg_shader.Load( error ) )
+            {
+                ++sg_shaderLinks;
                 con << "render: read cycle_pbr again\n";
+            }
             else
                 con << "render: " << error << "\n";
         }
@@ -904,6 +909,7 @@ namespace
         {
             sg_shaderTried = true;
             std::string error;
+            ++sg_shaderLinks;
             if ( !sg_shader.Load( error ) )
             {
                 sg_mesh.failed = true;
@@ -1067,10 +1073,11 @@ bool sg_RenderCycleMesh( gCycleMeshPose const & pose, REAL r, REAL g, REAL b )
     sg_Light( part[2], look ? 1.2f : 3.0f, sunColour );
     float const sunShare = cubes ? float( sg_cycleSun ) : 1.f + float( sg_cycleSun );
 
+    // Only what is changed is saved, once a cycle: the texture units are
+    // unbound at the end instead (what draws next binds its own).
     RenderEnd();
     rGPUTimer::Begin( rGPUTimer::Pass_Cycles );
-    glPushAttrib( GL_ENABLE_BIT | GL_CURRENT_BIT | GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT | GL_POLYGON_BIT |
-                  GL_TEXTURE_BIT | GL_LIGHTING_BIT );
+    glPushAttrib( GL_ENABLE_BIT | GL_DEPTH_BUFFER_BIT | GL_POLYGON_BIT );
     glPushClientAttrib( GL_CLIENT_VERTEX_ARRAY_BIT );
     glDisable( GL_LIGHTING );
     glDisable( GL_TEXTURE_2D );
@@ -1086,25 +1093,34 @@ bool sg_RenderCycleMesh( gCycleMeshPose const & pose, REAL r, REAL g, REAL b )
         glEnable( RGL_TEXTURE_CUBE_MAP_SEAMLESS );
 
     sg_shader.Use();
-    sg_shader.SetSampler( "u_normalMap", 0 );
-    sg_shader.SetSampler( "u_baseMap", 1 );
-    sg_shader.SetSampler( "u_ormMap", 2 );
-    sg_shader.SetSampler( "u_env", 3 );
-    sg_shader.SetSampler( "u_irradiance", 4 );
-    sg_shader.SetSampler( "u_brdf", 5 );
+
+    // What holds for the whole scene goes to the program once a scene; it
+    // keeps it (until it is linked anew).
+    int const sceneKey[5] = { int( rPost::SceneSerial() ), look, cubes ? env.levels : 0, sg_mesh.brdf ? 1 : 0,
+                              sg_shaderLinks };
+    if ( std::memcmp( sceneKey, sg_sceneKey, sizeof( sceneKey ) ) != 0 )
+    {
+        std::memcpy( sg_sceneKey, sceneKey, sizeof( sceneKey ) );
+        sg_shader.SetSampler( "u_normalMap", 0 );
+        sg_shader.SetSampler( "u_baseMap", 1 );
+        sg_shader.SetSampler( "u_ormMap", 2 );
+        sg_shader.SetSampler( "u_env", 3 );
+        sg_shader.SetSampler( "u_irradiance", 4 );
+        sg_shader.SetSampler( "u_brdf", 5 );
+        sg_shader.Set( "u_envMaps", cubes ? 1.f : 0.f );
+        sg_shader.Set( "u_envLods", 5.f );
+        sg_shader.Set( "u_envTop", float( env.levels > 0 ? env.levels - 1 : 0 ) );
+        sg_shader.Set( "u_brdfMap", sg_mesh.brdf ? 1.f : 0.f );
+        sg_shader.Set( "u_envTurn", std::cos( turn ), std::sin( turn ) );
+        sg_shader.Set( "u_sun", sun[0], sun[1], sun[2] );
+        sg_shader.Set( "u_sunLight", sunColour[0] * sunShare, sunColour[1] * sunShare, sunColour[2] * sunShare );
+        sg_shader.Set( "u_sky", sky[0], sky[1], sky[2] );
+        sg_shader.Set( "u_horizon", horizon[0], horizon[1], horizon[2] );
+        sg_shader.Set( "u_ground", ground[0], ground[1], ground[2] );
+    }
     sg_shader.Set( "u_maps", maps && lod.hasNormal ? 1.f : 0.f, maps && lod.hasBase ? 1.f : 0.f,
                    maps && lod.hasOrm ? 1.f : 0.f, maps && lod.hasEmit ? 1.f : 0.f );
-    sg_shader.Set( "u_envMaps", cubes ? 1.f : 0.f );
-    sg_shader.Set( "u_envLods", 5.f );
-    sg_shader.Set( "u_envTop", float( env.levels > 0 ? env.levels - 1 : 0 ) );
-    sg_shader.Set( "u_brdfMap", sg_mesh.brdf ? 1.f : 0.f );
-    sg_shader.Set( "u_envTurn", std::cos( turn ), std::sin( turn ) );
     sg_shader.Set( "u_eye", eye[0], eye[1], eye[2] );
-    sg_shader.Set( "u_sun", sun[0], sun[1], sun[2] );
-    sg_shader.Set( "u_sunLight", sunColour[0] * sunShare, sunColour[1] * sunShare, sunColour[2] * sunShare );
-    sg_shader.Set( "u_sky", sky[0], sky[1], sky[2] );
-    sg_shader.Set( "u_horizon", horizon[0], horizon[1], horizon[2] );
-    sg_shader.Set( "u_ground", ground[0], ground[1], ground[2] );
     sg_shader.Set( "u_light", light[0], light[1], light[2] );
 
     sg_Bind( 5, GL_TEXTURE_2D, sg_mesh.brdf );
