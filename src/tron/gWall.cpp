@@ -911,6 +911,21 @@ static REAL sg_trailGlowIntensity = 1.0f;
 static tConfItem< bool > sgc_trailGlow( "RCL_TRAIL_GLOW", sg_trailGlow );
 static tConfItem< REAL > sgc_trailGlowIntensity( "RCL_TRAIL_GLOW_INTENSITY", sg_trailGlowIntensity );
 
+// With the new renderer (rPost), how brightly what gives off light along a
+// trail glows, as rEmissive takes it: the clean arena's line along the top of
+// every wall, and the classic arena's glow shell (RCL_TRAIL_GLOW). At 1 or
+// less there is no glow, and the clean arena does not draw the line at all.
+static REAL sg_glowTrail = 3;
+static tConfItem< REAL > sg_glowTrailConf( "RCL_GLOW_TRAIL", sg_glowTrail );
+
+REAL sg_CleanTrailGlow()
+{
+    // finite and sane; NaN compares false and turns it off
+    if ( !( sg_glowTrail > 0 ) )
+        return 0;
+    return sg_glowTrail > 64 ? 64 : sg_glowTrail;
+}
+
 bool gNetPlayerWall::TrailGlowEnabled()
 {
     return sg_trailGlow && sr_alphaBlend && TrailGlowIntensity() > 0;
@@ -1268,6 +1283,35 @@ void sg_CleanSolid( const eCoord &p1, const eCoord &p2, REAL h1, REAL h2,
     glVertex3f( c.x - side.x, c.y - side.y, h2 );
 }
 
+// A trail's colour as a light, the way the light cycle's lights take the
+// bike's: as it is, not painted, and brought up where so little of it would
+// show that it could be missed.
+void sg_CleanLightColour( REAL & r, REAL & g, REAL & b )
+{
+    REAL * const channel[3] = { &r, &g, &b };
+    for ( int i = 0; i < 3; ++i )
+        *channel[i] = *channel[i] > 1 ? 1 : ( *channel[i] > 0 ? *channel[i] : 0 );
+    static const REAL least = .22f;
+    REAL const seen = .299f * r + .587f * g + .114f * b;
+    if ( seen < least )
+        for ( int i = 0; i < 3; ++i )
+            *channel[i] += ( 1 - *channel[i] ) * ( least - seen ) / ( 1 - seen );
+}
+
+// The line along a wall's top, for the new renderer to draw as light over
+// the wall (gWallRenderMode_Top, between BeginLines() and RenderEnd()). It is
+// only drawn in a scene that can glow; the wall itself is unchanged.
+void sg_CleanTop( const eCoord &p1, const eCoord &p2, REAL h1, REAL h2,
+                  REAL r, REAL g, REAL b, REAL alpha )
+{
+    if ( !( h1 > 0 || h2 > 0 ) )
+        return;
+    sg_CleanLightColour( r, g, b );
+    glColor4f( r, g, b, alpha );
+    glVertex3f( p1.x, p1.y, h1 );
+    glVertex3f( p2.x, p2.y, h2 );
+}
+
 // The last stretch of a wall, behind its cycle: a few points along it, each
 // with the height and the width the wall has there (the width as a share of
 // the full one), how much of the arrow's lighter paint it still has and how
@@ -1293,6 +1337,22 @@ void sg_CleanTip( gCleanTipPoint * point, int points, REAL r, REAL g, REAL b, RE
         return;
     eCoord const along = delta * ( sg_cleanWallHalfWidth / length );
     eCoord const side( -along.y, along.x );
+
+    if ( mode & gNetPlayerWall::gWallRenderMode_Top )
+    {
+        // the line along the top as it comes up out of the cycle, as light
+        REAL lr = r, lg = g, lb = b;
+        sg_CleanLightColour( lr, lg, lb );
+        RenderEnd();
+        BeginLineStrip();
+        for ( int i = 0; i < points; ++i )
+        {
+            glColor4f( lr, lg, lb, alpha );
+            glVertex3f( point[i].at.x, point[i].at.y, point[i].height );
+        }
+        RenderEnd();
+        return;
+    }
 
     if ( mode & gNetPlayerWall::gWallRenderMode_Shadow )
     {
@@ -1454,6 +1514,10 @@ void sg_CleanWallPiece( eCoord const & p1, eCoord const & p2, REAL h1, REAL h2,
         break;
     case 1:
         sg_CleanSheen( p1, p2, h1, h2, r, g, b, alpha );
+        break;
+    case 3:
+        BeginLines();
+        sg_CleanTop( p1, p2, h1, h2, r, g, b, alpha );
         break;
     default:
         sg_CleanSolid( p1, p2, h1, h2, r, g, b, alpha );
@@ -1725,7 +1789,12 @@ void gNetPlayerWall::RenderNormal(const eCoord &p1,const eCoord &p2,REAL ta,REAL
 
     if ( mode & gWallRenderMode_Clean )
     {
-        if ( hfrac > 0 )
+        if ( hfrac > 0 && ( mode & gWallRenderMode_Top ) )
+        {
+            BeginLines();
+            sg_CleanTop( p1, p2, h * hfrac, h * hfrac, r, g, b, a );
+        }
+        else if ( hfrac > 0 )
         {
             BeginQuads();
             if ( mode & gWallRenderMode_Shadow )

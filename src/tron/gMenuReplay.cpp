@@ -40,6 +40,7 @@ bool gMenuReplay::Render() { return false; }
 #include "eCoord.h"
 #include "eFloor.h"
 #include "gCycle.h"
+#include "gExplosion.h"
 #include "gWall.h"
 #include "gZone.h"
 
@@ -905,7 +906,11 @@ namespace
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glDisable(GL_CULL_FACE);
         DrawWalls(round, t, 2);
-        DrawWallLines(round, t);
+        {
+            // the lines along the tops are light; with the new renderer they glow
+            rEmissive glow(sg_CleanTrailGlow());
+            DrawWallLines(round, t);
+        }
         for (size_t i = 0; i < round.lives.size(); ++i)
         {
             Life const & life = round.lives[i];
@@ -916,35 +921,39 @@ namespace
                                       life.r, life.g, life.b);
         }
 
-        // where a cycle has just gone: a ring on the floor that opens and fades
+        // where a cycle has just gone: a ring on the floor that opens and
+        // fades; light, glowing with the new renderer as an explosion does
         glDepthMask(GL_FALSE);
-        BeginQuads();
-        for (size_t i = 0; i < round.lives.size(); ++i)
         {
-            Life const & life = round.lives[i];
-            float const since = t - life.points.back().t;
-            if (!life.died || since < 0 || since > deathRing)
-                continue;
-            float const f = since / deathRing;
-            float const outer = 1 + 7 * sqrtf(f), inner = outer * (.55f + .35f * f);
-            REAL r = life.r, g = life.g, b = life.b;
-            sr_CleanPaint(r, g, b);
-            float const light = .5f;
-            r += (1 - r) * light; g += (1 - g) * light; b += (1 - b) * light;
-            float const x = life.points.back().x, y = life.points.back().y;
-            int const segments = 28;
-            for (int k = 0; k < segments; ++k)
+            rEmissive ringGlow(sg_ExplosionGlow());
+            BeginQuads();
+            for (size_t i = 0; i < round.lives.size(); ++i)
             {
-                float const a0 = 2 * pi * k / segments, a1 = 2 * pi * (k + 1) / segments;
-                glColor4f(r, g, b, 0);
-                glVertex3f(x + cosf(a0) * inner, y + sinf(a0) * inner, .04f);
-                glVertex3f(x + cosf(a1) * inner, y + sinf(a1) * inner, .04f);
-                glColor4f(r, g, b, .75f * (1 - f));
-                glVertex3f(x + cosf(a1) * outer, y + sinf(a1) * outer, .04f);
-                glVertex3f(x + cosf(a0) * outer, y + sinf(a0) * outer, .04f);
+                Life const & life = round.lives[i];
+                float const since = t - life.points.back().t;
+                if (!life.died || since < 0 || since > deathRing)
+                    continue;
+                float const f = since / deathRing;
+                float const outer = 1 + 7 * sqrtf(f), inner = outer * (.55f + .35f * f);
+                REAL r = life.r, g = life.g, b = life.b;
+                sr_CleanPaint(r, g, b);
+                float const light = .5f;
+                r += (1 - r) * light; g += (1 - g) * light; b += (1 - b) * light;
+                float const x = life.points.back().x, y = life.points.back().y;
+                int const segments = 28;
+                for (int k = 0; k < segments; ++k)
+                {
+                    float const a0 = 2 * pi * k / segments, a1 = 2 * pi * (k + 1) / segments;
+                    glColor4f(r, g, b, 0);
+                    glVertex3f(x + cosf(a0) * inner, y + sinf(a0) * inner, .04f);
+                    glVertex3f(x + cosf(a1) * inner, y + sinf(a1) * inner, .04f);
+                    glColor4f(r, g, b, .75f * (1 - f));
+                    glVertex3f(x + cosf(a1) * outer, y + sinf(a1) * outer, .04f);
+                    glVertex3f(x + cosf(a0) * outer, y + sinf(a0) * outer, .04f);
+                }
             }
+            RenderEnd();
         }
-        RenderEnd();
         glDepthMask(GL_TRUE);
 
         // the zones, painted on the floor; the veil over them is see-through

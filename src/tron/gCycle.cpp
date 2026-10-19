@@ -37,6 +37,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "tRecorder.h"
 #include "rScreen.h"
 #include "rFont.h"
+#include "rPost.h"
 #include "gSensor.h"
 #include "ePlayer.h"
 #include "eSound.h"
@@ -4803,6 +4804,7 @@ void gCycleWallsDisplayListManager::RenderAllWithDisplayList( eCamera const * ca
     glowDisplayList_.Clear(0);
     shadowDisplayList_.Clear(0);
     sheenDisplayList_.Clear(0);
+    topDisplayList_.Clear(0);
 
     // remove and render walls without display list
     run = wallsWithDisplayList_;
@@ -5015,6 +5017,45 @@ void gCycleWallsDisplayListManager::RenderSheen( eCamera const * camera, gCycle 
     }
     sg_RenderWallOverlay( camera, wallList_, false, gNetPlayerWall::gWallRenderMode_Sheen );
     RenderEnd();
+}
+
+void gCycleWallsDisplayListManager::RenderTops( eCamera const * camera )
+{
+    // Over the walls just drawn, a hair nearer so that each line wins over
+    // the top it lies on, without writing depth. The shader is bound before
+    // the list is recorded: a list never holds it, and holds only colours
+    // and lines.
+    RenderEnd();
+    glPushAttrib( GL_COLOR_BUFFER_BIT | GL_CURRENT_BIT | GL_DEPTH_BUFFER_BIT | GL_ENABLE_BIT | GL_POLYGON_BIT |
+                  GL_TEXTURE_BIT );
+    glEnable( GL_DEPTH_TEST );
+    glDepthFunc( GL_LEQUAL );
+    glDepthMask( GL_FALSE );
+    glEnable( GL_BLEND );
+    glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+    glDisable( GL_ALPHA_TEST );
+    glDisable( GL_TEXTURE_2D );
+    glDisable( GL_LIGHTING );
+    glDisable( GL_CULL_FACE );
+    sr_DepthOffset( true );
+    {
+        rEmissive glow( sg_CleanTrailGlow() );
+        if ( sg_HideCyclesWalls )
+        {
+            topDisplayList_.Clear( 0 );
+            sg_RenderWallOverlay( camera, wallsWithDisplayList_, false, gNetPlayerWall::gWallRenderMode_Top );
+        }
+        else if ( wallsWithDisplayList_ && !topDisplayList_.Call() )
+        {
+            rDisplayListFiller filler( topDisplayList_ );
+            sg_RenderWallOverlay( camera, wallsWithDisplayList_, true, gNetPlayerWall::gWallRenderMode_Top );
+            RenderEnd();
+        }
+        sg_RenderWallOverlay( camera, wallList_, false, gNetPlayerWall::gWallRenderMode_Top );
+        RenderEnd();
+    }
+    sr_DepthOffset( false );
+    glPopAttrib();
 }
 
 // ---- clean arena: every wall's shadow on the floor, once ----
@@ -5282,6 +5323,10 @@ void gCycleWallsDisplayListManager::RenderAll( eCamera const * camera, gCycle * 
 
         RenderEnd();
         glPopAttrib();
+
+        // the line along every wall's top, as light, where the scene can glow
+        if ( rPost::Glows( sg_CleanTrailGlow() ) )
+            RenderTops( camera );
     }
     else if ( gNetPlayerWall::TrailGlowEnabled() )
     {
@@ -5311,6 +5356,9 @@ void gCycleWallsDisplayListManager::RenderAll( eCamera const * camera, gCycle * 
             glowDisplayList_.Clear( 0 );
             glowIntensity_ = intensity;
         }
+
+        // the shell is light: with the new renderer it goes into the glow
+        rEmissive glow( sg_CleanTrailGlow() );
         if ( sg_HideCyclesWalls )
         {
             sg_RenderTrailGlowList( camera, wallsWithDisplayList_, false );
@@ -6175,6 +6223,48 @@ static bool sg_showColoredName = true;
 static tSettingItem< bool > sg_showColoredNameConf( "SHOW_COLORED_NAMES", sg_showColoredName );
 
 
+// Names found while the world was drawn into the new renderer's picture,
+// written over it once it is on the screen: where they were, how faded.
+// Nothing drawn later in the world can cover them there.
+struct sg_LaterName
+{
+    REAL x, y, alpha;
+    tColoredString name;
+};
+static std::vector< sg_LaterName > sg_laterNames;
+
+static void sg_WriteLaterNames()
+{
+    if ( sg_laterNames.empty() )
+        return;
+    RenderEnd();
+    glPushAttrib( GL_ENABLE_BIT | GL_DEPTH_BUFFER_BIT );
+    glDisable( GL_DEPTH_TEST );
+    ModelMatrix();
+    glPushMatrix();
+    ProjMatrix();
+    glPushMatrix();
+    for ( size_t i = 0; i < sg_laterNames.size(); ++i )
+    {
+        sg_LaterName const & later = sg_laterNames[i];
+        ProjMatrix();
+        glLoadIdentity();
+        ModelMatrix();
+        glLoadIdentity();
+        glTranslatef( later.x, later.y, 0. );
+        rTextField::SetBlendColor( tColor( 1, 1, 1, later.alpha ) );
+        DisplayTextAutoWidth( 0, 0, later.name, rCHEIGHT_NORMAL, 0, 0 );
+        rTextField::SetDefaultColor( tColor( 1, 1, 1 ) );
+    }
+    RenderEnd();
+    ProjMatrix();
+    glPopMatrix();
+    ModelMatrix();
+    glPopMatrix();
+    glPopAttrib();
+    sg_laterNames.clear();
+}
+
 void gCycle::RenderName( const eCamera* cam ) {
     if ( !this->Player() )
         return;
@@ -6240,6 +6330,23 @@ void gCycle::RenderName( const eCamera* cam ) {
             alpha = 0.75 - (now - timeCameIntoView -
                             (fadeOutNameAfter - 1)) * 0.75;
         }
+    }
+
+    // With the new renderer the world is drawn into a picture that goes
+    // through the view transform; a name is written over that, not in it.
+    if ( doname && rPost::InScene() )
+    {
+        sg_LaterName later;
+        later.x = xp;
+        later.y = yp;
+        later.alpha = alpha;
+        if(sg_showColoredName)
+            later.name << this->player->GetColoredName();
+        else
+            later.name << this->player->GetName();
+        sg_laterNames.push_back( later );
+        rPost::AfterScene( &sg_WriteLaterNames );
+        return;
     }
 
     ModelMatrix();

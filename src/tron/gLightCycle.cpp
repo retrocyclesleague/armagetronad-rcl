@@ -26,8 +26,10 @@ of the License, or (at your option) any later version.
 #include "eCoord.h"
 #include "eFloor.h"
 #include "rGL.h"
+#include "rPost.h"
 #include "rRender.h"
 #include "rScreen.h"
+#include "tConfiguration.h"
 
 #include <algorithm>
 #include <cmath>
@@ -49,6 +51,18 @@ of the License, or (at your option) any later version.
 
 namespace
 {
+    // With the new renderer (rPost), how brightly the lights glow, as
+    // rEmissive takes it; at 1 or less they are drawn as before.
+    REAL sg_glowCycle = 3;
+    tConfItem< REAL > sg_glowCycleConf( "RCL_GLOW_CYCLE", sg_glowCycle );
+
+    REAL sg_CycleGlow()
+    {
+        if ( !( sg_glowCycle > 0 ) )
+            return 0;
+        return sg_glowCycle > 64 ? 64 : sg_glowCycle;
+    }
+
     float const sg_pi = 3.14159265f;
 
     // what a vertex belongs to; Shade() says how each is coloured
@@ -108,6 +122,9 @@ namespace
         std::vector< GLfloat > colours;     // four to a vertex, anew for every cycle drawn
         std::vector< GLushort > indices;
         size_t decals;
+        // the triangles before the decals once more, split into those that
+        // are lit by the sun and those that are lights, for the new renderer
+        std::vector< GLushort > body, lights;
         std::map< ShapeVertex, GLushort > known; // while it is built
 
         Mesh(): built( false ), decals( 0 ){}
@@ -446,6 +463,14 @@ namespace
         BuildLights();
         sg_mesh.known.clear();
 
+        // a triangle's corners all belong to the same part
+        for ( size_t i = 0; i + 2 < sg_mesh.decals; i += 3 )
+        {
+            int const part = sg_mesh.vertices[ sg_mesh.indices[i] ].part;
+            std::vector< GLushort > & into = ( part == Part_Light || part == Part_Ember ) ? sg_mesh.lights : sg_mesh.body;
+            into.insert( into.end(), sg_mesh.indices.begin() + i, sg_mesh.indices.begin() + i + 3 );
+        }
+
         sg_mesh.places.reserve( sg_mesh.vertices.size() * 3 );
         for ( size_t i = 0; i < sg_mesh.vertices.size(); ++i )
         {
@@ -611,14 +636,30 @@ void sg_RenderLightCycle( eCoord const & dir, REAL r, REAL g, REAL b )
     glVertexPointer( 3, GL_FLOAT, 0, &sg_mesh.places[0] );
     glColorPointer( 4, GL_FLOAT, 0, &sg_mesh.colours[0] );
 
-    glDrawElements( GL_TRIANGLES, static_cast< GLsizei >( sg_mesh.decals ), GL_UNSIGNED_SHORT, &sg_mesh.indices[0] );
+    GLsizei const decals = static_cast< GLsizei >( sg_mesh.indices.size() - sg_mesh.decals );
+    if ( rPost::Glows( sg_CycleGlow() ) && !sg_mesh.body.empty() )
+    {
+        // With the new renderer the lights are light: the body as before,
+        // then everything in the bike's colour through rEmissive, into the glow.
+        glDrawElements( GL_TRIANGLES, static_cast< GLsizei >( sg_mesh.body.size() ), GL_UNSIGNED_SHORT, &sg_mesh.body[0] );
+        rEmissive glow( sg_CycleGlow() );
+        if ( !sg_mesh.lights.empty() )
+            glDrawElements( GL_TRIANGLES, static_cast< GLsizei >( sg_mesh.lights.size() ), GL_UNSIGNED_SHORT,
+                            &sg_mesh.lights[0] );
+        sr_DepthOffset( true );
+        glDrawElements( GL_TRIANGLES, decals, GL_UNSIGNED_SHORT, &sg_mesh.indices[ sg_mesh.decals ] );
+        sr_DepthOffset( false );
+    }
+    else
+    {
+        glDrawElements( GL_TRIANGLES, static_cast< GLsizei >( sg_mesh.decals ), GL_UNSIGNED_SHORT, &sg_mesh.indices[0] );
 
-    // the lights lie a hair off the body; they are drawn nearer still, so
-    // they never sink into it
-    sr_DepthOffset( true );
-    glDrawElements( GL_TRIANGLES, static_cast< GLsizei >( sg_mesh.indices.size() - sg_mesh.decals ), GL_UNSIGNED_SHORT,
-                    &sg_mesh.indices[ sg_mesh.decals ] );
-    sr_DepthOffset( false );
+        // the lights lie a hair off the body; they are drawn nearer still, so
+        // they never sink into it
+        sr_DepthOffset( true );
+        glDrawElements( GL_TRIANGLES, decals, GL_UNSIGNED_SHORT, &sg_mesh.indices[ sg_mesh.decals ] );
+        sr_DepthOffset( false );
+    }
 
     glPopClientAttrib();
     glPopAttrib();

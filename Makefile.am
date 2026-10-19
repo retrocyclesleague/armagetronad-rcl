@@ -67,7 +67,8 @@ nobase_sound_DATA=sound/cyclrun.wav sound/cyclhigh.wav sound/cyclboost.wav \
 
 nobase_model_DATA=models/cycle_body.mod models/cycle_front.mod models/cycle_rear.mod
 
-nobase_shader_DATA=shaders/post.vert shaders/tonemap.frag
+nobase_shader_DATA=shaders/post.vert shaders/bloom_down.frag shaders/bloom_up.frag \
+	shaders/tonemap.frag shaders/emissive.vert shaders/emissive.frag shaders/agx.cube
 endif
 
 # generate configure.ac with version hardcoded and ChangeLog

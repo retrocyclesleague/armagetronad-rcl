@@ -239,8 +239,9 @@ public:
         gWallRenderMode_Shadow = 8,     //!< clean arena: shadow on the floor
         gWallRenderMode_Solid = 16,     //!< clean arena: solid wall
         gWallRenderMode_Sheen = 32,     //!< clean arena: the wall, mirrored in the floor
+        gWallRenderMode_Top = 64,       //!< clean arena: the line along the wall's top, drawn as light (rEmissive)
         //! the clean arena's passes; they take the place of the core
-        gWallRenderMode_Clean = gWallRenderMode_Shadow | gWallRenderMode_Solid | gWallRenderMode_Sheen,
+        gWallRenderMode_Clean = gWallRenderMode_Shadow | gWallRenderMode_Solid | gWallRenderMode_Sheen | gWallRenderMode_Top,
         //! passes drawn after the core; they never change list membership
         gWallRenderMode_Overlay = gWallRenderMode_Glow | gWallRenderMode_Clean
     };
@@ -301,10 +302,16 @@ extern tList<gNetPlayerWall> sg_netPlayerWallsGridded;
 // replay).
 
 //! one straight piece of wall in one of the look's passes (0 its shadow, 1
-//! what the floor mirrors of it, 2 the wall itself), between BeginQuads() and
-//! RenderEnd()
+//! what the floor mirrors of it, 2 the wall itself, 3 the line along its
+//! top, to be drawn as light: see sg_CleanTrailGlow), between BeginQuads()
+//! and RenderEnd()
 void sg_CleanWallPiece( eCoord const & p1, eCoord const & p2, REAL h1, REAL h2,
                         REAL r, REAL g, REAL b, REAL alpha, int pass );
+
+//! How brightly the line along the top of a trail glows with the new
+//! renderer (RCL_GLOW_TRAIL), as rEmissive takes it; at 1 or less it is
+//! not drawn at all.
+REAL sg_CleanTrailGlow();
 
 //! the marking on the floor that stands for the arena's rim, along one edge of it
 void sg_CleanRimMarking( eCoord const & a, eCoord const & b );

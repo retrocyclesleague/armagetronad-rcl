@@ -36,6 +36,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "eTeam.h"
 #include "ePlayer.h"
 #include "rRender.h"
+#include "rPost.h"
 #include "nConfig.h"
 #include "tString.h"
 #include "rScreen.h"
@@ -2078,6 +2079,65 @@ static nSettingItem< REAL > sg_zoneAlphaConfServer( "ZONE_ALPHA_SERVER", sg_zone
 // *******************************************************************************
 
 #ifndef DEDICATED
+// With the new renderer (rPost), how brightly a zone's boundary glows, as
+// rEmissive takes it: the clean arena's dashes, the classic arena's walls.
+// At 1 or less they are drawn as before.
+static REAL sg_glowZone = 2.5f;
+static tConfItem< REAL > sg_glowZoneConf( "RCL_GLOW_ZONE", sg_glowZone );
+
+static REAL sg_ZoneGlow()
+{
+    if ( !( sg_glowZone > 0 ) )
+        return 0;
+    return sg_glowZone > 64 ? 64 : sg_glowZone;
+}
+
+// The clean zone's quads: which 1 the dashes, 2 the veils over them, 3 both,
+// each dash with its veil, as they have always been drawn.
+static void sg_CleanZoneQuads( REAL band, REAL rise, REAL seglen, REAL red, REAL green, REAL blue, REAL strength,
+                               int which )
+{
+    int const steps = sg_zoneSegSteps > 4 ? sg_zoneSegSteps : 4;
+    BeginQuads();
+    for ( int i = sg_zoneSegments - 1; i>=0; --i )
+    {
+        REAL a = i * 2 * M_PI / REAL( sg_zoneSegments );
+        REAL sa = sin(a);
+        REAL ca = cos(a);
+
+        for ( int s = 0; s<steps; ++s )
+        {
+            REAL b = a + seglen / steps;
+            REAL sb = sin(b);
+            REAL cb = cos(b);
+
+            if ( which & 1 )
+            {
+                glColor4f( red, green, blue, strength );
+                glVertex3f( sa * ( 1 - band ), ca * ( 1 - band ), rise );
+                glVertex3f( sa, ca, rise );
+                glVertex3f( sb, cb, rise );
+                glVertex3f( sb * ( 1 - band ), cb * ( 1 - band ), rise );
+            }
+
+            if ( which & 2 )
+            {
+                glColor4f( red, green, blue, .42f * strength );
+                glVertex3f( sa, ca, rise );
+                glVertex3f( sb, cb, rise );
+                glColor4f( red, green, blue, 0 );
+                glVertex3f( sb, cb, 1 );
+                glVertex3f( sa, ca, 1 );
+            }
+
+            a = b;
+            sa = sb;
+            ca = cb;
+        }
+    }
+    RenderEnd();
+}
+
 // Light added to the clean arena's pale floor would hardly show. A zone is
 // painted instead: its boundary as bold dashes on the floor, each under a veil
 // that thins out upwards. Drawn in the zone's own frame, where its radius and
@@ -2100,39 +2160,17 @@ static void sg_CleanZonePaint( REAL r, REAL h, REAL seglen, REAL red, REAL green
     glDepthMask(GL_FALSE);
     glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 
-    int const steps = sg_zoneSegSteps > 4 ? sg_zoneSegSteps : 4;
-    BeginQuads();
-    for ( int i = sg_zoneSegments - 1; i>=0; --i )
+    // With the new renderer the dashes are light: the veils first as before,
+    // then the dashes through rEmissive, into the glow.
+    REAL const glow = sg_ZoneGlow();
+    if ( rPost::Glows( glow ) )
     {
-        REAL a = i * 2 * M_PI / REAL( sg_zoneSegments );
-        REAL sa = sin(a);
-        REAL ca = cos(a);
-
-        for ( int s = 0; s<steps; ++s )
-        {
-            REAL b = a + seglen / steps;
-            REAL sb = sin(b);
-            REAL cb = cos(b);
-
-            glColor4f( red, green, blue, strength );
-            glVertex3f( sa * ( 1 - band ), ca * ( 1 - band ), rise );
-            glVertex3f( sa, ca, rise );
-            glVertex3f( sb, cb, rise );
-            glVertex3f( sb * ( 1 - band ), cb * ( 1 - band ), rise );
-
-            glColor4f( red, green, blue, .42f * strength );
-            glVertex3f( sa, ca, rise );
-            glVertex3f( sb, cb, rise );
-            glColor4f( red, green, blue, 0 );
-            glVertex3f( sb, cb, 1 );
-            glVertex3f( sa, ca, 1 );
-
-            a = b;
-            sa = sb;
-            ca = cb;
-        }
+        sg_CleanZoneQuads( band, rise, seglen, red, green, blue, strength, 2 );
+        rEmissive light( glow );
+        sg_CleanZoneQuads( band, rise, seglen, red, green, blue, strength, 1 );
     }
-    RenderEnd();
+    else
+        sg_CleanZoneQuads( band, rise, seglen, red, green, blue, strength, 3 );
     glDepthMask(GL_TRUE);
 }
 #endif
@@ -2223,6 +2261,9 @@ void gZone::Render( const eCamera * cam )
 
     bool useAlpha = sr_alphaBlend ? !sg_zoneAlphaToggle : sg_zoneAlphaToggle;
     static bool lastAlpha = useAlpha;
+
+    // the walls are light; with the new renderer they go into the glow
+    rEmissive light( sg_ZoneGlow() );
 
     static rDisplayList zoneList;
     if ( lastAlpha != useAlpha || !zoneList.Call() )

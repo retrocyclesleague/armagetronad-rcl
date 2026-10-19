@@ -566,6 +566,17 @@ namespace
         if ( !classic || !sg_RenderClassicCycleAt( pos, dir, bike[0], bike[1], bike[2] ) )
             sg_RenderCleanCycleAt( pos, dir, bike[0], bike[1], bike[2] );
 
+        // the line along the trail's top, as light, where the scene can glow
+        if ( rPost::Glows( sg_CleanTrailGlow() ) )
+        {
+            rEmissive glow( sg_CleanTrailGlow() );
+            glDepthMask( GL_FALSE );
+            sr_DepthOffset( true );
+            DrawTrail( pos, dir, wall, 3 );
+            sr_DepthOffset( false );
+            glDepthMask( GL_TRUE );
+        }
+
         rPost::EndScene();
 
         sr_cleanDark = wasDark;

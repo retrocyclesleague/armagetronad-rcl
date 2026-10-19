@@ -27,7 +27,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "gExplosion.h"
 #include "rModel.h"
+#include "rPost.h"
 #include "rRender.h"
+#include "tConfiguration.h"
 #include "tInitExit.h"
 #include "gWall.h"
 #include "gCycle.h"
@@ -395,6 +397,18 @@ static tInitExit ie_exp(&init_exp);
 bool sg_crashExplosion = true;
 
 #ifndef DEDICATED
+// With the new renderer (rPost), how brightly an explosion's rays glow, as
+// rEmissive takes it; at 1 or less they are drawn as before.
+static REAL sg_glowExplosion = 4;
+static tConfItem< REAL > sg_glowExplosionConf( "RCL_GLOW_EXPLOSION", sg_glowExplosion );
+
+REAL sg_ExplosionGlow()
+{
+    if ( !( sg_glowExplosion > 0 ) )
+        return 0;
+    return sg_glowExplosion > 64 ? 64 : sg_glowExplosion;
+}
+
 void gExplosion::Render(const eCamera *cam){
 #ifdef USE_PARTICLES
     if (sg_crashExplosion){
@@ -421,13 +435,17 @@ void gExplosion::Render(const eCamera *cam){
         //glDisable(GL_TEXTURE);
         glDisable(GL_TEXTURE_2D);
 
-        glColor4f(explosion_r,explosion_g,explosion_b,fade);
-        BeginLines();
-        for (int i=expvec.Len()-1;i>=0;i--){
-            glVertex3f(a1*expvec[i].x[0],a1*expvec[i].x[1],a1*expvec[i].x[2]);
-            glVertex3f( e*expvec[i].x[0], e*expvec[i].x[1], e*expvec[i].x[2]);
+        {
+            // the rays are light; with the new renderer they go into the glow
+            rEmissive light( sg_ExplosionGlow() );
+            glColor4f(explosion_r,explosion_g,explosion_b,fade);
+            BeginLines();
+            for (int i=expvec.Len()-1;i>=0;i--){
+                glVertex3f(a1*expvec[i].x[0],a1*expvec[i].x[1],a1*expvec[i].x[2]);
+                glVertex3f( e*expvec[i].x[0], e*expvec[i].x[1], e*expvec[i].x[2]);
+            }
+            RenderEnd();
         }
-        RenderEnd();
         glPopMatrix();
     }
     /*

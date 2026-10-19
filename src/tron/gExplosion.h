@@ -98,4 +98,11 @@ private:
 
     tJUST_CONTROLLED_PTR< gCycle > owner_; // the owner/victim of the explosion
 };
+
+#ifndef DEDICATED
+//! How brightly an explosion glows with the new renderer (RCL_GLOW_EXPLOSION),
+//! as rEmissive takes it: its rays, and the ring the menu's replay draws
+//! where a cycle went.
+REAL sg_ExplosionGlow();
+#endif
 #endif
