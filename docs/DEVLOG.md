@@ -12,7 +12,16 @@ Jamie picked the D2 design. `RCL_CYCLE_MODEL 2` draws it with the new renderer (
 - `RCL_CYCLE_ENV 0` and `RCL_CYCLE_MAPS 0` leave the cubemaps or the maps out, to see what each brings. `RCL_SHADER_RELOAD 1` also reads the mesh, maps and cubemaps again when they change or appear.
 - The GPU timers have a `cycles` pass, inside the world, which no longer counts the meshes.
 
-Checked: it compiles on Windows, as the dedicated server, without GLEW and on the macOS code path; the shaders pass `glslangValidator`; the converter on the D2 .glb files (lod0 13544 vertices, 17515 triangles; lod1 4380; lod2 675). Not checked: nothing of it has been drawn yet.
+- **The pack's lod1 and lod2 maps were left out:** baked at 21:42–21:45, they fit only 30% of the meshes exported at 21:48 (their material id map sampled at each triangle's middle; lod0's fit 88%). `install-cycle-assets.py` now makes that check and leaves a level's maps out until they are baked again on its mesh; those levels draw with their materials' own values.
+
+Checked: it compiles on Windows, as the dedicated server, without GLEW and on the macOS code path; the shaders pass `glslangValidator`; the converter on the D2 .glb files (lod0 13544 vertices, 17515 triangles; lod1 4380; lod2 675); the mesh file against the loader's checks; the maps' orientation against the material id map. Not checked: nothing of it has been drawn yet.
+
+Also, from the lead's measurements of P2 (1440p, 12 bots: GPU 0.16 ms classic, 0.50 new; CPU +0.25 to 0.4 ms a frame):
+
+- `RCL_TONEMAP` defaults to 2 (see above).
+- `RCL_HDR_FORMAT`: 0 picks R11G11B10F for the glow's chain and RGBA16F for scenes, which keep alpha for the clean arena's shadows (gathered there, also in the menu replay and the colour studio; without alpha they double up); 1 RGBA16F throughout; 2 packed floats for scenes too.
+- CPU: the bound framebuffer is remembered instead of asked for; the composite saves only what it changes; uniform lookups are cached by the name's address; the mesh asks for the projection once a scene, saves less state and sets the scene's uniforms once. Queries were already never waited on, and nothing checks errors or completeness per frame. What is left to measure: the trail tops' pass (`RCL_GLOW_TRAIL 1` turns it off; one push and two program switches per cycle) and the glow (`RCL_BLOOM 0`).
+- The glowing disc on the night floor is a death explosion: forty rays from where the cycle died, mostly low, growing to 100 units in a second and fading over two, drawn emissive at `RCL_GLOW_EXPLOSION` 4. Where they meet the glow adds up into a bright core, and the bloom spreads it into a soft ellipse. There is no filled disc; it fades with the explosion. `RCL_GLOW_EXPLOSION` 2 halves it, 1 turns it off.
 
 ## 2026-10-19 - render-next: GPU timers, the scene in a framebuffer, glow and Blender's view transform
 
