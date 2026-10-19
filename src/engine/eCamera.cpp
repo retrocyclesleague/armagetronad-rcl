@@ -31,6 +31,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "eCamera.h"
 #include "eSound.h"
 #include "rScreen.h"
+#include "rGPUTimer.h"
 #include "eGameObject.h"
 #include "uInputQueue.h"
 //#include "eTess.h"
@@ -1921,7 +1922,10 @@ void eCamera::Render(){
         if (zNear < -.1 )
             zNear = .1;
 
+        // the GPU's time for the world (RCL_RENDER_STATS, RCL_FRAME_LOG)
+        rGPUTimer::Begin( rGPUTimer::Pass_World );
         grid->Render( this, id, zNear );
+        rGPUTimer::End( rGPUTimer::Pass_World );
 
         zNear *= .3f;
         if ( zNear < 0.0001f )

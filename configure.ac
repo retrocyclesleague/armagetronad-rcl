@@ -770,6 +770,34 @@ Read the file doc/install_linux.html.]))
 fi
 
 dnl *************************************************
+dnl         GLEW: shaders, framebuffers and timer queries
+dnl         for the new renderer (src/render/rGLExt.cpp)
+dnl *************************************************
+
+dnl Windows and Linux reach anything past OpenGL 1.1 through GLEW. macOS has
+dnl the entry points of its 2.1 context in the OpenGL framework itself. A
+dnl client built without GLEW still runs; it keeps the classic renderer.
+if test x$macosx != xtrue; then
+  have_glew=no
+  PKG_CHECK_MODULES(GLEW, [glew], [have_glew=yes], [have_glew=no])
+  if test x$have_glew = xyes; then
+    CPPFLAGS="$CPPFLAGS $GLEW_CFLAGS"
+    LIBS="$GLEW_LIBS $LIBS"
+  else
+    AC_CHECK_LIB(glew32, glewInit, [LIBS="-lglew32 $LIBS"; have_glew=yes],
+      [AC_CHECK_LIB(GLEW, glewInit, [LIBS="-lGLEW $LIBS"; have_glew=yes])])
+  fi
+  if test x$have_glew = xyes; then
+    AC_CHECK_HEADER(GL/glew.h,, [have_glew=no])
+  fi
+  if test x$have_glew = xyes; then
+    AC_DEFINE(HAVE_GLEW, 1, [Define if GLEW provides the OpenGL entry points past 1.1])
+  else
+    AC_MSG_WARN([GLEW not found: the client is built without the shader renderer (RCL_RENDER stays 0).])
+  fi
+fi
+
+dnl *************************************************
 dnl         Other Stuff
 dnl *************************************************
 

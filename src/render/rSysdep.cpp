@@ -40,6 +40,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <iostream>
 #include "rScreen.h"
 #include "rGL.h"
+#include "rGPUTimer.h"
 #include "tCommandLine.h"
 #include "tConfiguration.h"
 #include "tRecorder.h"
@@ -567,7 +568,10 @@ void rSysDep::StopNetSyncThread()
 // RCL_FRAME_LOG set to a file name, every frame writes a line there with the
 // time it was shown at, how long it took since the one before and how much of
 // that was spent waiting in the swap, all in milliseconds; then the game's
-// time and whether a local player was in play (see FrameLogNote).
+// time and whether a local player was in play (see FrameLogNote). Where the
+// driver has timer queries, the GPU's milliseconds per pass follow as
+// name=value fields (rGPUTimer): those of the newest frame whose answers are
+// in, lag frames before this one.
 static double sr_frameLogGameTime = 0;
 static bool sr_frameLogInPlay = false;
 
@@ -596,8 +600,16 @@ static void sr_FrameLog( double beforeSwap )
     double const now = tRealSysTimeFloat();
     if ( last > 0 )
     {
-        fprintf( log, "%.3f %.3f %.3f %.2f %d\n", now * 1000, ( now - last ) * 1000, ( now - beforeSwap ) * 1000,
+        fprintf( log, "%.3f %.3f %.3f %.2f %d", now * 1000, ( now - last ) * 1000, ( now - beforeSwap ) * 1000,
                  sr_frameLogGameTime, int( sr_frameLogInPlay ) );
+        if ( rGPUTimer::Last( rGPUTimer::Pass_World ) >= 0 )
+        {
+            fprintf( log, " gpu" );
+            for ( int pass = 0; pass < rGPUTimer::Pass_Count; ++pass )
+                fprintf( log, " %s=%.3f", rGPUTimer::Name( pass ), rGPUTimer::Last( pass ) );
+            fprintf( log, " lag=%d", rGPUTimer::Lag() );
+        }
+        fprintf( log, "\n" );
         if ( ( ++lines & 255 ) == 0 )
             fflush( log );
     }
@@ -682,6 +694,9 @@ void rSysDep::SwapGL(){
 
     rPerFrameTask::DoPerFrameTasks();
 
+    // the GPU's time for this frame ends here; the swap is not part of it
+    rGPUTimer::FrameEnd();
+
     // unlock the mutex while waiting for the swap operation to finish
     SDL_mutexV(  sr_netLock );
     sr_LockSDL();
@@ -723,6 +738,9 @@ void rSysDep::SwapGL(){
         make_screenshot();
         sr_screenshotIsPlanned=false;
     }
+
+    // and the next frame's begins
+    rGPUTimer::FrameBegin();
 
     sr_UnlockSDL();
     // lock mutex again

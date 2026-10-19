@@ -39,6 +39,8 @@ void sg_ColourStudio(){}
 #include "rRender.h"
 #include "rScreen.h"
 #include "tConfiguration.h"
+#include "tConsole.h"
+#include "tDirectories.h"
 #include "tSysTime.h"
 #include "uMenu.h"
 #include "uRclTheme.h"
@@ -46,6 +48,7 @@ void sg_ColourStudio(){}
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <fstream>
 #include <string>
 
 // A player has one colour, three numbers, and every client draws two things
@@ -239,6 +242,117 @@ namespace
         return ( row < 3 ? l.bikeTop : l.trailTop ) + 40 + 36 * ( row % 3 );
     }
 
+    // ---- the studio camera, for pictures to set beside Blender's ----
+
+    // The preview's camera as it was last drawn, so that the same view can
+    // be set up in Blender and an in-game frame judged beside a render of
+    // the model (RCL_STUDIO_CAMERA writes it out). RCL_STUDIO_HOLD 1 stops
+    // the cycle turning, at RCL_STUDIO_SWING degrees from facing the camera.
+    struct StudioCamera
+    {
+        bool drawn;
+        int width, height, look;
+        float eye[3], target[3], fovY, nearPlane, farPlane;
+        float pos[2], dir[2], swing;
+    };
+
+    StudioCamera sg_studioCamera = { false, 0, 0, 0, { 0, 0, 0 }, { 0, 0, 0 }, 0, 0, 0, { 0, 0 }, { 1, 0 }, 0 };
+
+    int sg_studioHold = 0;
+    tSettingItem< int > sg_studioHoldConf( "RCL_STUDIO_HOLD", sg_studioHold );
+    REAL sg_studioSwing = 0;
+    tSettingItem< REAL > sg_studioSwingConf( "RCL_STUDIO_SWING", sg_studioSwing );
+
+    // A point of the arena in the frame the cycle is drawn in: the frame of
+    // gLightCycle and of the Blender light cycle (x ahead, y left, z up, the
+    // cycle twice its size in the arena; see sg_CleanCycleFrame in gCycle.cpp).
+    void ToCycleFrame( StudioCamera const & c, float const * at, float * out, bool direction )
+    {
+        float x = at[0], y = at[1];
+        if ( !direction )
+        {
+            x -= c.pos[0];
+            y -= c.pos[1];
+        }
+        float const ahead = x * c.dir[0] + y * c.dir[1], left = -x * c.dir[1] + y * c.dir[0];
+        float const scale = direction ? 1.f : 2.f;
+        out[0] = ahead * scale + ( direction ? 0.f : 1.5f );
+        out[1] = left * scale;
+        out[2] = at[2] * scale;
+    }
+
+    void WriteVector( std::ostream & o, float const * v, int n )
+    {
+        o << "[";
+        for ( int i = 0; i < n; ++i )
+            o << ( i ? ", " : "" ) << v[i];
+        o << "]";
+    }
+
+    bool WriteStudioCamera( char const * name )
+    {
+        StudioCamera const & c = sg_studioCamera;
+        if ( !c.drawn )
+        {
+            con << "RCL_STUDIO_CAMERA: the colour studio has not drawn its preview yet; open it first\n";
+            return false;
+        }
+        std::ofstream o;
+        if ( !tDirectories::Var().Open( o, name ) )
+        {
+            con << "RCL_STUDIO_CAMERA: cannot write " << name << "\n";
+            return false;
+        }
+
+        float eye[3], target[3], up[3];
+        float const sky[3] = { 0, 0, 1 };
+        ToCycleFrame( c, c.eye, eye, false );
+        ToCycleFrame( c, c.target, target, false );
+        ToCycleFrame( c, sky, up, true );
+        static char const * const looks[3] = { "light", "dark", "classic" };
+
+        o.precision( 7 );
+        o << "{\n";
+        o << "  \"what\": \"Retrocycles RCL colour studio preview camera\",\n";
+        o << "  \"frame\": \"cycle model frame: +x ahead, +y left, +z up, the frame the light cycle is built in (gLightCycle, rcl-cfg/art/lightcycle); the cycle stands at the origin unrotated\",\n";
+        o << "  \"image\": { \"width\": " << c.width << ", \"height\": " << c.height << " },\n";
+        o << "  \"fov_y_degrees\": " << c.fovY << ",\n";
+        o << "  \"clip\": { \"near\": " << c.nearPlane * 2 << ", \"far\": " << c.farPlane * 2 << " },\n";
+        o << "  \"camera\": { \"eye\": ";
+        WriteVector( o, eye, 3 );
+        o << ", \"target\": ";
+        WriteVector( o, target, 3 );
+        o << ", \"up\": ";
+        WriteVector( o, up, 3 );
+        o << " },\n";
+        o << "  \"arena\": { \"eye\": ";
+        WriteVector( o, c.eye, 3 );
+        o << ", \"target\": ";
+        WriteVector( o, c.target, 3 );
+        o << ", \"cycle_position\": ";
+        WriteVector( o, c.pos, 2 );
+        o << ", \"cycle_direction\": ";
+        WriteVector( o, c.dir, 2 );
+        o << ", \"model_scale\": 0.5, \"model_offset_x\": -1.5 },\n";
+        o << "  \"swing_degrees\": " << c.swing << ",\n";
+        o << "  \"held\": " << ( sg_studioHold ? "true" : "false" ) << ",\n";
+        o << "  \"look\": \"" << looks[ c.look >= 0 && c.look <= 2 ? c.look : 0 ] << "\"\n";
+        o << "}\n";
+
+        con << "RCL_STUDIO_CAMERA: wrote " << tDirectories::Var().GetWritePath( name ) << "\n";
+        return true;
+    }
+
+    void sg_StudioCameraCommand( std::istream & s )
+    {
+        tString name;
+        s >> name;
+        if ( name.Len() <= 1 )
+            name = "studio-camera.json";
+        WriteStudioCamera( name );
+    }
+    tConfItemFunc sg_studioCameraCommand( "RCL_STUDIO_CAMERA", &sg_StudioCameraCommand );
+
     // ---- the preview ----
 
     // the camera's matrix, from the eye towards a target, the sky up
@@ -342,9 +456,31 @@ namespace
 
         // The cycle turns about its middle, from showing the one side through
         // facing the camera to showing the other; its trail stays behind it.
-        float const swing = static_cast< float >( sin( time * 2 * pi / 26 ) ) * 100 * pi / 180;
+        // Held still, it shows the side asked for.
+        float const swing = sg_studioHold ? float( sg_studioSwing ) * pi / 180
+                                          : static_cast< float >( sin( time * 2 * pi / 26 ) ) * 100 * pi / 180;
         eCoord const dir( cosf( bearing + swing ), sinf( bearing + swing ) );
         eCoord const pos = dir * .42f;     // about the middle of the arrow and of the light cycle
+
+        StudioCamera & camera = sg_studioCamera;
+        camera.drawn = true;
+        camera.width = width;
+        camera.height = height;
+        camera.look = look;
+        camera.eye[0] = ex;
+        camera.eye[1] = ey;
+        camera.eye[2] = eyeHeight;
+        camera.target[0] = 0;
+        camera.target[1] = 0;
+        camera.target[2] = .36f;
+        camera.fovY = fov * 180 / pi;
+        camera.nearPlane = nearPlane;
+        camera.farPlane = farPlane;
+        camera.pos[0] = pos.x;
+        camera.pos[1] = pos.y;
+        camera.dir[0] = dir.x;
+        camera.dir[1] = dir.y;
+        camera.swing = swing * 180 / pi;
 
         se_CleanArenaBackdrop( eCoord( ex, ey ), eyeHeight );
 
@@ -425,6 +561,7 @@ namespace
         DrawTrail( pos, dir, wall, 2 );
         if ( !classic || !sg_RenderClassicCycleAt( pos, dir, bike[0], bike[1], bike[2] ) )
             sg_RenderCleanCycleAt( pos, dir, bike[0], bike[1], bike[2] );
+
 
         sr_cleanDark = wasDark;
         glPopAttrib();
@@ -702,6 +839,11 @@ namespace
             case SDLK_1: case SDLK_KP1: look = 0; break;
             case SDLK_2: case SDLK_KP2: look = 1; break;
             case SDLK_3: case SDLK_KP3: look = 2; break;
+            case SDLK_c:
+                // the preview's camera to a file, for Blender (RCL_STUDIO_CAMERA)
+                if ( WriteStudioCamera( "studio-camera.json" ) )
+                    uMenu::MenuSound( uMenu::Sound_Adjust );
+                return;
             default: break;
             }
             if ( look >= 0 )

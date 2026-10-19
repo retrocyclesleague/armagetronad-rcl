@@ -328,7 +328,7 @@ EOF
   chmod +x "${PACKAGE_ROOT}/retrocycles-rcl"
   RUN_LINE="  2. Run: ./retrocycles-rcl"
   EXAMPLE_DIR="~/Retrocycles-RCL"
-  RUNTIME_NOTE="Runtime: this archive uses system glibc, libstdc++, SDL 1.2, SDL_image 1.2, OpenGL, libpng, libxml2, and ZThread libraries."
+  RUNTIME_NOTE="Runtime: this archive uses system glibc, libstdc++, SDL 1.2, SDL_image 1.2, OpenGL, GLEW, libpng, libxml2, and ZThread libraries."
 fi
 
 cat > "${PACKAGE_ROOT}/README.txt" <<EOF

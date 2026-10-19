@@ -141,6 +141,17 @@ compatibility changes from Debian's long-maintained ZThread patches 020, 050,
 and 070 for modern GCC. Those reproducible transformations are recorded in
 `scripts/build-windows-client.sh`.
 
+## GLEW
+
+The new renderer loads OpenGL entry points past 1.1 through
+[GLEW](https://github.com/nigels-com/glew) on Windows and Linux. Windows
+packages include `glew32.dll` from MSYS2's `mingw-w64-x86_64-glew`; Linux
+packages use the system's library; macOS builds do not use it. GLEW is
+distributed under the Modified BSD License, Copyright (C) 2002-2007 Milan
+Ikits, Marcelo E. Magallon and Lev Povalahev, with parts under the Mesa 3-D
+(MIT) and Khronos (MIT) licenses. Windows packages carry its full license text
+under `ThirdPartyLicenses/MSYS2`.
+
 ## Windows MinGW runtime libraries
 
 Windows packages may include runtime DLLs supplied by MSYS2's MinGW-w64
