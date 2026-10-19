@@ -1977,9 +1977,13 @@ void gNetPlayerWall::RenderBegin(const eCoord &p1,const eCoord &pp2,REAL ta,REAL
         // predicted enemy turns out to have turned, and it should not look
         // more settled than it is.
         static const REAL stretch = gBEG_LEN * SEGLEN;  // what ra and re count in
-        // where the arrow's notch is behind the cycle and how high (see
-        // sg_RenderCleanCycle), and the way from there to the full wall
-        static const REAL notchBack = .9f, notchHeight = .21f, riseLength = 3.6f;
+        // where the wall leaves the cycle behind it: the arrow's notch, or
+        // the mesh cycle's tail (sg_CleanWallStart); how high it is there
+        // (see sg_RenderCleanCycle), and the way from there to the full wall.
+        // What lies nearer the cycle along the trail is not drawn, in any of
+        // the passes: wall, top line, mirror image, shadow.
+        REAL const notchBack = sg_CleanWallStart();
+        static const REAL notchHeight = .21f, riseLength = 3.6f;
         static const REAL arrowTint = .30f;             // the arrow's top, against its paint
         static const int riseSteps = 8;
 

@@ -5389,6 +5389,24 @@ static tConfItem<bool> sg_HideCyclesConf("HIDE_CYCLES", sg_HideCycles);
 static int sg_cycleModel = 0;
 static tConfItem<int> sg_cycleModelConf( "RCL_CYCLE_MODEL", sg_cycleModel );
 
+// Where a cycle's own wall is first drawn behind it. The arrow's notch is .9
+// behind the cycle, and the walls have always started there. The mesh cycle
+// reaches further back, its tail 1.1 behind; a wall drawn from .9 would run
+// inside it and show through its open rear. So while it draws, the wall
+// starts at its tail (RCL_CYCLE_TAIL_GAP: -1 there, else this far back in
+// arena units, 0 as for the others). Drawing only: the wall the game plays
+// with starts at the cycle as always.
+static REAL sg_cycleTailGap = -1;
+static tConfItem< REAL > sg_cycleTailGapConf( "RCL_CYCLE_TAIL_GAP", sg_cycleTailGap );
+
+REAL sg_CleanWallStart()
+{
+    static const REAL notch = .9f;
+    if ( sg_cycleModel != 2 || sg_cycleTailGap == 0 || !sg_CycleMeshDraws() )
+        return notch;
+    return sg_cycleTailGap > 0 ? sg_cycleTailGap : sg_CycleMeshTailGap();
+}
+
 // What every other client shows of a bike. The classic cycle's texture is
 // tinted through a byte a channel (gTextureCycle::ProcessImage), so a channel
 // set over full wraps around while the trail of it is simply full: a setting

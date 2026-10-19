@@ -70,9 +70,9 @@ namespace
     float const wallSink     = .5f;   // seconds a dead cycle's walls take to go down once their time is up
     // A live cycle's wall leaves the tail of the cycle, low, and rises over a
     // few lengths behind it, as the game's does (gWall.cpp); the stretch in
-    // front of that is inside the cycle.
-    float const tipStart     = .9f;   // how far behind the cycle's head the wall leaves it
-    float const tipLow       = .21f;  // and how high it is there
+    // front of that is inside the cycle. Where it leaves is the game's too
+    // (sg_CleanWallStart: the arrow's notch, or the mesh cycle's tail).
+    float const tipLow       = .21f;  // how high it is where it leaves
     float const tipLength    = 3.6f;  // the stretch behind that over which it rises
     float const zoneCollapse = 2;     // seconds a conquered zone takes to close
     float const deathRing    = .7f;   // seconds the ring a cycle leaves behind is seen
@@ -674,6 +674,7 @@ namespace
     // lives, rising out of its tail to full height a few units back.
     float TipHeight(float behind, bool alive, float standing)
     {
+        float const tipStart = float(sg_CleanWallStart());
         float rise = 1;
         if (alive && behind < tipStart + tipLength)
             rise = tipLow + (1 - tipLow) * std::max(0.0f, behind - tipStart) / tipLength;
@@ -687,6 +688,7 @@ namespace
     template <class Draw>
     void TipPieces(Vec a, Vec b, float behindA, float behindB, bool alive, Draw const & draw)
     {
+        float const tipStart = float(sg_CleanWallStart());
         if (alive)
         {
             if (behindA <= tipStart)

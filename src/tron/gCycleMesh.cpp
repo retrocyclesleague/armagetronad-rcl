@@ -984,6 +984,22 @@ void sg_CycleMeshPose( gCycleMeshPose & pose, eCoord const & pos, eCoord const &
     pose.distance = distance;
 }
 
+bool sg_CycleMeshDraws()
+{
+#ifdef RGL_EXT_AVAILABLE
+    return rPost::InScene() && !sg_mesh.failed && sg_shader.Ready() && !sg_mesh.lods.empty();
+#else
+    return false;
+#endif
+}
+
+REAL sg_CycleMeshTailGap()
+{
+    // The frame is the cycle's at half size, the cycle itself at 1.5 in it;
+    // the mesh is placed with its tail one length back from the nose.
+    return ( 1.5f - ( sg_nose - sg_length ) ) * .5f;
+}
+
 bool sg_RenderCycleMesh( gCycleMeshPose const & pose, REAL r, REAL g, REAL b )
 {
 #ifndef RGL_EXT_AVAILABLE
@@ -1156,10 +1172,12 @@ bool sg_RenderCycleMesh( gCycleMeshPose const & pose, REAL r, REAL g, REAL b )
         std::memcpy( part, local, sizeof( part ) );
         if ( object > 0 )
         {
-            // a wheel turns about its axle by the way come over its radius
-            // (in the frame, twice the arena's size), as the classic wheels do
+            // A wheel turns about its axle by the way come over its radius
+            // (in the frame, twice the arena's size), as the classic wheels
+            // do: their turn goes the negative way (rotate() in gCycle.cpp),
+            // which in this matrix brings the top of the wheel forward.
             float const * const pivot = sg_mesh.pivot[ object ];
-            float const angle = static_cast< float >( 2 * pose.distance / ( pivot[3] * fit ) );
+            float const angle = static_cast< float >( -2 * pose.distance / ( pivot[3] * fit ) );
             float axle[16], spin[16];
             Translation( axle, pivot[0], pivot[1], pivot[2] );
             Identity( spin );

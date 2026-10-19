@@ -385,7 +385,8 @@ namespace
     // game's does (gWall.cpp), and goes on behind it, away out of the picture.
     void DrawTrail( eCoord const & pos, eCoord const & dir, REAL const colour[3], int pass )
     {
-        static const REAL leaves = .9f, low = .21f, rise = 3.6f, length = 12;
+        REAL const leaves = sg_CleanWallStart();    // the cycle's notch, or the mesh cycle's tail
+        static const REAL low = .21f, rise = 3.6f, length = 12;
         static const int steps = 6;
         REAL back[ steps + 2 ], height[ steps + 2 ];
         for ( int i = 0; i <= steps; ++i )

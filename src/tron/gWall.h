@@ -313,6 +313,12 @@ void sg_CleanWallPiece( eCoord const & p1, eCoord const & p2, REAL h1, REAL h2,
 //! not drawn at all.
 REAL sg_CleanTrailGlow();
 
+//! How far behind its cycle, along the trail, a cycle's own wall is first
+//! drawn in the clean arena: the arrow's notch, or the mesh cycle's tail
+//! while that is drawn (RCL_CYCLE_TAIL_GAP; gCycle.cpp). The wall rises from
+//! there as always. Drawing only.
+REAL sg_CleanWallStart();
+
 //! the marking on the floor that stands for the arena's rim, along one edge of it
 void sg_CleanRimMarking( eCoord const & a, eCoord const & b );
 #endif
