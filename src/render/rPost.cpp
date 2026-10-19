@@ -57,8 +57,10 @@ static int sr_hdr = 1;
 static tConfItem< int > sr_hdrConf( "RCL_HDR", sr_hdr );
 
 // The view transform: 0 none (clipped at white), 1 AgX as Blender has it, 2
-// the game's own colours with only what goes over white rolled off.
-static int sr_tonemap = 1;
+// the game's own colours with only what goes over white rolled off. 2 by
+// default: AgX turns a #ffff88 trail tan and the pale arena grey, and a
+// trail's colour says whose it is.
+static int sr_tonemap = 2;
 static tConfItem< int > sr_tonemapConf( "RCL_TONEMAP", sr_tonemap );
 
 // light let in before the view transform, in stops like Blender's exposure
