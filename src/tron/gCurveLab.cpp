@@ -32,6 +32,7 @@ bool sg_CurveLabAtStart(){ return false; }
 
 #include "eCoord.h"
 #include "eFloor.h"
+#include "eGameObject.h"
 #include "ePlayer.h"
 #include "gCurveLabSim.h"
 #include "gCycle.h"
@@ -43,6 +44,7 @@ bool sg_CurveLabAtStart(){ return false; }
 #include "rScreen.h"
 #include "tConfiguration.h"
 #include "tSysTime.h"
+#include "uInput.h"
 #include "uMenu.h"
 #include "uRclTheme.h"
 
@@ -223,7 +225,7 @@ namespace
         Lab()
         : model( Model_Look ), speed( 30 ), delay( .25 ), roundness( .15 ), roundLook( .4 ),
           ghostShown( false ), dark( !sr_cleanArena || sr_cleanDark ), camera( Camera_Chase ),
-          demo( true ), demoIndex( 0 ), demoWaiting( false ), demoAt( 1 ),
+          demo( false ), demoIndex( 0 ), demoWaiting( false ), demoAt( 1 ),
           big( false ), bigAlong( 0 ), bigMirror( 1 ), bigPart( -1 ), bigSwitched( false ), bigFrom( Model_Look ), keysAt( -100 ),
           hits( 0 ), touching( false ), offMeasured( 0 ), fading( 0 ), fadeStart( 0 ),
           chaseAngle( sim::quarter ), highAngle( sim::quarter ), orbitAngle( -2.2 ),
@@ -1188,7 +1190,7 @@ namespace
         std::snprintf( view, sizeof( view ), "camera %s \xb7 arena %s \xb7 ghost %s \xb7 time %gx",
                        sg_cameraNames[ lab.camera ], lab.dark ? "night" : "pale", lab.ghostShown ? "on" : "off",
                        lab.TimeScale() );
-        static char const * const help1 = "left right turn \xb7 1 2 3 4 presets, 5 big circles, shift mirrors \xb7 0 space demo \xb7 [ ] delay \xb7 - = speed \xb7 , . roundness";
+        static char const * const help1 = "your turn keys turn \xb7 1 2 3 4 presets, 5 big circles, shift mirrors \xb7 0 space demo \xb7 [ ] delay \xb7 - = speed \xb7 , . roundness";
         static char const * const help2 = "t model \xb7 g ghost \xb7 c camera \xb7 l arena \xb7 s slow motion \xb7 r reset \xb7 esc back";
 
         // from the foot up
@@ -1279,8 +1281,36 @@ namespace
         uMenu::MenuSound( uMenu::Sound_Adjust );
     }
 
+    // which way the player's own binding for this key or button turns: -1, 1, or 0 when
+    // it is bound to something else or nothing
+    static int sg_BoundTurn( int sym )
+    {
+        if ( sym < 0 || sym >= SDLK_NEWLAST )
+            return 0;
+        uBind * const bind = keymap[ sym ];
+        if ( !bind )
+            return 0;
+        if ( bind->act == &eGameObject::se_turnLeft )
+            return -1;
+        if ( bind->act == &eGameObject::se_turnRight )
+            return 1;
+        return 0;
+    }
+
     void gCurveLabMenu::HandleEvent( SDL_Event event )
     {
+        // the player's own turn buttons on the mouse turn the bike, as in a game
+        if ( event.type == SDL_MOUSEBUTTONDOWN || event.type == SDL_MOUSEBUTTONUP )
+        {
+            int const button = event.button.button;
+            int const turn = button >= 1 && button <= MOUSE_BUTTONS ? sg_BoundTurn( SDLK_MOUSE_BUTTON_1 + button - 1 ) : 0;
+            if ( turn )
+            {
+                if ( event.type == SDL_MOUSEBUTTONDOWN )
+                    lab_.Turn( turn, tSysTimeFloat() );
+                return;
+            }
+        }
         if ( event.type == SDL_KEYUP )
         {
             if ( event.key.keysym.sym < SDLK_LAST )
@@ -1301,6 +1331,15 @@ namespace
                 held_[ key ] = true;
             bool const shift = ( event.key.keysym.mod & KMOD_SHIFT ) != 0;
             double const now = tSysTimeFloat();
+
+            // the player's own turn keys first, so a bind always turns, whatever the lab uses the key for
+            int const bound = sg_BoundTurn( key );
+            if ( bound )
+            {
+                if ( !again )
+                    lab_.Turn( bound, now );
+                return;
+            }
 
             int preset = -1;
             switch ( key )
