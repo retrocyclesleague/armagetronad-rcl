@@ -1210,13 +1210,27 @@ bool sg_RenderCycleMesh( gCycleMeshPose const & pose, REAL r, REAL g, REAL b, bo
     // alone: it does not change as the bike turns or the camera swings round
     // it, so the level of detail doesn't pop at every turn and glance (the
     // projected nose and tail did).
+    //
+    // Only where the camera is in the modelview and the projection is a
+    // plain perspective: the colour studio, the curve lab, the menu replay.
+    // The game keeps its camera in the projection (eCamera), so there the
+    // modelview says nothing of the distance. Upright that came out as no
+    // size (full detail); in the floor's mirror image, whose flip is in the
+    // modelview, as a size of either sign by the way the camera faced, and
+    // below zero the mirrored bike was swapped for the light cycle: a flat
+    // silhouette in the bike's colour under the chrome bike after some of
+    // the turns (Jamie: the bike "takes the full colour of the trail" as he
+    // turns or glances). In a game both are drawn in full detail.
+    bool const plain = std::fabs( projection[1] ) + std::fabs( projection[2] ) + std::fabs( projection[3] ) +
+                       std::fabs( projection[4] ) + std::fabs( projection[6] ) + std::fabs( projection[7] ) +
+                       std::fabs( projection[12] ) + std::fabs( projection[13] ) + std::fabs( projection[15] ) < 1E-6f &&
+                       projection[11] < 0 && projection[5] > 0;
     float pixels = 1E6f;
-    {
-        float const depth = -( view[2] * sg_middle[0] + view[6] * sg_middle[1] + view[10] * sg_middle[2] + view[14] );
-        float const scale = std::sqrt( view[0] * view[0] + view[1] * view[1] + view[2] * view[2] );
-        if ( depth > 1E-3f )
-            pixels = sg_length * scale * projection[5] * viewport[3] * .5f / depth;
-    }
+    float const depth = -( view[2] * sg_middle[0] + view[6] * sg_middle[1] + view[10] * sg_middle[2] + view[14] );
+    float const scale = std::sqrt( view[0] * view[0] + view[1] * view[1] + view[2] * view[2] );
+    if ( plain && depth > 1E-3f )
+        pixels = sg_length * scale * projection[5] * viewport[3] * .5f / depth;
+
     if ( !( pixels >= sg_cycleFar ) )
     {
         sg_CountFallback( pixels );
