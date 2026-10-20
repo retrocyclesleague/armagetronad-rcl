@@ -5397,9 +5397,9 @@ static tConfItem<bool> sg_HideCyclesConf("HIDE_CYCLES", sg_HideCycles);
 
 // 0 the arrow, 1 the light cycle (gLightCycle.cpp), 2 the light cycle from
 // the Blender model with the new renderer's shading (gCycleMesh.cpp; the
-// light cycle where it cannot be drawn). Either is to be tried before it is
-// anyone's default.
-static int sg_cycleModel = 0;
+// light cycle where it cannot be drawn). 2 by default from the tester build
+// of 2026-10-20, on Jamie's word ("D2 by default").
+static int sg_cycleModel = 2;
 static tConfItem<int> sg_cycleModelConf( "RCL_CYCLE_MODEL", sg_cycleModel );
 
 // Where a cycle's own wall is first drawn behind it. The arrow's notch is .9
