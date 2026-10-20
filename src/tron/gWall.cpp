@@ -1382,7 +1382,8 @@ static const REAL sg_cleanSolidFill = 1;
 
 // From there the box grows out of the sheet to its full width over this much
 // of the trail, so it has no end to show: the sheet goes on as its two faces.
-static const REAL sg_cleanBoxGrow = .5f;
+// Over half a unit its top and its foot bent out at the join, close up.
+static const REAL sg_cleanBoxGrow = 1;
 
 // Where the eye is over the floor, in the frame of what is being drawn: the
 // one point projection times modelview sends to x = y = w = 0, the point
@@ -2043,11 +2044,105 @@ void sg_CleanWallCurve( eCoord const * at, REAL const * back, int count, gCleanW
                      pass == 1 ? gNetPlayerWall::gWallRenderMode_Sheen :
                      pass == 3 ? gNetPlayerWall::gWallRenderMode_Top : gNetPlayerWall::gWallRenderMode_Solid;
 
+    // Each point's facing: its left side faces left of the way it runs
+    // there, from the points either side. And how brightly its faces are
+    // lit: by that, except on a bend, where the light goes over from the
+    // stretch before's to the stretch after's, eased in and out, as the
+    // game's round corners do (RenderRoundCorner); more than a quarter turn
+    // (a circle), a quarter at a time. Lit point by point, the sun's two
+    // tones met in a short blend somewhere on every bend: a crease.
+    static std::vector< eCoord > normals, ways;
+    static std::vector< REAL > tones, turns;
+    normals.resize( count );
+    tones.resize( 2 * count );
+    ways.resize( count - 1 );
+    turns.assign( count, 0 );
+    eCoord facing( 0, 1 ), way( 1, 0 );
+    for ( int i = 0; i < count; ++i )
+    {
+        eCoord across = at[ i + 1 < count ? i + 1 : i ] - at[ i > 0 ? i - 1 : i ];
+        REAL const length = sqrt( across.NormSquared() );
+        if ( length > 1E-6f )
+            facing = eCoord( -across.y / length, across.x / length );
+        normals[i] = facing;
+        tones[ 2 * i ] = sg_CleanFaceLight( facing );
+        tones[ 2 * i + 1 ] = sg_CleanFaceLight( facing * REAL( -1 ) );
+        if ( i + 1 < count )
+        {
+            eCoord const piece = at[ i + 1 ] - at[i];
+            REAL const pieceLength = sqrt( piece.NormSquared() );
+            if ( pieceLength > 1E-6f )
+                way = piece * ( 1 / pieceLength );
+            ways[i] = way;
+        }
+    }
+    for ( int i = 1; i + 1 < count; ++i )
+        turns[i] = atan2( ways[ i - 1 ].x * ways[i].y - ways[ i - 1 ].y * ways[i].x,
+                          ways[ i - 1 ].x * ways[i].x + ways[ i - 1 ].y * ways[i].y );
+
+    // a bend: points that turn, with no more than a piece of an arc between
+    // them that doesn't (where the newest stretch puts points on a chord)
+    static const REAL straight = 1E-4f, gap = .75f;
+    for ( int first = 1; first + 1 < count; )
+    {
+        if ( !( fabs( turns[ first ] ) > straight ) )
+        {
+            ++first;
+            continue;
+        }
+        int last = first;
+        for ( int next = first + 1; next + 1 < count; ++next )
+        {
+            if ( !( fabs( turns[ next ] ) > straight ) )
+                continue;
+            REAL between = 0;
+            for ( int k = last; k < next; ++k )
+                between += sqrt( ( at[ k + 1 ] - at[k] ).NormSquared() );
+            if ( between > gap )
+                break;
+            last = next;
+        }
+        REAL total = 0;
+        for ( int k = first; k <= last; ++k )
+            total += turns[k];
+        // one point alone is a sharp corner: it keeps its facing's light
+        if ( last > first && fabs( total ) > 1E-3f )
+        {
+            int const parts = int( ceil( fabs( total ) / ( M_PI * .5 + .05 ) ) );
+            REAL const share = total / parts;
+            eCoord const in( -ways[ first - 1 ].y, ways[ first - 1 ].x );
+            REAL turned = 0;
+            for ( int k = first; k <= last; ++k )
+            {
+                // how far the way has turned there: 0 where the bend starts,
+                // all of it where it ends, the way across in between
+                REAL const angle = k == first ? 0 : ( k == last ? total : turned + turns[k] * .5f );
+                turned += turns[k];
+                REAL const quarters = angle / share;
+                int part = int( floor( quarters ) );
+                part = part < 0 ? 0 : ( part > parts - 1 ? parts - 1 : part );
+                REAL f = quarters - part;
+                f = f < 0 ? 0 : ( f > 1 ? 1 : f );
+                REAL const ease = f * f * ( 3 - 2 * f );
+                REAL const a0 = share * part, a1 = share * ( part + 1 );
+                eCoord const n0( in.x * cos( a0 ) - in.y * sin( a0 ), in.x * sin( a0 ) + in.y * cos( a0 ) );
+                eCoord const n1( in.x * cos( a1 ) - in.y * sin( a1 ), in.x * sin( a1 ) + in.y * cos( a1 ) );
+                for ( int side = 0; side < 2; ++side )
+                {
+                    REAL const flip = side ? -1 : 1;
+                    REAL const from = sg_CleanFaceLight( n0 * flip ), to = sg_CleanFaceLight( n1 * flip );
+                    tones[ 2 * k + side ] = from + ( to - from ) * ease;
+                }
+            }
+        }
+        first = last + 1;
+    }
+
     // in stretches of as many points as a bend is drawn through, each
     // starting where the one before ends
     gCleanTipPoint point[ sg_cleanCurvePoints ];
     eCoord normal[ sg_cleanCurvePoints ];
-    eCoord facing( 0, 1 );
+    REAL light[ sg_cleanCurvePoints ][2];
     for ( int first = 0; first + 1 < count; first += sg_cleanCurvePoints - 1 )
     {
         int const n = count - first < sg_cleanCurvePoints ? count - first : sg_cleanCurvePoints;
@@ -2056,16 +2151,13 @@ void sg_CleanWallCurve( eCoord const * at, REAL const * back, int count, gCleanW
             int const i = first + k;
             point[k].at = at[i];
             sg_CleanTipShape( tip, back[i], full, point[k] );
-            // its left side faces left of the way it runs there, from the points either side
-            eCoord way = at[ i + 1 < count ? i + 1 : i ] - at[ i > 0 ? i - 1 : i ];
-            REAL const length = sqrt( way.NormSquared() );
-            if ( length > 1E-6f )
-                facing = eCoord( -way.y / length, way.x / length );
-            normal[k] = facing;
+            normal[k] = normals[i];
+            light[k][0] = tones[ 2 * i ];
+            light[k][1] = tones[ 2 * i + 1 ];
         }
         if ( !( mode & gNetPlayerWall::gWallRenderMode_Top ) )
             BeginQuads();
-        sg_CleanCurve( point, normal, n, r, g, b, 1, mode );
+        sg_CleanCurve( point, normal, n, r, g, b, 1, mode, light );
     }
 
     // where the top line leaves the mesh cycle's tail
@@ -2075,6 +2167,11 @@ void sg_CleanWallCurve( eCoord const * at, REAL const * back, int count, gCleanW
         sg_CleanTipShape( tip, back[ count - 1 ], full, last );
         sg_CleanEmissionPoint( at[ count - 1 ], last.height, r, g, b );
     }
+}
+
+REAL sg_CleanWallBoxGrow()
+{
+    return sg_cleanBoxGrow;
 }
 
 int sg_CleanWallTipBacks( gCleanWallTip const & tip, REAL * back, int most )

@@ -376,6 +376,10 @@ struct gCleanWallTip
 //! how solid a wall's faces are `back` along the trail behind its cycle, 0 to 1
 REAL sg_CleanWallFill( gCleanWallTip const & tip, REAL back );
 
+//! over how much of the trail the solid wall grows to its width out of the
+//! filling sheet, from where the fill is whole
+REAL sg_CleanWallBoxGrow();
+
 //! Where along the newest stretch (`back` behind the cycle) a wall needs
 //! points to be drawn through, nearest first: steps over its rise, fill and
 //! the box growing out of the sheet, and the sheet's end. Returns how many.
