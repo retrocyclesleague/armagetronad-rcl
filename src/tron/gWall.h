@@ -381,6 +381,16 @@ REAL sg_CleanWallFill( gCleanWallTip const & tip, REAL back );
 //! where the piece starts at the cycle (pass 3).
 void sg_CleanWallTipPiece( eCoord const & from, eCoord const & to, REAL fromBack, REAL toBack,
                            gCleanWallTip const & tip, REAL full, REAL r, REAL g, REAL b, int pass, bool emit );
+
+//! A cycle's wall that bends (the curve lab's trails), drawn as the game
+//! draws a round corner: through the given points, oldest first, each
+//! `back` along the trail behind the cycle, with the wall's shape there
+//! (gCleanWallTip, `full` high); each face one strip shaded point by point,
+//! no joints. In one of sg_CleanWallPiece's passes, between BeginQuads() and
+//! RenderEnd(); with `emit`, the emission point where the newest point is
+//! where the wall leaves the cycle (pass 3).
+void sg_CleanWallCurve( eCoord const * at, REAL const * back, int count, gCleanWallTip const & tip, REAL full,
+                        REAL r, REAL g, REAL b, int pass, bool emit );
 gCleanWallTip sg_CleanWallTip( int model = -1 );
 
 //! the marking on the floor that stands for the arena's rim, along one edge of it

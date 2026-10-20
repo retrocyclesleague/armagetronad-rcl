@@ -831,31 +831,54 @@ namespace
         double const end = head - leaves;
         // As tall as the bike's tail, and out of it as the game draws the mesh
         // cycle's wall: thin inside the tyre, filling in under its top line,
-        // the emission point where that leaves the tail (sg_CleanWallTipPiece),
-        // piece by piece round the curves.
+        // the emission point where that leaves the tail; round its curves as
+        // the game draws a round corner, each face one strip shaded point by
+        // point, so they read round with no joints or stripes (sg_CleanWallCurve).
         REAL const full = sg_CleanWallHeight( 2 );
         gCleanWallTip tip = sg_CleanWallTip( 2 );
         tip.leaves = REAL( leaves );
         double const reach = std::max( tip.rise, tip.fill );
+        static const int steps = 12;
 
-        if ( pass != 3 )
-            BeginQuads();
-        for ( size_t i = 0; i + 1 < path.size(); ++i )
+        // the path's points up to where the wall leaves, and more over its newest stretch
+        static std::vector< eCoord > at;
+        static std::vector< REAL > back;
+        at.clear();
+        back.clear();
+        for ( size_t i = 0; i < path.size(); ++i )
         {
             sim::Vertex const a = path[i];
             if ( a.along >= end )
                 break;
-            sim::Vertex b = path[i + 1];
-            if ( b.along > end )
-                b = Between( a, b, end );
-            eCoord const p( REAL( a.x ), REAL( a.y ) ), q( REAL( b.x ), REAL( b.y ) );
-            double const backA = head - a.along, backB = head - b.along;
-            if ( backB < leaves + reach )
-                sg_CleanWallTipPiece( p, q, REAL( backA ), REAL( backB ), tip, full,
-                                      colour[0], colour[1], colour[2], pass, true );
-            else
-                sg_CleanWallPiece( p, q, full, full, colour[0], colour[1], colour[2], 1, pass );
+            at.push_back( eCoord( REAL( a.x ), REAL( a.y ) ) );
+            back.push_back( REAL( head - a.along ) );
+            if ( i + 1 >= path.size() )
+                break;
+            double const next = std::min( path[i + 1].along, end );
+            for ( int k = steps; k >= 1; --k )
+            {
+                double const along = end - reach * k / steps;
+                if ( along > a.along && along < next )
+                {
+                    sim::Vertex const v = Between( a, path[i + 1], along );
+                    at.push_back( eCoord( REAL( v.x ), REAL( v.y ) ) );
+                    back.push_back( REAL( head - along ) );
+                }
+            }
         }
+        // where the wall leaves the bike
+        for ( size_t i = 0; i + 1 < path.size(); ++i )
+            if ( path[i + 1].along >= end && path[i].along < end )
+            {
+                sim::Vertex const v = Between( path[i], path[i + 1], end );
+                at.push_back( eCoord( REAL( v.x ), REAL( v.y ) ) );
+                back.push_back( REAL( leaves ) );
+                break;
+            }
+        if ( at.size() < 2 )
+            return;
+
+        sg_CleanWallCurve( &at[0], &back[0], int( at.size() ), tip, full, colour[0], colour[1], colour[2], pass, true );
         RenderEnd();
     }
 
