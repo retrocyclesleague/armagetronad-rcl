@@ -32,6 +32,9 @@ struct gCycleMeshPose
 {
     float frame[16];
     REAL distance;
+    //! where the cycle keeps the level of detail it was last drawn at, so it
+    //! holds there near a line between two (0: not kept)
+    int * level;
 };
 
 //! the pose of a cycle at pos facing dir, leaning by the angle whose cosine

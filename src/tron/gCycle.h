@@ -223,6 +223,16 @@ public:
 
     eCoord rotationFrontWheel,rotationRearWheel; 	// wheel position (rotation)
     REAL   heightFrontWheel,heightRearWheel;  		// wheel (suspension)
+#ifndef DEDICATED
+    // Drawing only: the direction the clean arena draws the cycle in
+    // (DrawnDirection) and when it was last moved, and the mesh cycle's level
+    // of detail as last drawn
+    eCoord drawnDir_;
+    REAL   drawnAt_;
+    bool   drawnSet_;
+    int    meshLevel_;
+    eCoord DrawnDirection();
+#endif
 
 public:
     //REAL	brakingReservoir; // reservoir for braking. 1 means full, 0 is empty

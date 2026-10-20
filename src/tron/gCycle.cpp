@@ -2548,6 +2548,9 @@ gCycle::gCycle(eGrid *grid, const eCoord &pos,const eCoord &d,ePlayerNetID *p)
         turnNote_(),
         skew(0),skewDot(0),
         rotationFrontWheel(1,0),rotationRearWheel(1,0),heightFrontWheel(0),heightRearWheel(0),
+#ifndef DEDICATED
+        drawnDir_(1,0),drawnAt_(-1),drawnSet_(false),meshLevel_(-1),
+#endif
         tactical_pos(TP_Start),
         last_time(.0),
         tactical_stats(static_cast<std::string>(p->GetUserName())),
@@ -5421,6 +5424,45 @@ REAL sg_CleanWallStart()
     return sg_CleanWallStart( sg_cycleModel );
 }
 
+// The clean arena turns a cycle on the screen without a jump. The game's own
+// drawn direction (dir) is kept within .8 of the driving direction, so at a
+// turn it jumps two fifths of the way round at once and eases the rest over
+// a few frames: the bike's tail, and the wall leaving it, jumped at every
+// turn. This follows the driving direction a little behind instead, over
+// about three of these seconds, as the curve lab's look only does; 0 draws
+// the game's own direction. Drawing only.
+static REAL sg_cycleTurnEase = .02f;
+static tConfItem< REAL > sg_cycleTurnEaseConf( "RCL_CYCLE_TURN_EASE", sg_cycleTurnEase );
+
+eCoord gCycle::DrawnDirection()
+{
+    REAL const length = sqrt( dirDrive.NormSquared() );
+    if ( !( sg_cycleTurnEase > 0 ) || !( length > 0 ) )
+    {
+        drawnSet_ = false;
+        return dir;
+    }
+    eCoord const target = dirDrive * ( 1 / length );
+    REAL const dt = lastTime - drawnAt_;
+    if ( !drawnSet_ || dt < 0 || dt > .5f )
+    {
+        // first drawn, or after a pause or a jump in time: where it is going
+        drawnDir_ = target;
+        drawnSet_ = true;
+    }
+    else if ( dt > 0 )
+    {
+        // round the shorter way by the share of the angle the time allows
+        REAL const cross = drawnDir_.x * target.y - drawnDir_.y * target.x;
+        REAL const dot = drawnDir_.x * target.x + drawnDir_.y * target.y;
+        REAL const angle = atan2( cross, dot ) * ( 1 - exp( -dt / sg_cycleTurnEase ) );
+        REAL const c = cos( angle ), s = sin( angle );
+        drawnDir_ = eCoord( drawnDir_.x * c - drawnDir_.y * s, drawnDir_.x * s + drawnDir_.y * c );
+    }
+    drawnAt_ = lastTime;
+    return drawnDir_;
+}
+
 // How tall the clean arena draws the cycles' walls. They have always been 1
 // high; the mesh cycle stands .62, and Jamie: "the bike height should be the
 // same height as the trail and be consistent". -1: as tall as the bike while
@@ -5925,8 +5967,10 @@ void gCycle::Render(const eCamera *cam){
         eCoord ske(1,skew);
         ske=ske*(1/sqrt(ske.NormSquared()));
 
-        GLfloat m[4][4]={{dir.x,dir.y,0,0},
-                         {-dir.y,dir.x,0,0},
+        // the clean arena turns the cycle on the screen without a jump
+        eCoord const drawn = sr_cleanArena ? DrawnDirection() : dir;
+        GLfloat m[4][4]={{drawn.x,drawn.y,0,0},
+                         {-drawn.y,drawn.x,0,0},
                          {0,0,1,0},
                          {0,0,0,1}};
         glMultMatrixf(&m[0][0]);
@@ -5981,8 +6025,10 @@ void gCycle::Render(const eCamera *cam){
                 // cycle placed as the frame above has it, its wheels turned
                 // by the way come
                 gCycleMeshPose pose;
-                sg_CycleMeshPose( pose, p, dir, ske.x, ske.y, GetDistance() );
-                sg_RenderCleanCycle( dir, color_, pose );
+                sg_CycleMeshPose( pose, p, drawn, ske.x, ske.y, GetDistance() );
+                // its level of detail held near a line between two
+                pose.level = &meshLevel_;
+                sg_RenderCleanCycle( drawn, color_, pose );
             }
             else if ( !blinking )
             {
@@ -6209,7 +6255,7 @@ void gCycle::Render(const eCamera *cam){
             // patch that reaches away from it, like those of the walls.
             if ( !blinking && sr_alphaBlend && ( !cam || cam->RenderingMain() ) )
             {
-                sg_CleanCycleShadow( dir );
+                sg_CleanCycleShadow( drawn );
             }
         }
         else if(!blinking && sr_floorDetail>rFLOOR_GRID && rTextureGroups::TextureMode[rTextureGroups::TEX_FLOOR]>0 && sr_alphaBlend){
@@ -6705,6 +6751,9 @@ gCycle::gCycle(nMessage &m)
         turnNote_(),
         skew(0),skewDot(0),
         rotationFrontWheel(1,0),rotationRearWheel(1,0),heightFrontWheel(0),heightRearWheel(0),
+#ifndef DEDICATED
+        drawnDir_(1,0),drawnAt_(-1),drawnSet_(false),meshLevel_(-1),
+#endif
         tactical_pos(TP_Start),
         last_time(.0),
         tactical_stats(""),

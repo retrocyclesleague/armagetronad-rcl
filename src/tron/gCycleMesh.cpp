@@ -1074,6 +1074,7 @@ void sg_CycleMeshPose( gCycleMeshPose & pose, eCoord const & pos, eCoord const &
     Multiply( pose.frame, back, pose.frame );
     Multiply( pose.frame, lean, pose.frame );
     pose.distance = distance;
+    pose.level = 0;
 }
 
 bool sg_CycleMeshDraws()
@@ -1166,9 +1167,26 @@ bool sg_RenderCycleMesh( gCycleMeshPose const & pose, REAL r, REAL g, REAL b, bo
         sg_CountFallback( pixels );
         return false;
     }
-    int level = pixels < sg_cycleLod2 ? 2 : ( pixels < sg_cycleLod1 ? 1 : 0 );
+    // The level by its size, held where it was until the size is 15% past
+    // the line to another: a size that sits on a line, as the camera swings
+    // round at a turn or its distance follows the speed, doesn't switch from
+    // frame to frame.
+    int const before = pose.level ? *pose.level : -1;
+    static const float hold = 1.15f;
+    float const edge[2] = { float( sg_cycleLod1 ), float( sg_cycleLod2 ) };
+    int level = 0;
+    for ( int i = 0; i < 2; ++i )
+    {
+        float line = edge[i];
+        if ( before >= 0 )
+            line = before > i ? line * hold : line / hold;
+        if ( pixels < line )
+            level = i + 1;
+    }
     if ( level >= int( sg_mesh.lods.size() ) )
         level = int( sg_mesh.lods.size() ) - 1;
+    if ( pose.level )
+        *pose.level = level;
     gLod const & lod = sg_mesh.lods[ level ];
     sg_CountDrawn( level, pixels );
 

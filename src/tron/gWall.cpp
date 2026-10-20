@@ -2250,11 +2250,12 @@ REAL gNetPlayerWall::SolidUntil( bool fromEnd ) const
 // Where two walls of a cycle meet, the corner is drawn as a circle's arc
 // that touches both, of the radius asked for or less: what it takes from
 // each wall is never more than half of the unbroken stretch beside it, so
-// two corners never overlap. A wall still being laid will be as long as it
-// gets, so the newest corner takes all it asks of it; and it is only drawn
-// round once the wall is drawn at least that far past it, so a corner is
-// never rounded ahead of what is there. Everything else about the walls,
-// what the game plays with, the map and the classic arena keep the corners.
+// two corners never overlap. The newest corner grows round with the wall
+// drawn past it, from nothing: it is never round ahead of what is there,
+// and never turns from sharp to round all at once (it did, a little behind
+// the cycle at every turn: one of the flickers Jamie saw). Everything else
+// about the walls, what the game plays with, the map and the classic arena
+// keep the corners.
 void gNetPlayerWall::RoundCorners( gCycle * cycle )
 {
     if ( !cycle )
@@ -2328,9 +2329,13 @@ void gNetPlayerWall::RoundCorners( gCycle * cycle )
 
                 REAL cut = round * tan( turn * .5f );
                 cut = std::min( cut, before * .5f );
-                if ( b != cycle->currentWall )
-                    cut = std::min( cut, ( b->SolidUntil( false ) - b->BegPos() ) * .5f );
-                if ( !( cut > 1E-3f ) || drawnEnd < b->BegPos() + cut )
+                // half of what there is of the wall after it so far, which
+                // for the newest grows as it is laid
+                cut = std::min( cut, ( b->SolidUntil( false ) - b->BegPos() ) * .5f );
+                // and half of what is drawn of it past the corner: it grows
+                // round as the drawn wall comes out of the cycle
+                cut = std::min( cut, ( drawnEnd - b->BegPos() ) * .5f );
+                if ( !( cut > 1E-3f ) )
                     continue;
 
                 walls[i].cut[1] = cut;
