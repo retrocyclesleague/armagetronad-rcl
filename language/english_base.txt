@@ -2646,6 +2646,42 @@ rcl_controls_menu_text         Controls
 rcl_controls_menu_help         Every key, and what the instant chat keys say.
 rcl_display_menu_text          Display
 rcl_display_menu_help          Window, resolution, smoothing and the arena's look.
+rcl_camera_menu_text           Camera
+rcl_camera_menu_help           How the camera follows your turns while you play, and how it moves when you glance.
+rcl_camera_turn_text           After a turn:
+rcl_camera_turn_help           How fast the camera comes round behind you when you turn (CAMERA_CUSTOM_TURN_SPEED).
+rcl_camera_turn_slow_text      Slow
+rcl_camera_turn_slow_help      Swings round slowly, as the game shipped (4).
+rcl_camera_turn_smooth_text    Smooth
+rcl_camera_turn_smooth_help    Comes round in a short swing (12).
+rcl_camera_turn_quick_text     Quick
+rcl_camera_turn_quick_help     Comes round almost at once (40).
+rcl_camera_turn_with_text      With the bike
+rcl_camera_turn_with_help      Turns as the bike turns, at once (1000).
+rcl_bike_turn_text             The bike's turn:
+rcl_bike_turn_help             How the bike itself is drawn coming round at a turn; drawing only, the turn itself is the same (RCL_CYCLE_TURN_EASE).
+rcl_bike_turn_smooth_text      Smooth
+rcl_bike_turn_smooth_help      Comes round over about 60 ms, so nothing jumps.
+rcl_bike_turn_instant_text     Instant
+rcl_bike_turn_instant_help     Faces the new way at once.
+rcl_glance_move_text           Glancing:
+rcl_glance_move_help           How the camera moves when you glance left, right or back (CAMERA_GLANCE_SNAP).
+rcl_glance_move_swing_text     Swings round
+rcl_glance_move_swing_help     Turns to look, then turns back.
+rcl_glance_move_snap_text      Snaps
+rcl_glance_move_snap_help      Looks the other way at once, and back at once.
+rcl_glance_turns_text          Turning while glancing:
+rcl_glance_turns_help          What a glance does when you turn during it (CAMERA_GLANCE_HOLD).
+rcl_glance_turns_follow_text   Follows your turns
+rcl_glance_turns_follow_help   The glance stays to the side of where you are now going.
+rcl_glance_turns_keep_text     Keeps its direction
+rcl_glance_turns_keep_help     The glance keeps looking where it was looking until you let go.
+rcl_glance_view_text           Glance camera:
+rcl_glance_view_help           Where the camera is while you glance (RCL_GLANCE_LIKE_PLAY).
+rcl_glance_view_own_text       Its own
+rcl_glance_view_own_help       The glance camera's own distance and height (CAMERA_GLANCE_BACK, _RISE, _PITCH).
+rcl_glance_view_play_text      As playing
+rcl_glance_view_play_help      The same distance and height as while playing; only the direction changes.
 rcl_camera_text                Camera:
 rcl_fov_text                   Field of View:
 rcl_cycle_keys_text            Cycle Keys

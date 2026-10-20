@@ -33,7 +33,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 extern void  sg_PlayerMenu(), sg_SpecialMenu(), sg_ConfigMenu();
 //! the short settings pages: what a player sets, and nothing else (the long
 //! ones stay, one level down under Advanced)
-extern void  sg_RclPlayerPage(), sg_RclControlsPage(), sg_RclDisplayPage();
+extern void  sg_RclPlayerPage(), sg_RclControlsPage(), sg_RclDisplayPage(), sg_RclCameraPage();
 //! The arena's look (light, dark, classic grid) as a row for a menu. It is on
 //! the Display page and, so nobody has to look for it, first on Settings.
 uMenuItem *  sg_NewArenaLookItem( uMenu * menu );

@@ -38,6 +38,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "rModel.h"
 #include "gGame.h"
 #include "gCycle.h"
+#include "eCamera.h"
 #include "gColourStudio.h"
 #include "gHud.h"
 #include "tRecorder.h"
@@ -1503,6 +1504,40 @@ void sg_RclControlsPage()
         delete ic[i];
 }
 
+// How the camera follows a turn while playing, and how it moves while glancing.
+// Jamie: "an option to choose the behaviour of the camera whilst glancing and
+// playing". Each row sets a setting the game already has (the console names
+// them), so the choices hold on every server the client goes to.
+void sg_RclCameraPage()
+{
+    uMenu menu("$rcl_camera_menu_text");
+
+    // rows are stored bottom first
+    uMenuItemSelection<bool> likePlay( &menu, "$rcl_glance_view_text", "$rcl_glance_view_help", se_CameraGlanceLikePlay() );
+    likePlay.NewChoice( "$rcl_glance_view_own_text", "$rcl_glance_view_own_help", false );
+    likePlay.NewChoice( "$rcl_glance_view_play_text", "$rcl_glance_view_play_help", true );
+
+    uMenuItemSelection<bool> hold( &menu, "$rcl_glance_turns_text", "$rcl_glance_turns_help", se_CameraGlanceHold() );
+    hold.NewChoice( "$rcl_glance_turns_keep_text", "$rcl_glance_turns_keep_help", true );
+    hold.NewChoice( "$rcl_glance_turns_follow_text", "$rcl_glance_turns_follow_help", false );
+
+    uMenuItemSelection<bool> snap( &menu, "$rcl_glance_move_text", "$rcl_glance_move_help", se_CameraGlanceSnap() );
+    snap.NewChoice( "$rcl_glance_move_snap_text", "$rcl_glance_move_snap_help", true );
+    snap.NewChoice( "$rcl_glance_move_swing_text", "$rcl_glance_move_swing_help", false );
+
+    uMenuItemSelection<REAL> bike( &menu, "$rcl_bike_turn_text", "$rcl_bike_turn_help", sg_CycleTurnEase() );
+    bike.NewChoice( "$rcl_bike_turn_instant_text", "$rcl_bike_turn_instant_help", 0 );
+    bike.NewChoice( "$rcl_bike_turn_smooth_text", "$rcl_bike_turn_smooth_help", .02f );
+
+    uMenuItemSelection<REAL> follow( &menu, "$rcl_camera_turn_text", "$rcl_camera_turn_help", se_CameraTurnSpeed() );
+    follow.NewChoice( "$rcl_camera_turn_with_text", "$rcl_camera_turn_with_help", 1000 );
+    follow.NewChoice( "$rcl_camera_turn_quick_text", "$rcl_camera_turn_quick_help", 40 );
+    follow.NewChoice( "$rcl_camera_turn_smooth_text", "$rcl_camera_turn_smooth_help", 12 );
+    follow.NewChoice( "$rcl_camera_turn_slow_text", "$rcl_camera_turn_slow_help", 4 );
+
+    menu.Enter();
+}
+
 uMenuItem * sg_NewArenaLookItem( uMenu * menu )
 {
     return tNEW( gArenaLookItem )( menu );
@@ -1575,6 +1610,7 @@ void sg_RclDisplayPage()
 void sg_RclPlayerPage(){}
 void sg_RclControlsPage(){}
 void sg_RclDisplayPage(){}
+void sg_RclCameraPage(){}
 uMenuItem * sg_NewArenaLookItem( uMenu * ){ return 0; }
 #endif
 

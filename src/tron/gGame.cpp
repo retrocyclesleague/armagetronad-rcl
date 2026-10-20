@@ -5352,6 +5352,10 @@ void MainMenu(bool ingame){
                             "$rcl_controls_menu_help",
                             &sg_RclControlsPage ) );
     settingsRows.push_back( tNEW( uMenuItemFunction )( &Settings,
+                            "$rcl_camera_menu_text",
+                            "$rcl_camera_menu_help",
+                            &sg_RclCameraPage ) );
+    settingsRows.push_back( tNEW( uMenuItemFunction )( &Settings,
                             "$rcl_display_menu_text",
                             "$rcl_display_menu_help",
                             &sg_RclDisplayPage ) );

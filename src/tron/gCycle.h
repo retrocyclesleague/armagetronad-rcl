@@ -478,6 +478,9 @@ void sg_CleanSheenEnd();
 //! the cycle as the clean arena draws it (the arrow, or the light cycle with
 //! RCL_CYCLE_MODEL 1), at a place and heading, and the soft shadow under it
 void sg_RenderCleanCycleAt( eCoord const & pos, eCoord const & dir, REAL r, REAL g, REAL b );
+
+//! how long the drawn bike takes to come round at a turn (RCL_CYCLE_TURN_EASE; 0 at once)
+REAL & sg_CycleTurnEase();
 void sg_RenderCleanCycleShadowAt( eCoord const & pos, eCoord const & dir );
 
 //! The light cycle mesh (RCL_CYCLE_MODEL 2) whatever that setting says, at a

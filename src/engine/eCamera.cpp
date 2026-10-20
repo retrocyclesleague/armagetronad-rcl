@@ -261,6 +261,10 @@ static tSettingItem<REAL> s_frZ("CAMERA_FREE_START_Z", s_startFreeZ);
 // separate set and unchanged.
 static REAL s_customBack = 20, s_customRise = 20, s_customBackSpeed = .5, s_customRiseSpeed = .4 , s_customPitch = -.75, s_customZoom = 0.5, s_customTurnSpeed=40, s_customTurnSpeed180 = 2;
 static REAL s_glanceBack = 20, s_glanceRise = 20, s_glanceBackSpeed = .5, s_glanceRiseSpeed = .4 , s_glancePitch = -.75;
+// RCL: a glance from where the playing camera is (its distance, height and
+// pitch), only looking the other way, instead of from the glance camera's own
+static bool se_glanceLikePlay = false;
+static tSettingItem< bool > se_glanceLikePlayConf( "RCL_GLANCE_LIKE_PLAY", se_glanceLikePlay );
 static REAL s_serverCustomBack = 30, s_serverCustomRise = 20, s_serverCustomBackSpeed = 0, s_serverCustomRiseSpeed = 0, s_serverCustomPitch = -.7, s_serverCustomTurnSpeed=-1, s_serverCustomTurnSpeed180 = 2;
 static REAL s_serverGlanceBack = 30, s_serverGlanceRise = 20, s_serverGlanceBackSpeed = 0, s_serverGlanceRiseSpeed = 0, s_serverGlancePitch = -.7;
 
@@ -1965,6 +1969,12 @@ static tSettingItem< bool > se_glanceSnapForwardConf( "CAMERA_GLANCE_FORWARD_SNA
 static bool se_holdGlancing = false;
 static tSettingItem< bool > se_holdGlancingConf( "CAMERA_GLANCE_HOLD", se_holdGlancing );
 
+// the settings the Camera page (gMenus.cpp) chooses between
+REAL & se_CameraTurnSpeed(){ return s_customTurnSpeed; }
+bool & se_CameraGlanceSnap(){ return se_glanceSnap; }
+bool & se_CameraGlanceHold(){ return se_holdGlancing; }
+bool & se_CameraGlanceLikePlay(){ return se_glanceLikePlay; }
+
 
 void eCamera::SwitchCenter(int d){
     zNear = 0.01f;
@@ -2078,6 +2088,12 @@ void eCamera::Timestep(REAL ts){
             glanceBack = s_serverGlanceBack + speed * s_serverGlanceBackSpeed;
             glanceRise = s_serverGlanceRise + speed * s_serverGlanceRiseSpeed;
             glancePitch = s_serverGlancePitch;
+        }
+        else if ( se_glanceLikePlay )
+        {
+            glanceBack = customBack;
+            glanceRise = customRise;
+            glancePitch = customPitch;
         }
         else
         {

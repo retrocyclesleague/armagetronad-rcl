@@ -232,5 +232,11 @@ inline const eCoord& CameraDir(int i){return eCamera::DirNum(i);}
 inline REAL CameraHeight(int i){return eCamera::HeightNum(i);}
 */
 
+// the camera settings the Camera page chooses between (CAMERA_CUSTOM_TURN_SPEED,
+// CAMERA_GLANCE_SNAP, CAMERA_GLANCE_HOLD, RCL_GLANCE_LIKE_PLAY)
+REAL & se_CameraTurnSpeed();
+bool & se_CameraGlanceSnap();
+bool & se_CameraGlanceHold();
+bool & se_CameraGlanceLikePlay();
 
 #endif

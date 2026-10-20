@@ -5433,6 +5433,7 @@ REAL sg_CleanWallStart()
 // the game's own direction. Drawing only.
 static REAL sg_cycleTurnEase = .02f;
 static tConfItem< REAL > sg_cycleTurnEaseConf( "RCL_CYCLE_TURN_EASE", sg_cycleTurnEase );
+REAL & sg_CycleTurnEase(){ return sg_cycleTurnEase; }
 
 eCoord gCycle::DrawnDirection()
 {
