@@ -322,6 +322,10 @@ extern tList<gNetPlayerWall> sg_netPlayerWallsGridded;
 //! what the floor mirrors of it, 2 the wall itself, 3 the line along its
 //! top, to be drawn as light: see sg_CleanTrailGlow), between BeginQuads()
 //! and RenderEnd()
+//! how wide the pieces drawn next are, as a share of the full width (1); for
+//! the last stretch out of the mesh cycle's tyre, which is thinner than a wall
+void sg_CleanWallWidthShare( REAL share );
+
 void sg_CleanWallPiece( eCoord const & p1, eCoord const & p2, REAL h1, REAL h2,
                         REAL r, REAL g, REAL b, REAL alpha, int pass );
 

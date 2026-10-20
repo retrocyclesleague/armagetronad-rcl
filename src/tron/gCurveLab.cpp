@@ -869,10 +869,15 @@ namespace
                     f = f < 0 ? 0 : ( f > 1 ? 1 : f );
                     height[e] = REAL( full * ( low + ( 1 - low ) * f * f * ( 3 - 2 * f ) ) );
                 }
+                // as thin as the game's wall where it is inside the tyre
+                double g = ( end - .5 * ( p.along + q.along ) ) / rise;
+                g = g < 0 ? 0 : ( g > 1 ? 1 : g );
+                sg_CleanWallWidthShare( REAL( tip.narrow + ( 1 - tip.narrow ) * g * g * ( 3 - 2 * g ) ) );
                 sg_CleanWallPiece( eCoord( REAL( p.x ), REAL( p.y ) ), eCoord( REAL( q.x ), REAL( q.y ) ),
                                    height[0], height[1], colour[0], colour[1], colour[2], 1, pass );
             }
         }
+        sg_CleanWallWidthShare( 1 );
         RenderEnd();
     }
 

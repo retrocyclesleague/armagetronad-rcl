@@ -5480,13 +5480,15 @@ gCleanWallTip sg_CleanWallTip( int model )
     tip.leaves = sg_CleanWallStart( model );
     if ( model == 2 && sg_cycleTailGap != 0 && sg_CycleMeshDraws() )
     {
-        // The mesh cycle's wall leaves its rear axle square, at its full
-        // height and width: the tyre hides the end. Jamie: "the bike trail
-        // still starts from the bike way too small". Only its last tenth of a
-        // unit is softened a little, so no thin edge shows at the very end.
-        tip.low = .92f;
-        tip.narrow = .7f;
-        tip.rise = .12f;
+        // The mesh cycle's wall leaves its rear axle at its full height.
+        // Jamie: "the bike trail still starts from the bike way too small".
+        // The wall is .14 thick and the tyre's sides only .13 apart, so inside
+        // the tyre (its radius, .23, behind the axle) the wall is half as
+        // thick and only reaches its own width just past the tyre's back:
+        // drawn full width from the axle it stood out through the tyre.
+        tip.low = 1;
+        tip.narrow = .5f;
+        tip.rise = .38f;
         tip.arrow = false;
     }
     else

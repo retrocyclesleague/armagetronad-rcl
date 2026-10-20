@@ -984,6 +984,9 @@ bool sg_TrailGlowSide( const eCoord &p1, const eCoord &p2, eCoord &side )
 // Half the drawn thickness. Collision stays on the centre plane, so keep this
 // well below the distances players grind at.
 static const REAL sg_cleanWallHalfWidth = .07f;
+
+// the share of that width the pieces drawn next have (sg_CleanWallWidthShare)
+REAL sg_cleanWidthShare = 1;
 static const REAL sg_cleanShadowAlpha = .15f;
 static const REAL sg_cleanShadowRise = .012f;
 // the share of its reach over which a shadow is even, before it thins out
@@ -1238,7 +1241,7 @@ void sg_CleanSheen( const eCoord &p1, const eCoord &p2, REAL h1, REAL h2,
     REAL const length = sqrt( delta.NormSquared() );
     if ( !( length > 0 ) || !( h1 > 0 || h2 > 0 ) )
         return;
-    eCoord const along = delta * ( sg_cleanWallHalfWidth / length );
+    eCoord const along = delta * ( sg_cleanWallHalfWidth * sg_cleanWidthShare / length );
     eCoord const side( -along.y, along.x );
     sr_CleanPaint( r, g, b );
 
@@ -1267,7 +1270,7 @@ void sg_CleanSolid( const eCoord &p1, const eCoord &p2, REAL h1, REAL h2,
     REAL const length = sqrt( delta.NormSquared() );
     if ( !( length > 0 ) || !( h1 > 0 || h2 > 0 ) )
         return;
-    eCoord const along = delta * ( sg_cleanWallHalfWidth / length );
+    eCoord const along = delta * ( sg_cleanWallHalfWidth * sg_cleanWidthShare / length );
     eCoord const side( -along.y, along.x );
     sr_CleanPaint( r, g, b );
 
@@ -1544,6 +1547,11 @@ void sg_TrailGlowPlane( const eCoord &p1, const eCoord &p2,
     glVertex3f( p2.x + offset.x, p2.y + offset.y, top );
     glVertex3f( p2.x + offset.x, p2.y + offset.y, bottom );
 }
+}
+
+void sg_CleanWallWidthShare( REAL share )
+{
+    sg_cleanWidthShare = share > 0 ? ( share < 1 ? share : 1 ) : 0;
 }
 
 void sg_CleanWallPiece( eCoord const & p1, eCoord const & p2, REAL h1, REAL h2,

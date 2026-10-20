@@ -404,8 +404,14 @@ namespace
 
         BeginQuads();
         for ( int i = 0; i + 1 < steps + 2; ++i )
+        {
+            // as thin as the game's wall where it is inside the tyre
+            REAL const f = i < steps ? ( i + .5f ) / steps : 1;
+            sg_CleanWallWidthShare( tip.narrow + ( 1 - tip.narrow ) * f * f * ( 3 - 2 * f ) );
             sg_CleanWallPiece( pos - dir * back[i + 1], pos - dir * back[i], height[i + 1], height[i],
                                colour[0], colour[1], colour[2], 1, pass );
+        }
+        sg_CleanWallWidthShare( 1 );
         RenderEnd();
     }
 
