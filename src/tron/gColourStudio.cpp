@@ -392,6 +392,18 @@ namespace
         REAL const full = sg_CleanWallHeight();     // as tall as the game draws its walls
         static const REAL length = 12;
         static const int steps = 6;
+
+        // the mesh cycle's as the game draws it: filling in under its top
+        // line, the emission point where that leaves the tail
+        if ( !tip.arrow )
+        {
+            BeginQuads();
+            sg_CleanWallTipPiece( pos - dir * length, pos - dir * leaves, length, leaves, tip, full,
+                                  colour[0], colour[1], colour[2], pass, true );
+            RenderEnd();
+            return;
+        }
+
         REAL back[ steps + 2 ], height[ steps + 2 ];
         for ( int i = 0; i <= steps; ++i )
         {

@@ -736,6 +736,30 @@ namespace
         // a is the older end, further behind the head
         void operator()(Vec const & a, Vec const & b, float behindA, float behindB) const
         {
+            // A live mesh cycle's newest stretch as the game draws it: thin
+            // inside the tyre, filling in under its top line
+            // (sg_CleanWallTipPiece); further back, as the rest of the wall.
+            gCleanWallTip const tip = sg_CleanWallTip();
+            if (alive && !tip.arrow)
+            {
+                float const start = float(tip.leaves);
+                if (behindA <= start)
+                    return;
+                Vec nearest = b;
+                float behindNear = behindB;
+                if (behindB < start)
+                {
+                    nearest = Mix(b, a, (start - behindB) / (behindA - behindB));
+                    behindNear = start;
+                }
+                if (behindNear < start + float(std::max(tip.rise, tip.fill)))
+                    sg_CleanWallTipPiece(eCoord(a.x, a.y), eCoord(nearest.x, nearest.y), behindA, behindNear, tip,
+                                         REAL(Height(behindA)), life.r, life.g, life.b, pass, false);
+                else
+                    Draw(a, nearest, behindA, behindNear);
+                return;
+            }
+
             WallPass const & self = *this;
             TipPieces(a, b, behindA, behindB, alive,
                       [&self](Vec const & p, Vec const & q, float behindP, float behindQ)
@@ -766,12 +790,22 @@ namespace
         RenderEnd();
     }
 
+    // where a live mesh cycle's top line leaves its tail, for the emission point
+    struct LineStart
+    {
+        Vec at;
+        float height;
+        REAL r, g, b;
+    };
+
     // A line along the top of every wall. From high up a wall is thinner than
     // a pixel; the line is what is then seen of it.
     struct WallLine
     {
         bool alive;
         float standing;
+        Life const * life;
+        std::vector<LineStart> * starts;
 
         // as the wall itself: rising out of its cycle
         float Height(float behind) const
@@ -788,6 +822,16 @@ namespace
                           glVertex3f(p.x, p.y, self.Height(behindP));
                           glVertex3f(q.x, q.y, self.Height(behindQ));
                       });
+
+            // the piece the line leaves the tail from: its start, for the emission point
+            gCleanWallTip const tip = sg_CleanWallTip();
+            float const start = float(tip.leaves);
+            if (alive && !tip.arrow && starts && life && behindA > start && behindB <= start)
+            {
+                LineStart const at = { Mix(b, a, (start - behindB) / (behindA - behindB)), Height(start),
+                                       life->r, life->g, life->b };
+                starts->push_back(at);
+            }
         }
     };
 
@@ -795,6 +839,7 @@ namespace
     {
         sr_DepthOffset(true);
         glLineWidth(1);
+        std::vector<LineStart> starts;
         BeginLines();
         for (size_t i = 0; i < round.lives.size(); ++i)
         {
@@ -804,7 +849,7 @@ namespace
             glColor4f(r + (1 - r) * .2f, g + (1 - g) * .2f, b + (1 - b) * .2f, 1);
             Vec head, heading;
             int index;
-            WallLine line = { Sample(life, t, head, heading, index), 1 };
+            WallLine line = { Sample(life, t, head, heading, index), 1, &life, &starts };
             float const since = t - life.points.back().t;
             if (since > replay.wallStay)
                 line.standing = std::max(0.0f, 1 - (since - replay.wallStay) / wallSink);
@@ -813,6 +858,11 @@ namespace
             WalkWall(life, t, alive, standing, line);
         }
         RenderEnd();
+
+        // where each live mesh cycle's top line leaves its tail, a point of light
+        for (size_t i = 0; i < starts.size(); ++i)
+            sg_CleanEmissionPoint(eCoord(starts[i].at.x, starts[i].at.y), starts[i].height,
+                                  starts[i].r, starts[i].g, starts[i].b);
         sr_DepthOffset(false);
     }
 

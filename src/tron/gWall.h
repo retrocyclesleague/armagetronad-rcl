@@ -371,6 +371,16 @@ struct gCleanWallTip
 
 //! how solid a wall's faces are `back` along the trail behind its cycle, 0 to 1
 REAL sg_CleanWallFill( gCleanWallTip const & tip, REAL back );
+
+//! The newest stretch of a cycle's wall drawn as the game draws it out of
+//! the cycle (its height, width, fill and paint by the way back along the
+//! trail), for scenes that are not a game: a straight piece from `from`,
+//! `fromBack` behind the cycle along the trail, to `to`, `toBack` behind it,
+//! `full` high where it is all there, in one of sg_CleanWallPiece's passes
+//! (between BeginQuads() and RenderEnd()); with `emit`, the emission point
+//! where the piece starts at the cycle (pass 3).
+void sg_CleanWallTipPiece( eCoord const & from, eCoord const & to, REAL fromBack, REAL toBack,
+                           gCleanWallTip const & tip, REAL full, REAL r, REAL g, REAL b, int pass, bool emit );
 gCleanWallTip sg_CleanWallTip( int model = -1 );
 
 //! the marking on the floor that stands for the arena's rim, along one edge of it

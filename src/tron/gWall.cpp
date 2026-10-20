@@ -1451,10 +1451,14 @@ void sg_CleanTip( gCleanTipPoint * point, int points, REAL r, REAL g, REAL b, RE
     // The wall itself runs past both ends by the half width it has there, so
     // corners close up. Its shadow and its sheen end where the pieces next to
     // it begin theirs: laid over each other, they would show as a darker line.
+    // Where it is still filling in, its pieces meet end to end too (round
+    // corners, the lab's curves): see-through, overlapping ends would show.
     if ( !sheen )
     {
-        point[0].at = point[0].at - along * point[0].width;
-        point[points - 1].at = point[points - 1].at + along * point[points - 1].width;
+        if ( !( point[0].fill < 1 ) )
+            point[0].at = point[0].at - along * point[0].width;
+        if ( !( point[points - 1].fill < 1 ) )
+            point[points - 1].at = point[points - 1].at + along * point[points - 1].width;
     }
 
     // the paint at each point: the wall's own, and towards the cycle more and
@@ -1528,28 +1532,26 @@ void sg_CleanTip( gCleanTipPoint * point, int points, REAL r, REAL g, REAL b, RE
     if ( sheen )
         return;
 
-    // the two ends: a turn made while this stretch is still coming up leaves
-    // one of them in the open
-    for ( int e = 0; e < 2; ++e )
-    {
-        gCleanTipPoint const & p = point[e ? points - 1 : 0];
-        REAL const * const tone = paint[e ? points - 1 : 0];
-        eCoord const o = side * p.width;
-        if ( ( p.fill < 1 ) != clear )
-        {
-            clear = !clear;
-            RenderEnd();
-            glDepthMask( clear ? GL_FALSE : GL_TRUE );
-            BeginQuads();
-        }
-        sg_CleanFace( look, sg_CleanFaceLight( e ? along : along * REAL( -1 ) ), alpha * p.fill,
-                      p.at.x - o.x, p.at.y - o.y, p.height, tone, p.at.x + o.x, p.at.y + o.y, p.height, tone );
-    }
     if ( clear )
     {
         RenderEnd();
         glDepthMask( GL_TRUE );
         BeginQuads();
+    }
+
+    // the two ends: a turn made while this stretch is still coming up leaves
+    // one of them in the open. Only where the wall is solid: in the stretch
+    // still filling in an end is a joint between two pieces, or the start,
+    // where the wall is all but clear.
+    for ( int e = 0; e < 2; ++e )
+    {
+        gCleanTipPoint const & p = point[e ? points - 1 : 0];
+        if ( p.fill < 1 )
+            continue;
+        REAL const * const tone = paint[e ? points - 1 : 0];
+        eCoord const o = side * p.width;
+        sg_CleanFace( look, sg_CleanFaceLight( e ? along : along * REAL( -1 ) ), alpha,
+                      p.at.x - o.x, p.at.y - o.y, p.height, tone, p.at.x + o.x, p.at.y + o.y, p.height, tone );
     }
 
     // The pale line down the spine of the arrow the cycle is drawn as runs on
@@ -1638,6 +1640,46 @@ void sg_CleanEmissionPoint( eCoord const & at, REAL height, REAL r, REAL g, REAL
         glVertex3f( at.x + right[0] * c + up[0] * s, at.y + right[1] * c + up[1] * s, height + right[2] * c + up[2] * s );
     }
     RenderEnd();
+}
+
+void sg_CleanWallTipPiece( eCoord const & from, eCoord const & to, REAL fromBack, REAL toBack,
+                           gCleanWallTip const & tip, REAL full, REAL r, REAL g, REAL b, int pass, bool emit )
+{
+    REAL const span = fromBack - toBack;
+    if ( !( span > 0 ) || !( full > 0 ) )
+        return;
+    int const mode = pass == 0 ? gNetPlayerWall::gWallRenderMode_Shadow :
+                     pass == 1 ? gNetPlayerWall::gWallRenderMode_Sheen :
+                     pass == 3 ? gNetPlayerWall::gWallRenderMode_Top : gNetPlayerWall::gWallRenderMode_Solid;
+
+    // the points it is drawn through, as RenderBegin has them: its ends, and
+    // steps over the rise or the fill, whichever is longer
+    static const int steps = 12;
+    REAL const reach = tip.fill > tip.rise ? tip.fill : tip.rise;
+    REAL back[ sg_cleanTipPoints ];
+    int points = 0;
+    back[ points++ ] = fromBack;
+    for ( int i = steps; i >= 0; --i )
+    {
+        REAL const at = tip.leaves + reach * i / steps;
+        if ( at < fromBack && at > toBack )
+            back[ points++ ] = at;
+    }
+    back[ points++ ] = toBack;
+
+    gCleanTipPoint point[ sg_cleanTipPoints ];
+    for ( int i = 0; i < points; ++i )
+    {
+        point[i].at = from + ( to - from ) * ( ( fromBack - back[i] ) / span );
+        sg_CleanTipShape( tip, back[i], full, point[i] );
+    }
+    if ( !( mode & gNetPlayerWall::gWallRenderMode_Top ) )
+        BeginQuads();
+    sg_CleanTip( point, points, r, g, b, 1, mode );
+
+    // where the top line leaves the mesh cycle's tail
+    if ( emit && !tip.arrow && ( mode & gNetPlayerWall::gWallRenderMode_Top ) && toBack <= tip.leaves + 1E-4f )
+        sg_CleanEmissionPoint( point[ points - 1 ].at, point[ points - 1 ].height, r, g, b );
 }
 
 REAL sg_CleanWallFill( gCleanWallTip const & tip, REAL back )

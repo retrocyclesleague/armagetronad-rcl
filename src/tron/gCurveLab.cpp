@@ -827,13 +827,16 @@ namespace
     {
         if ( path.size() < 2 )
             return;
-        double const end = path.back().along - leaves;
-        // as tall as the bike, and out of it as square, as the game draws the
-        // mesh cycle's walls (sg_CleanWallTip)
-        double const full = sg_CleanWallHeight( 2 );
-        gCleanWallTip const tip = sg_CleanWallTip( 2 );
-        double const low = tip.low, rise = tip.rise;
-        static const int steps = 6;
+        double const head = path.back().along;
+        double const end = head - leaves;
+        // As tall as the bike's tail, and out of it as the game draws the mesh
+        // cycle's wall: thin inside the tyre, filling in under its top line,
+        // the emission point where that leaves the tail (sg_CleanWallTipPiece),
+        // piece by piece round the curves.
+        REAL const full = sg_CleanWallHeight( 2 );
+        gCleanWallTip tip = sg_CleanWallTip( 2 );
+        tip.leaves = REAL( leaves );
+        double const reach = std::max( tip.rise, tip.fill );
 
         if ( pass != 3 )
             BeginQuads();
@@ -845,39 +848,14 @@ namespace
             sim::Vertex b = path[i + 1];
             if ( b.along > end )
                 b = Between( a, b, end );
-
-            // cut where the rise has its steps, so it is a curve
-            double cuts[ steps + 2 ];
-            int count = 0;
-            cuts[ count++ ] = a.along;
-            for ( int k = steps; k >= 1; --k )
-            {
-                double const at = end - rise * k / steps;
-                if ( at > a.along && at < b.along )
-                    cuts[ count++ ] = at;
-            }
-            cuts[ count++ ] = b.along;
-
-            for ( int j = 0; j + 1 < count; ++j )
-            {
-                sim::Vertex const p = Between( a, b, cuts[j] ), q = Between( a, b, cuts[j + 1] );
-                REAL height[2];
-                double const at[2] = { p.along, q.along };
-                for ( int e = 0; e < 2; ++e )
-                {
-                    double f = ( end - at[e] ) / rise;
-                    f = f < 0 ? 0 : ( f > 1 ? 1 : f );
-                    height[e] = REAL( full * ( low + ( 1 - low ) * f * f * ( 3 - 2 * f ) ) );
-                }
-                // as thin as the game's wall where it is inside the tyre
-                double g = ( end - .5 * ( p.along + q.along ) ) / rise;
-                g = g < 0 ? 0 : ( g > 1 ? 1 : g );
-                sg_CleanWallWidthShare( REAL( tip.narrow + ( 1 - tip.narrow ) * g * g * ( 3 - 2 * g ) ) );
-                sg_CleanWallPiece( eCoord( REAL( p.x ), REAL( p.y ) ), eCoord( REAL( q.x ), REAL( q.y ) ),
-                                   height[0], height[1], colour[0], colour[1], colour[2], 1, pass );
-            }
+            eCoord const p( REAL( a.x ), REAL( a.y ) ), q( REAL( b.x ), REAL( b.y ) );
+            double const backA = head - a.along, backB = head - b.along;
+            if ( backB < leaves + reach )
+                sg_CleanWallTipPiece( p, q, REAL( backA ), REAL( backB ), tip, full,
+                                      colour[0], colour[1], colour[2], pass, true );
+            else
+                sg_CleanWallPiece( p, q, full, full, colour[0], colour[1], colour[2], 1, pass );
         }
-        sg_CleanWallWidthShare( 1 );
         RenderEnd();
     }
 
