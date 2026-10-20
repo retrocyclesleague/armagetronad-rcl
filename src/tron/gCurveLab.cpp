@@ -837,8 +837,9 @@ namespace
         REAL const full = sg_CleanWallHeight( 2 );
         gCleanWallTip tip = sg_CleanWallTip( 2 );
         tip.leaves = REAL( leaves );
-        double const reach = std::max( tip.rise, tip.fill );
-        static const int steps = 12;
+        // where the newest stretch needs points, nearest first
+        REAL steps[ 32 ];
+        int const count = sg_CleanWallTipBacks( tip, steps, 32 );
 
         // the path's points up to where the wall leaves, and more over its newest stretch
         static std::vector< eCoord > at;
@@ -855,9 +856,9 @@ namespace
             if ( i + 1 >= path.size() )
                 break;
             double const next = std::min( path[i + 1].along, end );
-            for ( int k = steps; k >= 1; --k )
+            for ( int k = count - 1; k >= 0; --k )
             {
-                double const along = end - reach * k / steps;
+                double const along = head - steps[k];
                 if ( along > a.along && along < next )
                 {
                     sim::Vertex const v = Between( a, path[i + 1], along );

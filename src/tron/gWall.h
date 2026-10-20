@@ -372,6 +372,11 @@ struct gCleanWallTip
 //! how solid a wall's faces are `back` along the trail behind its cycle, 0 to 1
 REAL sg_CleanWallFill( gCleanWallTip const & tip, REAL back );
 
+//! Where along the newest stretch (`back` behind the cycle) a wall needs
+//! points to be drawn through, nearest first: steps over its rise, fill and
+//! the box growing out of the sheet, and the sheet's end. Returns how many.
+int sg_CleanWallTipBacks( gCleanWallTip const & tip, REAL * back, int most );
+
 //! The newest stretch of a cycle's wall drawn as the game draws it out of
 //! the cycle (its height, width, fill and paint by the way back along the
 //! trail), for scenes that are not a game: a straight piece from `from`,

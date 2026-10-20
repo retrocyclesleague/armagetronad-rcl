@@ -1373,18 +1373,40 @@ struct gCleanTipPoint
     REAL height, width, fresh, line, fill;
 };
 
-enum { sg_cleanTipPoints = 16 };
+enum { sg_cleanTipPoints = 24 };
 
-// From this share of its fill on a wall is solid: drawn as the box it is,
-// writing depth. Below it, a single sheet in the wall's middle (sg_CleanTip).
-static const REAL sg_cleanSolidFill = .98f;
+// Where its fill is whole a wall is solid: drawn as the box it is, writing
+// depth. Before that, a single sheet in the wall's middle (sg_CleanTip); the
+// sheet is whole where it ends, so nothing changes in how solid it looks.
+static const REAL sg_cleanSolidFill = 1;
 
-// where the eye is over the floor, from the modelview GL draws with
+// From there the box grows out of the sheet to its full width over this much
+// of the trail, so it has no end to show: the sheet goes on as its two faces.
+static const REAL sg_cleanBoxGrow = .5f;
+
+// Where the eye is over the floor, from the modelview GL draws with. Called
+// while quads are being drawn: GL answers no questions between glBegin and
+// glEnd (it leaves the answer unwritten), so what is being drawn is closed
+// for the question and opened again.
 eCoord sg_CleanEyeOverFloor()
 {
+    RenderEnd();
     GLfloat m[16];
     glGetFloatv( GL_MODELVIEW_MATRIX, m );
+    BeginQuads();
     return eCoord( -( m[0] * m[12] + m[1] * m[13] + m[2] * m[14] ), -( m[4] * m[12] + m[5] * m[13] + m[6] * m[14] ) );
+}
+
+// How far behind the cycle the fill is solid (sg_cleanSolidFill): where the
+// sheet ends and the box starts to grow (the fill's ease, undone)
+REAL sg_CleanWallSolidAt( gCleanWallTip const & tip )
+{
+    if ( !( tip.fill > 0 ) )
+        return tip.leaves;
+    REAL const eased = ( sg_cleanSolidFill - .05f ) / .95f;
+    REAL const at = 1 - 2 * eased;
+    REAL const f = .5f - sin( asin( at < -1 ? -1 : ( at > 1 ? 1 : at ) ) / 3 );
+    return tip.leaves + tip.fill * f;
 }
 
 // A point of a wall's last stretch, `back` along the trail behind its cycle:
@@ -1403,6 +1425,13 @@ void sg_CleanTipShape( gCleanWallTip const & tip, REAL back, REAL full, gCleanTi
     point.fresh = tip.arrow ? arrowTint * ( 1 - rise ) * ( 1 - rise ) : 0;
     point.line = tip.arrow ? ( 1 - eased ) * ( 1 - eased ) : 0;
     point.fill = ::sg_CleanWallFill( tip, back );
+    // where it fills in, a sheet; past that the box grows out of it
+    if ( tip.fill > 0 )
+    {
+        REAL grow = ( back - sg_CleanWallSolidAt( tip ) ) / sg_cleanBoxGrow;
+        grow = grow < 0 ? 0 : ( grow > 1 ? 1 : grow );
+        point.width *= grow * grow * ( 3 - 2 * grow );
+    }
 }
 
 void sg_CleanTip( gCleanTipPoint * point, int points, REAL r, REAL g, REAL b, REAL alpha, int mode )
@@ -1493,16 +1522,23 @@ void sg_CleanTip( gCleanTipPoint * point, int points, REAL r, REAL g, REAL b, RE
     // Where it is still filling in it is one sheet in its middle, lit as the
     // side facing the eye is: see-through, the box's two faces of every
     // piece, drawn without depth, blended over each other in one order here
-    // and the other there, and showed as stripes. Which side faces the eye:
-    bool sheets = false;
+    // and the other there, and showed as stripes. Past that the box grows out
+    // of the sheet, its face towards the eye drawn last, so that where the
+    // two faces are still all but one the eye sees its own. Which side faces
+    // the eye:
+    bool young = false;
     for ( int i = 0; i < points; ++i )
-        sheets = sheets || point[i].fill < sg_cleanSolidFill;
+        young = young || point[i].fill < 1 || point[i].width < 1;
     eCoord facing = side;
-    if ( sheets )
+    int eyeSide = 1;
+    if ( young )
     {
         eCoord const middle = ( point[0].at + point[points - 1].at ) * .5f;
         if ( eCoord::F( side, sg_CleanEyeOverFloor() - middle ) < 0 )
+        {
             facing = side * REAL( -1 );
+            eyeSide = -1;
+        }
     }
 
     // the paint at each point: the wall's own, and towards the cycle more and
@@ -1557,8 +1593,10 @@ void sg_CleanTip( gCleanTipPoint * point, int points, REAL r, REAL g, REAL b, RE
             continue;
         }
 
-        for ( int sign = -1; sign <= 1; sign += 2 )
+        for ( int face = 0; face < 2; ++face )
         {
+            // the face away from the eye first
+            int const sign = face ? eyeSide : -eyeSide;
             eCoord const o = side * REAL( sign );
             REAL const light = sg_CleanFaceLight( o );
             eCoord const at[2] = { end[0]->at + o * end[0]->width, end[1]->at + o * end[1]->width };
@@ -1588,14 +1626,6 @@ void sg_CleanTip( gCleanTipPoint * point, int points, REAL r, REAL g, REAL b, RE
         if ( sheen )
             continue;
 
-        // the box's end where the sheet meets it, facing the sheet
-        if ( i + 2 < points && point[i + 2].fill < sg_cleanSolidFill )
-        {
-            eCoord const o = side * end[1]->width;
-            sg_CleanFace( look, sg_CleanFaceLight( along ), alpha * end[1]->fill, end[1]->at.x - o.x, end[1]->at.y - o.y,
-                          end[1]->height, tone[1], end[1]->at.x + o.x, end[1]->at.y + o.y, end[1]->height, tone[1] );
-        }
-
         for ( int k = 0; k < 2; ++k )
         {
             glColor4f( tone[k][0] + ( 1 - tone[k][0] ) * sky, tone[k][1] + ( 1 - tone[k][1] ) * sky,
@@ -1617,14 +1647,14 @@ void sg_CleanTip( gCleanTipPoint * point, int points, REAL r, REAL g, REAL b, RE
     }
 
     // the two ends: a turn made while this stretch is still coming up leaves
-    // one of them in the open. Only where the wall is a box: in the stretch
-    // still filling in an end is a joint between two sheets, or the start,
-    // where the wall is all but clear. Where the sheet meets the box, the
-    // box's end closes it.
+    // one of them in the open. Only where the wall is a box of its width: in
+    // the stretch still filling in an end is a joint between two sheets, or
+    // the start, where the wall is all but clear; where the box grows out of
+    // the sheet it has no end.
     for ( int e = 0; e < 2; ++e )
     {
         gCleanTipPoint const & p = point[e ? points - 1 : 0];
-        if ( p.fill < sg_cleanSolidFill || ( sg_cleanOpenEnds & ( 1 << e ) ) )
+        if ( p.fill < sg_cleanSolidFill || p.width < 1 || ( sg_cleanOpenEnds & ( 1 << e ) ) )
             continue;
         REAL const * const tone = paint[e ? points - 1 : 0];
         eCoord const o = side * p.width;
@@ -1736,15 +1766,15 @@ void sg_CleanCurve( gCleanTipPoint const * point, eCoord const * normal, int poi
     REAL base[3] = { r, g, b };
     sr_CleanPaint( base[0], base[1], base[2] );
     REAL paint[ sg_cleanCurvePoints ][3];
-    bool sheets = false;
+    bool young = false;
     for ( int i = 0; i < points; ++i )
     {
         for ( int c = 0; c < 3; ++c )
             paint[i][c] = base[c] + ( 1 - base[c] ) * point[i].fresh;
-        sheets = sheets || point[i].fill < sg_cleanSolidFill;
+        young = young || point[i].fill < 1 || point[i].width < 1;
     }
-    // where it is a sheet, the side facing the eye at each point
-    eCoord const eye = sheets ? sg_CleanEyeOverFloor() : eCoord();
+    // where it is a sheet or the box grows out of it, the side facing the eye
+    eCoord const eye = young ? sg_CleanEyeOverFloor() : eCoord();
 
     gCleanTone const look = sg_CleanTone();
     REAL const sky = look.sky;
@@ -1794,8 +1824,14 @@ void sg_CleanCurve( gCleanTipPoint const * point, eCoord const * normal, int poi
             continue;
         }
 
-        for ( int sign = -1; sign <= 1; sign += 2 )
+        // the face away from the eye first, so that where the box is all but
+        // the sheet the eye sees its own
+        int eyeSide = 1;
+        if ( young && eCoord::F( normal[k0] + normal[k1], eye - ( point[k0].at + point[k1].at ) * .5f ) < 0 )
+            eyeSide = -1;
+        for ( int face = 0; face < 2; ++face )
         {
+            int const sign = face ? eyeSide : -eyeSide;
             // each point's face, out from the middle the way the wall faces there
             eCoord const n0 = normal[k0] * REAL( sign ), n1 = normal[k1] * REAL( sign );
             eCoord const a0 = point[k0].at + n0 * ( half * point[k0].width );
@@ -1932,18 +1968,15 @@ void sg_CleanWallTipPiece( eCoord const & from, eCoord const & to, REAL fromBack
                      pass == 3 ? gNetPlayerWall::gWallRenderMode_Top : gNetPlayerWall::gWallRenderMode_Solid;
 
     // the points it is drawn through, as RenderBegin has them: its ends, and
-    // steps over the rise or the fill, whichever is longer
-    static const int steps = 12;
-    REAL const reach = tip.fill > tip.rise ? tip.fill : tip.rise;
+    // those the newest stretch needs in between (sg_CleanWallTipBacks)
+    REAL steps[ sg_cleanTipPoints ];
+    int const count = sg_CleanWallTipBacks( tip, steps, sg_cleanTipPoints - 2 );
     REAL back[ sg_cleanTipPoints ];
     int points = 0;
     back[ points++ ] = fromBack;
-    for ( int i = steps; i >= 0; --i )
-    {
-        REAL const at = tip.leaves + reach * i / steps;
-        if ( at < fromBack && at > toBack )
-            back[ points++ ] = at;
-    }
+    for ( int i = count - 1; i >= 0; --i )
+        if ( steps[i] < fromBack && steps[i] > toBack )
+            back[ points++ ] = steps[i];
     back[ points++ ] = toBack;
 
     gCleanTipPoint point[ sg_cleanTipPoints ];
@@ -2002,6 +2035,28 @@ void sg_CleanWallCurve( eCoord const * at, REAL const * back, int count, gCleanW
         sg_CleanTipShape( tip, back[ count - 1 ], full, last );
         sg_CleanEmissionPoint( at[ count - 1 ], last.height, r, g, b );
     }
+}
+
+int sg_CleanWallTipBacks( gCleanWallTip const & tip, REAL * back, int most )
+{
+    // steps over the rise, the fill and the box growing, whichever reaches furthest
+    static const int steps = 12;
+    REAL reach = tip.fill > tip.rise ? tip.fill : tip.rise;
+    REAL const solid = sg_CleanWallSolidAt( tip );
+    if ( tip.fill > 0 && solid - tip.leaves + sg_cleanBoxGrow > reach )
+        reach = solid - tip.leaves + sg_cleanBoxGrow;
+    int n = 0;
+    for ( int i = 0; i <= steps && n < most; ++i )
+        back[ n++ ] = tip.leaves + reach * i / steps;
+    // and exactly where the sheet ends and the box has grown
+    if ( tip.fill > 0 )
+    {
+        REAL const more[3] = { solid, solid + sg_cleanBoxGrow * .5f, solid + sg_cleanBoxGrow };
+        for ( int i = 0; i < 3 && n < most; ++i )
+            back[ n++ ] = more[i];
+    }
+    std::sort( back, back + n );
+    return n;
 }
 
 REAL sg_CleanWallFill( gCleanWallTip const & tip, REAL back )
@@ -2536,9 +2591,6 @@ void gNetPlayerWall::RenderBegin(const eCoord &p1,const eCoord &pp2,REAL ta,REAL
         // top line, mirror image, shadow.
         gCleanWallTip const tip = sg_CleanWallTip();
         REAL const notchBack = tip.leaves;
-        // points over the rise, or over the fill where that is longer
-        static const int riseSteps = 12;
-        REAL const reach = tip.fill > tip.rise ? tip.fill : tip.rise;
 
         // how far behind the cycle, along the trail, the piece begins and ends
         REAL const backBegin = ( 1 - ra ) * stretch;
@@ -2551,15 +2603,14 @@ void gNetPlayerWall::RenderBegin(const eCoord &p1,const eCoord &pp2,REAL ta,REAL
         {
             // the points it is drawn through: its ends, and in between enough
             // of them for the rise to be a curve
+            REAL steps[ sg_cleanTipPoints ];
+            int const count = sg_CleanWallTipBacks( tip, steps, sg_cleanTipPoints - 2 );
             REAL back[sg_cleanTipPoints];
             int points = 0;
             back[points++] = backBegin;
-            for ( int i = riseSteps; i >= 0; --i )
-            {
-                REAL const at = notchBack + reach * i / riseSteps;
-                if ( at < backBegin && at > backEnd )
-                    back[points++] = at;
-            }
+            for ( int i = count - 1; i >= 0; --i )
+                if ( steps[i] < backBegin && steps[i] > backEnd )
+                    back[points++] = steps[i];
             back[points++] = backEnd;
 
             gCleanTipPoint point[sg_cleanTipPoints];

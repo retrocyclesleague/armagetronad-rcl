@@ -5499,7 +5499,8 @@ gCleanWallTip sg_CleanWallTip( int model )
         tip.narrow = .5f;
         tip.rise = .38f;
         tip.arrow = false;
-        REAL const most = 4.9f - tip.leaves;
+        // the fill and the box growing out of it after (.5) stay in the newest stretch
+        REAL const most = 4.4f - tip.leaves;
         tip.fill = sg_trailFill > 0 ? ( sg_trailFill < most ? sg_trailFill : most ) : 0;
     }
     else
