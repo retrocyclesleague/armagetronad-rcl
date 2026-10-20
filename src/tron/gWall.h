@@ -300,10 +300,14 @@ private:
 
 #ifndef DEDICATED
     // Drawing only (RoundCorners): what of each end, 0 its start and 1 its
-    // end, a round corner takes, 0 where the corner is sharp; and which way
-    // the wall before it ran, for the corner at its start, which it draws.
+    // end, a round corner takes, 0 where the corner is sharp; and for the
+    // corner at its start, which it draws: which way the wall before it ran,
+    // where the two walls' lines cross and how far the arc reaches from there
+    // along each.
     REAL roundCut_[2];
     eCoord roundFrom_;
+    eCoord roundAt_;
+    REAL roundArc_;
 
     void RenderRoundCorner( REAL r, REAL g, REAL b, REAL a, gWallRenderMode mode );
     //! where the unbroken stretch of wall (no hole) that reaches its start ends, or the one that reaches its end starts

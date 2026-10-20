@@ -1384,16 +1384,52 @@ static const REAL sg_cleanSolidFill = 1;
 // of the trail, so it has no end to show: the sheet goes on as its two faces.
 static const REAL sg_cleanBoxGrow = .5f;
 
-// Where the eye is over the floor, from the modelview GL draws with. Called
-// while quads are being drawn: GL answers no questions between glBegin and
-// glEnd (it leaves the answer unwritten), so what is being drawn is closed
-// for the question and opened again.
+// Where the eye is over the floor, in the frame of what is being drawn: the
+// one point projection times modelview sends to x = y = w = 0, the point
+// everything is drawn as seen from. The game keeps its camera in the
+// projection (eCamera), the studio, the lab and the menu replay keep theirs
+// in the modelview; this reads either. Called while quads are being drawn:
+// GL answers no questions between glBegin and glEnd (it leaves the answer
+// unwritten), so what is being drawn is closed for the question and opened
+// again.
 eCoord sg_CleanEyeOverFloor()
 {
     RenderEnd();
-    GLfloat m[16];
+    GLfloat p[16], m[16];
+    glGetFloatv( GL_PROJECTION_MATRIX, p );
     glGetFloatv( GL_MODELVIEW_MATRIX, m );
     BeginQuads();
+
+    // rows x, y and w of projection times modelview (GL stores by columns)
+    double r[3][4];
+    static const int rows[3] = { 0, 1, 3 };
+    for ( int i = 0; i < 3; ++i )
+        for ( int c = 0; c < 4; ++c )
+        {
+            double sum = 0;
+            for ( int k = 0; k < 4; ++k )
+                sum += double( p[k * 4 + rows[i]] ) * m[c * 4 + k];
+            r[i][c] = sum;
+        }
+
+    // that point's coordinates are the three by three minors, signs alternating
+    double minor[4];
+    for ( int skip = 0; skip < 4; ++skip )
+    {
+        int c[3], n = 0;
+        for ( int k = 0; k < 4; ++k )
+            if ( k != skip )
+                c[n++] = k;
+        minor[skip] = r[0][c[0]] * ( r[1][c[1]] * r[2][c[2]] - r[1][c[2]] * r[2][c[1]] )
+                    - r[0][c[1]] * ( r[1][c[0]] * r[2][c[2]] - r[1][c[2]] * r[2][c[0]] )
+                    + r[0][c[2]] * ( r[1][c[0]] * r[2][c[1]] - r[1][c[1]] * r[2][c[0]] );
+    }
+    double const w = -minor[3];
+    double const size = fabs( minor[0] ) + fabs( minor[1] ) + fabs( minor[2] );
+    if ( fabs( w ) > 1E-9 * size && size > 0 )
+        return eCoord( minor[0] / w, -minor[1] / w );
+
+    // no single point (a parallel view): where the modelview alone puts it
     return eCoord( -( m[0] * m[12] + m[1] * m[13] + m[2] * m[14] ), -( m[4] * m[12] + m[5] * m[13] + m[6] * m[14] ) );
 }
 
@@ -1699,9 +1735,11 @@ enum { sg_cleanCurvePoints = 66 };
 // it: the straight walls it joins meet it point for point, in the same light
 // (their faces face as its ends do). Where it is still filling in it is one
 // sheet in its middle, as sg_CleanTip draws it. Between BeginQuads() and
-// RenderEnd(); its top line as a strip of its own.
+// RenderEnd(); its top line as a strip of its own. `tones`, if given, is how
+// brightly each point's faces are lit instead, [0] the one its normal points
+// out of and [1] the other.
 void sg_CleanCurve( gCleanTipPoint const * point, eCoord const * normal, int points, REAL r, REAL g, REAL b,
-                    REAL alpha, int mode )
+                    REAL alpha, int mode, REAL const ( * tones )[2] = NULL )
 {
     if ( points > sg_cleanCurvePoints )
         points = sg_cleanCurvePoints;
@@ -1799,7 +1837,8 @@ void sg_CleanCurve( gCleanTipPoint const * point, eCoord const * normal, int poi
             for ( int e = 0; e < 2; ++e )
             {
                 eCoord const & n = normal[ at[e] ];
-                light[e] = sg_CleanFaceLight( eCoord::F( n, eye - point[ at[e] ].at ) < 0 ? n * REAL( -1 ) : n );
+                bool const away = eCoord::F( n, eye - point[ at[e] ].at ) < 0;
+                light[e] = tones ? tones[ at[e] ][ away ? 1 : 0 ] : sg_CleanFaceLight( away ? n * REAL( -1 ) : n );
             }
             if ( sheen )
             {
@@ -1836,7 +1875,8 @@ void sg_CleanCurve( gCleanTipPoint const * point, eCoord const * normal, int poi
             eCoord const n0 = normal[k0] * REAL( sign ), n1 = normal[k1] * REAL( sign );
             eCoord const a0 = point[k0].at + n0 * ( half * point[k0].width );
             eCoord const a1 = point[k1].at + n1 * ( half * point[k1].width );
-            REAL const l0 = sg_CleanFaceLight( n0 ), l1 = sg_CleanFaceLight( n1 );
+            REAL const l0 = tones ? tones[k0][ sign > 0 ? 0 : 1 ] : sg_CleanFaceLight( n0 );
+            REAL const l1 = tones ? tones[k1][ sign > 0 ? 0 : 1 ] : sg_CleanFaceLight( n1 );
             if ( sheen )
             {
                 glColor4f( paint[k0][0] * l0 * look.foot, paint[k0][1] * l0 * look.foot, paint[k0][2] * l0 * look.foot,
@@ -2772,6 +2812,8 @@ namespace
         bool cached;        // drawn from the cycle's display lists
         REAL cut[2];
         eCoord from;
+        eCoord at;          // where its line and the one before cross
+        REAL arc;           // how far the arc reaches from there
     };
 
     bool sg_RoundEarlier( gRoundWall const & a, gRoundWall const & b )
@@ -2832,7 +2874,7 @@ void gNetPlayerWall::RoundCorners( gCycle * cycle )
     for ( int list = 0; list < 2; ++list )
         for ( gNetPlayerWall * run = list ? lists.wallList_ : lists.wallsWithDisplayList_; run; run = run->Next() )
         {
-            gRoundWall const wall = { run, list == 0, { 0, 0 }, eCoord() };
+            gRoundWall const wall = { run, list == 0, { 0, 0 }, eCoord(), eCoord(), 0 };
             walls.push_back( wall );
         }
 
@@ -2849,7 +2891,13 @@ void gNetPlayerWall::RoundCorners( gCycle * cycle )
         REAL const drawnEnd = time - ( sg_simpleTrail ? REAL( gBEG_LEN_GIVEUP * SEGLEN ) : sg_CleanWallStart() );
         REAL const drawnStart = gCycle::WallsLength() > 0 ? cycle->GetDistance() - cycle->ThisWallsLength() : -1E30f;
 
-        static const REAL touching = .01f;
+        // How far apart a wall's end and the next one's start may be and
+        // still make one corner. Right after a turn the client's own walls
+        // can disagree for a round trip: the old one already reaches where
+        // the server had the turn, the new one starts where the client had
+        // it, a little before. The corner was sharp for that moment (the old
+        // wall poking past the new one) and turned round all at once.
+        static const REAL apart = .5f;
         for ( size_t i = 0; i < walls.size(); ++i )
         {
             gNetPlayerWall * const a = walls[i].wall;
@@ -2863,10 +2911,10 @@ void gNetPlayerWall::RoundCorners( gCycle * cycle )
             REAL const before = a->EndPos() - std::max( a->SolidUntil( true ), drawnStart );
 
             // the walls that start where it ends
-            for ( size_t j = i + 1; j < walls.size() && walls[j].wall->BegPos() <= a->EndPos() + touching; ++j )
+            for ( size_t j = i + 1; j < walls.size() && walls[j].wall->BegPos() <= a->EndPos() + apart; ++j )
             {
                 gNetPlayerWall * const b = walls[j].wall;
-                if ( fabs( b->BegPos() - a->EndPos() ) > touching || ( b->beg - a->end ).NormSquared() > touching * touching ||
+                if ( fabs( b->BegPos() - a->EndPos() ) > apart || ( b->beg - a->end ).NormSquared() > apart * apart ||
                      b->coords_.Len() < 2 || !b->coords_( 0 ).IsDangerous )
                     continue;
                 REAL const outLength = sqrt( b->dir.NormSquared() );
@@ -2879,20 +2927,36 @@ void gNetPlayerWall::RoundCorners( gCycle * cycle )
                 if ( turn < .02f || turn > 3.12f )
                     continue;
 
-                REAL cut = round * tan( turn * .5f );
-                cut = std::min( cut, before * .5f );
-                // half of what there is of the wall after it so far, which
-                // for the newest grows as it is laid
-                cut = std::min( cut, ( b->SolidUntil( false ) - b->BegPos() ) * .5f );
-                // and half of what is drawn of it past the corner: it grows
-                // round as the drawn wall comes out of the cycle
-                cut = std::min( cut, ( drawnEnd - b->BegPos() ) * .5f );
-                if ( !( cut > 1E-3f ) )
+                // The corner is where the two walls' lines cross; the old wall
+                // may reach a little past it (or stop short), the new one start
+                // a little before it (or after), when they disagree as above.
+                REAL const s = ( ( b->beg.x - a->end.x ) * out.y - ( b->beg.y - a->end.y ) * out.x ) / cross;
+                if ( fabs( s ) > 2 * apart )
+                    continue;
+                eCoord const at = a->end + in * s;
+                REAL const pastA = -s;
+                REAL const startB = eCoord::F( at - b->beg, out );
+                if ( fabs( startB ) > 2 * apart )
                     continue;
 
-                walls[i].cut[1] = cut;
-                walls[j].cut[0] = cut;
+                REAL cut = round * tan( turn * .5f );
+                cut = std::min( cut, ( before - pastA ) * .5f );
+                // half of what there is of the wall after it so far, which
+                // for the newest grows as it is laid
+                cut = std::min( cut, ( b->SolidUntil( false ) - b->BegPos() - startB ) * .5f );
+                // and half of what is drawn of it past the corner: it grows
+                // round as the drawn wall comes out of the cycle
+                cut = std::min( cut, ( drawnEnd - b->BegPos() - startB ) * .5f );
+                if ( !( cut > 1E-3f ) || cut + pastA < -1E-3f || cut + startB < -1E-3f )
+                    continue;
+
+                // what each wall leaves out: up to the arc's ends (a little
+                // more than nothing, which would read as a sharp corner)
+                walls[i].cut[1] = std::max( cut + pastA, REAL( 1E-4f ) );
+                walls[j].cut[0] = std::max( cut + startB, REAL( 1E-4f ) );
                 walls[j].from = in;
+                walls[j].at = at;
+                walls[j].arc = cut;
             }
         }
     }
@@ -2904,12 +2968,15 @@ void gNetPlayerWall::RoundCorners( gCycle * cycle )
         gRoundWall const & w = walls[i];
         gNetPlayerWall * const wall = w.wall;
         bool const differs = fabs( wall->roundCut_[0] - w.cut[0] ) > 1E-4f || fabs( wall->roundCut_[1] - w.cut[1] ) > 1E-4f ||
-                             ( w.cut[0] > 0 && ( wall->roundFrom_ - w.from ).NormSquared() > 1E-8f );
+                             ( w.cut[0] > 0 && ( ( wall->roundFrom_ - w.from ).NormSquared() > 1E-8f ||
+                                                 ( wall->roundAt_ - w.at ).NormSquared() > 1E-8f || fabs( wall->roundArc_ - w.arc ) > 1E-4f ) );
         if ( !differs )
             continue;
         wall->roundCut_[0] = w.cut[0];
         wall->roundCut_[1] = w.cut[1];
         wall->roundFrom_ = w.from;
+        wall->roundAt_ = w.at;
+        wall->roundArc_ = w.arc;
         stale = stale || w.cached;
     }
     if ( stale )
@@ -2923,7 +2990,7 @@ void gNetPlayerWall::RoundCorners( gCycle * cycle )
 // out of it and grows to its width as the walls beside it do.
 void gNetPlayerWall::RenderRoundCorner( REAL r, REAL g, REAL b, REAL a, gWallRenderMode mode )
 {
-    REAL const cut = roundCut_[0];
+    REAL const cut = roundArc_;
     REAL const fromLength = sqrt( roundFrom_.NormSquared() ), toLength = sqrt( dir.NormSquared() );
     if ( !( cut > 0 ) || !( fromLength > 0 ) || !( toLength > 0 ) || !cycle_ )
         return;
@@ -2968,7 +3035,7 @@ void gNetPlayerWall::RenderRoundCorner( REAL r, REAL g, REAL b, REAL a, gWallRen
     // each with its own facing, so it reads round and is shaded smoothly,
     // with no joints and no stripes (Jamie: "the corners are jagged").
     eCoord const inside = cross > 0 ? eCoord( -in.y, in.x ) : eCoord( in.y, -in.x );
-    eCoord const start = beg - in * cut;
+    eCoord const start = roundAt_ - in * cut;
     eCoord const centre = start + inside * radius;
     eCoord const spoke = start - centre;
     REAL const sense = cross > 0 ? 1 : -1;
@@ -2980,7 +3047,9 @@ void gNetPlayerWall::RenderRoundCorner( REAL r, REAL g, REAL b, REAL a, gWallRen
         pieces = 2;
     if ( pieces > sg_cleanCurvePoints - 1 )
         pieces = sg_cleanCurvePoints - 1;
-    REAL const corner = BegPos();
+    // where the corner lies along the trail: this wall leaves out the arc's
+    // reach past it and what it starts before it
+    REAL const corner = BegPos() + roundCut_[0] - cut;
 
     gCleanTipPoint point[ sg_cleanCurvePoints ];
     eCoord normal[ sg_cleanCurvePoints ];
@@ -2998,10 +3067,26 @@ void gNetPlayerWall::RenderRoundCorner( REAL r, REAL g, REAL b, REAL a, gWallRen
         REAL const back = sg_simpleTrail ? 1E30f : time - ( corner - cut + 2 * cut * f );
         sg_CleanTipShape( tip, back, h * hfrac, p );
     }
+    // Its light goes over from the one wall's to the other's as it turns,
+    // eased in and out, so the corner is one smooth sweep from tone to tone.
+    // By the way each point faces, the sun's two tones (sg_CleanFaceLight)
+    // met in a short blend somewhere on the arc: a crease across the corner.
+    REAL tones[ sg_cleanCurvePoints ][2];
+    for ( int side = 0; side < 2; ++side )
+    {
+        REAL const flip = side ? -1 : 1;
+        REAL const from = sg_CleanFaceLight( normal[0] * flip ), to = sg_CleanFaceLight( normal[pieces] * flip );
+        for ( int k = 0; k <= pieces; ++k )
+        {
+            REAL const f = REAL( k ) / pieces;
+            tones[k][side] = from + ( to - from ) * f * f * ( 3 - 2 * f );
+        }
+    }
+
     // the line along the top is a strip of its own
     if ( !( mode & gWallRenderMode_Top ) )
         BeginQuads();
-    sg_CleanCurve( point, normal, pieces + 1, r, g, b, a, mode );
+    sg_CleanCurve( point, normal, pieces + 1, r, g, b, a, mode, tones );
 }
 #endif
 
@@ -3370,6 +3455,7 @@ gNetPlayerWall::gNetPlayerWall(gCycle *cyc,
     displayListInhibition_=2;
 #ifndef DEDICATED
     roundCut_[0] = roundCut_[1] = 0;
+    roundArc_ = 0;
 #endif
     MyInitAfterCreation();
 }
@@ -3753,6 +3839,7 @@ gNetPlayerWall::gNetPlayerWall(nMessage &m)
     displayListInhibition_=2;
 #ifndef DEDICATED
     roundCut_[0] = roundCut_[1] = 0;
+    roundArc_ = 0;
 #endif
     m.Read(cid);
     cycle_=static_cast<gCycle *>(Object(cid));
