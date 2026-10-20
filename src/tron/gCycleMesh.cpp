@@ -74,7 +74,10 @@ static REAL sg_cycleLod1 = 120;   // a bike costs next to nothing; keep detail o
 static tConfItem< REAL > sg_cycleLod1Conf( "RCL_CYCLE_LOD1", sg_cycleLod1 );
 static REAL sg_cycleLod2 = 40;
 static tConfItem< REAL > sg_cycleLod2Conf( "RCL_CYCLE_LOD2", sg_cycleLod2 );
-static REAL sg_cycleFar = 24;
+// 0: the mesh at every size. Jamie: "as soon as i turn or glance it takes the
+// full colour of the trail" - the swap to the light cycle and the paint below
+// were what he saw; both are off unless asked for.
+static REAL sg_cycleFar = 0;
 static tConfItem< REAL > sg_cycleFarConf( "RCL_CYCLE_FAR", sg_cycleFar );
 
 // From this length on the screen down to RCL_CYCLE_FAR, the cycle takes on
@@ -82,10 +85,13 @@ static tConfItem< REAL > sg_cycleFarConf( "RCL_CYCLE_FAR", sg_cycleFar );
 // there does, so that it reads as its colour from the game's camera. For
 // specks: at 160 a cycle in plain view, 60 to 100 pixels long, was a blob of
 // paint. A profile that saved that first default is moved to this one, once.
-static REAL sg_cycleTintPx = 48;
+static REAL sg_cycleTintPx = 0;
 static tConfItem< REAL > sg_cycleTintPxConf( "RCL_CYCLE_TINT_PX", sg_cycleTintPx );
 static bool sg_cycleTintMoved = false;
 static tConfItem< bool > sg_cycleTintMovedConf( "RCL_CYCLE_TINT_MOVED", sg_cycleTintMoved );
+// a profile that saved the defaults before they went off is moved, once
+static bool sg_cycleTintOff = false;
+static tConfItem< bool > sg_cycleTintOffConf( "RCL_CYCLE_TINT_OFF", sg_cycleTintOff );
 
 // The sun as a light of its own, by this share of its strength, on top of the
 // cubemaps, which hold the sun already; without them it is always there.
@@ -196,30 +202,6 @@ namespace
     {
         for ( int row = 0; row < 3; ++row )
             out[row] = m[row] * p[0] + m[4 + row] * p[1] + m[8 + row] * p[2] + m[12 + row] * w;
-    }
-
-    // A point of the cycle's frame on the screen, in pixels, through the
-    // modelview, the projection and the viewport GL draws with. False where
-    // it lies at or behind the eye.
-    bool OnScreen( float const * view, float const * projection, GLint const * viewport,
-                   float const * point, float * pixel )
-    {
-        float eye[3];
-        Apply( view, point, 1, eye );
-        float clip[4];
-        for ( int row = 0; row < 4; ++row )
-            clip[row] = projection[row] * eye[0] + projection[4 + row] * eye[1] +
-                        projection[8 + row] * eye[2] + projection[12 + row];
-        if ( !( clip[3] > 1E-4f ) )
-            return false;
-        pixel[0] = viewport[0] + ( clip[0] / clip[3] + 1 ) * .5f * viewport[2];
-        pixel[1] = viewport[1] + ( clip[1] / clip[3] + 1 ) * .5f * viewport[3];
-        return true;
-    }
-
-    float Apart( float const * a, float const * b )
-    {
-        return std::sqrt( ( a[0] - b[0] ) * ( a[0] - b[0] ) + ( a[1] - b[1] ) * ( a[1] - b[1] ) );
     }
 
     // ---- what the stats overlay says of them (RCL_RENDER_STATS) ----
@@ -1149,20 +1131,26 @@ bool sg_RenderCycleMesh( gCycleMeshPose const & pose, REAL r, REAL g, REAL b, bo
     // the light cycle's nose, so its tail is where the wall leaves.
     float const fit = sg_length / ( sg_mesh.hi[0] - sg_mesh.lo[0] );
 
-    // Its nose and tail, and its foot and top, taken onto the screen: the
-    // longer of the two lines is its size there. A size worked out from its
-    // depth alone took a cycle seen from behind and above, foreshortened, as
-    // its whole length across, and drew 20 pixels of it as the mesh. The
-    // height keeps one seen nose on from counting as tiny. Partly behind the
-    // eye, it is as near as can be.
+    // the settings saved while far-away paint and the swap were on by default
+    if ( !sg_cycleTintOff )
+    {
+        if ( sg_cycleTintPx == 48 || sg_cycleTintPx == 160 )
+            sg_cycleTintPx = 0;
+        if ( sg_cycleFar == 24 )
+            sg_cycleFar = 0;
+        sg_cycleTintMoved = sg_cycleTintOff = true;
+    }
+
+    // Its length on the screen as if seen from the side, from its distance
+    // alone: it does not change as the bike turns or the camera swings round
+    // it, so the level of detail doesn't pop at every turn and glance (the
+    // projected nose and tail did).
     float pixels = 1E6f;
     {
-        float const nose[3] = { sg_nose, 0, sg_middle[2] }, tail[3] = { sg_nose - sg_length, 0, sg_middle[2] };
-        float const foot[3] = { sg_middle[0], 0, sg_mesh.lo[2] * fit }, top[3] = { sg_middle[0], 0, sg_mesh.hi[2] * fit };
-        float n[2], t[2], f[2], h[2];
-        if ( OnScreen( view, projection, viewport, nose, n ) && OnScreen( view, projection, viewport, tail, t ) &&
-             OnScreen( view, projection, viewport, foot, f ) && OnScreen( view, projection, viewport, top, h ) )
-            pixels = std::max( Apart( n, t ), Apart( f, h ) );
+        float const depth = -( view[2] * sg_middle[0] + view[6] * sg_middle[1] + view[10] * sg_middle[2] + view[14] );
+        float const scale = std::sqrt( view[0] * view[0] + view[1] * view[1] + view[2] * view[2] );
+        if ( depth > 1E-3f )
+            pixels = sg_length * scale * projection[5] * viewport[3] * .5f / depth;
     }
     if ( !( pixels >= sg_cycleFar ) )
     {
@@ -1210,12 +1198,6 @@ bool sg_RenderCycleMesh( gCycleMeshPose const & pose, REAL r, REAL g, REAL b, bo
     // Far away, the bike's paint (sr_CleanPaint, as the light cycle's body
     // takes it) by its length on the screen, reaching at RCL_CYCLE_FAR as much
     // as the light cycle has there, so the one meets the other.
-    if ( !sg_cycleTintMoved )
-    {
-        if ( sg_cycleTintPx == 160 )
-            sg_cycleTintPx = 48;
-        sg_cycleTintMoved = true;
-    }
     REAL pr = r, pg = g, pb = b;
     sr_CleanPaint( pr, pg, pb );
     float tint = 0;
