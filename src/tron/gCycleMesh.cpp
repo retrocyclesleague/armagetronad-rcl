@@ -93,6 +93,36 @@ static tConfItem< bool > sg_cycleTintMovedConf( "RCL_CYCLE_TINT_MOVED", sg_cycle
 static bool sg_cycleTintOff = false;
 static tConfItem< bool > sg_cycleTintOffConf( "RCL_CYCLE_TINT_OFF", sg_cycleTintOff );
 
+// How the bike shows its colour: options for Jamie to choose from, each 0 by
+// default, which is the bike as it was. From his camera at night it read as
+// grey chrome reflecting the dark arena, its colour only in thin strips of
+// the wheels and the ring, beside a trail all of its colour ("not bad but i
+// still think this can be improved"). See cycle_pbr.frag.
+//   RCL_CYCLE_PAINT     0..1  the shell's and the detail's colour towards the
+//                             bike's (times .85), as metallic paint: it still
+//                             reflects, tinted
+//   RCL_CYCLE_RIM       0..3  a rim of the bike's colour, as light, where the
+//                             shell, canopy and detail turn away from the eye
+//   RCL_CYCLE_SATIN     0..1  the shell's and the detail's roughness up to .45,
+//                             so they mirror the arena less
+//   RCL_CYCLE_GLOW_TOP  0..1  the band along the top of the body (the shell's
+//                             spine, |y| < .03, z above .9 of the top) lit in
+//                             the bike's colour as its lights are
+static REAL sg_cyclePaint = 0;
+static tConfItem< REAL > sg_cyclePaintConf( "RCL_CYCLE_PAINT", sg_cyclePaint );
+static REAL sg_cycleRim = 0;
+static tConfItem< REAL > sg_cycleRimConf( "RCL_CYCLE_RIM", sg_cycleRim );
+static REAL sg_cycleSatin = 0;
+static tConfItem< REAL > sg_cycleSatinConf( "RCL_CYCLE_SATIN", sg_cycleSatin );
+static REAL sg_cycleGlowTop = 0;
+static tConfItem< REAL > sg_cycleGlowTopConf( "RCL_CYCLE_GLOW_TOP", sg_cycleGlowTop );
+
+// a setting kept between 0 and most; NaN is 0
+static float sg_Within( REAL value, float most )
+{
+    return value > 0 ? ( value < most ? float( value ) : most ) : 0.f;
+}
+
 // The sun as a light of its own, by this share of its strength, on top of the
 // cubemaps, which hold the sun already; without them it is always there.
 static REAL sg_cycleSun = 0;
@@ -1306,6 +1336,18 @@ bool sg_RenderCycleMesh( gCycleMeshPose const & pose, REAL r, REAL g, REAL b, bo
     sg_shader.Set( "u_paint", float( pr ), float( pg ), float( pb ) );
     sg_shader.Set( "u_tint", tint );
 
+    // how the bike shows its colour (RCL_CYCLE_PAINT, _RIM, _SATIN, _GLOW_TOP)
+    float const paint = sg_Within( sg_cyclePaint, 1 ), rim = sg_Within( sg_cycleRim, 3 );
+    float const satin = sg_Within( sg_cycleSatin, 1 ), glowTop = sg_Within( sg_cycleGlowTop, 1 );
+    {
+        REAL const colour[3] = { r, g, b };
+        float bike[3];
+        for ( int i = 0; i < 3; ++i )
+            bike[i] = static_cast< float >( std::pow( double( std::max( REAL( 0 ), std::min( REAL( 1 ), colour[i] ) ) ), 2.2 ) );
+        sg_shader.Set( "u_bike", bike[0], bike[1], bike[2] );
+        sg_shader.Set( "u_topBand", .03f, .9f * sg_mesh.hi[2] );
+    }
+
     sg_Bind( 5, GL_TEXTURE_2D, sg_mesh.brdf );
     sg_Bind( 4, RGL_TEXTURE_CUBE_MAP, cubes ? env.irradiance : 0 );
     sg_Bind( 3, RGL_TEXTURE_CUBE_MAP, cubes ? env.spec : 0 );
@@ -1369,6 +1411,13 @@ bool sg_RenderCycleMesh( gCycleMeshPose const & pose, REAL r, REAL g, REAL b, bo
             gMaterial const & m = sg_material[ range.material ];
             sg_shader.Set( "u_base", m.base[0], m.base[1], m.base[2] );
             sg_shader.Set( "u_surface", m.rough, m.metal, m.gloss, m.emit );
+            // the shell and the detail take the paint, the satin and the band
+            // on top (the body's only); the canopy the rim as well; not the
+            // lights, hubs or tyres
+            bool const painted = range.material == 0 || range.material == 3;
+            bool const rimmed = painted || range.material == 1;
+            sg_shader.Set( "u_style", painted ? paint : 0.f, rimmed ? rim : 0.f, painted ? satin : 0.f,
+                           painted && object == 0 ? glowTop : 0.f );
             glDrawElements( GL_TRIANGLES, static_cast< GLsizei >( range.count ), GL_UNSIGNED_INT,
                             none + range.first * sizeof( unsigned ) );
         }

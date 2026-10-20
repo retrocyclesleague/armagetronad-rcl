@@ -37,10 +37,22 @@ uniform vec3 u_light;               // the bike's colour as light, glow and all
 uniform vec3 u_paint;               // the bike's colour as the arena paints it (display values)
 uniform float u_tint;               // how far the cycle has given way to its paint, far away
 
+// How the bike shows its colour, for Jamie to choose from (gCycleMesh.cpp),
+// each as this material takes it (0 where it does not): x its base colour
+// towards the bike's, as metallic paint (RCL_CYCLE_PAINT); y a rim of the
+// bike's colour as light where the surface turns away (RCL_CYCLE_RIM); z its
+// roughness up towards satin, so it mirrors the arena less (RCL_CYCLE_SATIN);
+// w the band along the top of the body lit in the bike's colour
+// (RCL_CYCLE_GLOW_TOP). All 0: the bike as it was.
+uniform vec4 u_style;
+uniform vec3 u_bike;                // the bike's colour, in light
+uniform vec2 u_topBand;             // the band: half its width, and from what height up, in model units
+
 varying vec3 v_pos;
 varying vec3 v_normal;
 varying vec4 v_tangent;
 varying vec2 v_uv;
+varying vec3 v_object;
 
 const float pi = 3.14159265;
 
@@ -161,6 +173,10 @@ void main()
         metal = o.b;
         gloss = o.a;
     }
+    // the bike's colour as metallic paint, still reflecting, tinted
+    base = mix( base, u_bike * 0.85, u_style.x );
+    // satin: a rougher surface mirrors the dark arena less
+    rough = mix( rough, max( rough, 0.45 ), u_style.z );
     rough = clamp( rough, 0.03, 1.0 );
 
     vec3 v = normalize( u_eye - v_pos );
@@ -192,5 +208,18 @@ void main()
     }
 
     colour += emit * u_light;
+
+    // a rim of the bike's colour where the surface turns away from the eye,
+    // as light, so it glows
+    colour += u_style.y * u_bike * pow( 1.0 - max( dot( normal, v ), 0.0 ), 3.0 );
+
+    // the band along the top of the body, lit as the bike's lights are
+    if ( u_style.w > 0.0 )
+    {
+        float band = ( 1.0 - smoothstep( 0.66 * u_topBand.x, u_topBand.x, abs( v_object.y ) ) )
+                   * smoothstep( u_topBand.y - 0.02, u_topBand.y, v_object.z );
+        colour += u_style.w * band * u_light;
+    }
+
     gl_FragColor = vec4( pow( max( colour, vec3( 0.0 ) ), vec3( 1.0 / 2.2 ) ), 1.0 );
 }

@@ -10,6 +10,7 @@ varying vec3 v_pos;
 varying vec3 v_normal;
 varying vec4 v_tangent;     // w: which way the bitangent goes
 varying vec2 v_uv;
+varying vec3 v_object;      // where on the model, in its own units (the band along its top)
 
 void main()
 {
@@ -20,5 +21,6 @@ void main()
     v_normal = turn * gl_Normal;
     v_tangent = vec4( turn * gl_MultiTexCoord1.xyz, gl_MultiTexCoord1.w );
     v_uv = gl_MultiTexCoord0.xy;
+    v_object = gl_Vertex.xyz;
     gl_Position = ftransform();
 }
