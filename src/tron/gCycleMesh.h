@@ -60,8 +60,9 @@ bool sg_CycleMeshDraws();
 //! placed: where the wall leaves while the mesh draws
 REAL sg_CycleMeshTailGap();
 
-//! how tall the mesh cycle stands in the arena, its top; 0 before its mesh is read
-REAL sg_CycleMeshTop();
+//! how high the mesh cycle's tail stands in the arena, the body's highest
+//! point over the rear axle and behind it; 0 before its mesh is read
+REAL sg_CycleMeshTailTop();
 #endif
 
 #endif

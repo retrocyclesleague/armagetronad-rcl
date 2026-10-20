@@ -5465,11 +5465,12 @@ eCoord gCycle::DrawnDirection()
 }
 
 // How tall the clean arena draws the cycles' walls. They have always been 1
-// high; the mesh cycle stands .62, and Jamie: "the bike height should be the
-// same height as the trail and be consistent". -1: as tall as the bike while
-// the mesh cycle draws, the game's own height otherwise; 0: always the
-// game's own; more: that height. Drawing only: the walls the game plays with
-// have no height that counts.
+// high; the mesh cycle stands .62 at the canopy and its tail about .53, and
+// Jamie: "it should be the same height as the tallest point of the tail of
+// the bike". -1: as high as the mesh cycle's tail while it draws, so the
+// wall's top line leaves the top of the tail, the game's own height
+// otherwise; 0: always the game's own; more: that height. Drawing only: the
+// walls the game plays with have no height that counts.
 static REAL sg_trailHeight = -1;
 static tConfItem< REAL > sg_trailHeightConf( "RCL_TRAIL_HEIGHT", sg_trailHeight );
 
@@ -5512,7 +5513,7 @@ REAL sg_CleanWallHeight( int model )
         model = sg_cycleModel;
     if ( sg_trailHeight == 0 || model != 2 || !sg_CycleMeshDraws() )
         return 1;
-    REAL const top = sg_CycleMeshTop();
+    REAL const top = sg_CycleMeshTailTop();
     return top > 0 ? top : 1;
 }
 

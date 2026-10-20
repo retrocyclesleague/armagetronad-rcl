@@ -550,13 +550,14 @@ namespace
         long stamp;
         float lo[3], hi[3];
         float pivot[ sg_objects ][4];
+        float tailTop;          // the body's highest point at the tail, in model units (0: not known)
         std::vector< gLod > lods;
         gEnv env[2];            // pale, night
         GLuint brdf;
         bool brdfTried;
         long brdfStamp;
         double checkedAt;
-        gMesh(): tried( false ), failed( false ), stamp( 0 ), brdf( 0 ), brdfTried( false ), brdfStamp( 0 ),
+        gMesh(): tried( false ), failed( false ), stamp( 0 ), tailTop( 0 ), brdf( 0 ), brdfTried( false ), brdfStamp( 0 ),
                  checkedAt( 0 ){}
     };
 
@@ -721,6 +722,30 @@ namespace
                 ok = vertices[i] == vertices[i] && std::fabs( vertices[i] ) < 1E4f;
             if ( !ok )
                 break;
+
+            // The tail's top, from the most detailed level: the highest point
+            // of the body over the rear axle and behind it (up to .1 in front
+            // of it). The wall is as tall as that, so nothing of the tail
+            // stands above its top line (Jamie: "it should be the same height
+            // as the tallest point of the tail of the bike").
+            if ( level == 0 )
+            {
+                float top = 0;
+                float const reach = sg_mesh.pivot[2][0] + .1f;
+                for ( unsigned r = 0; r < rangeCount; ++r )
+                {
+                    gRange const & range = lod.ranges[r];
+                    if ( range.object != 0 )
+                        continue;
+                    for ( unsigned i = range.first; i < range.first + range.count; ++i )
+                    {
+                        float const * v = &vertices[ size_t( indices[i] ) * 12 ];
+                        if ( v[0] <= reach && v[2] > top )
+                            top = v[2];
+                    }
+                }
+                sg_mesh.tailTop = top;
+            }
 
             GLuint buffers[2] = { 0, 0 };
             glGenBuffers( 2, buffers );
@@ -1129,13 +1154,13 @@ REAL sg_CycleMeshTailGap()
     return ( 1.5f - x ) * .5f;
 }
 
-REAL sg_CycleMeshTop()
+REAL sg_CycleMeshTailTop()
 {
-    // its top in the frame, scaled as it is drawn; the frame is the cycle's at half size
-    if ( sg_mesh.lods.empty() )
+    // in the frame, scaled as it is drawn; the frame is the cycle's at half size
+    if ( sg_mesh.lods.empty() || !( sg_mesh.tailTop > 0 ) )
         return 0;
     float const fit = sg_length / ( sg_mesh.hi[0] - sg_mesh.lo[0] );
-    return sg_mesh.hi[2] * fit * .5f;
+    return sg_mesh.tailTop * fit * .5f;
 }
 
 bool sg_RenderCycleMesh( gCycleMeshPose const & pose, REAL r, REAL g, REAL b, bool farTint )
