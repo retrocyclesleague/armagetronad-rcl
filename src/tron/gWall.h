@@ -322,6 +322,11 @@ extern tList<gNetPlayerWall> sg_netPlayerWallsGridded;
 //! what the floor mirrors of it, 2 the wall itself, 3 the line along its
 //! top, to be drawn as light: see sg_CleanTrailGlow), between BeginQuads()
 //! and RenderEnd()
+//! The emission point: where the top line of the mesh cycle's wall leaves
+//! its tail, a point of light a few pixels across, brighter than the line
+//! (RCL_TRAIL_POINT), into the glow; in the pass that draws the top line.
+void sg_CleanEmissionPoint( eCoord const & at, REAL height, REAL r, REAL g, REAL b );
+
 //! how wide the pieces drawn next are, as a share of the full width (1); for
 //! the last stretch out of the mesh cycle's tyre, which is thinner than a wall
 void sg_CleanWallWidthShare( REAL share );

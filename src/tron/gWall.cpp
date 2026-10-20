@@ -47,6 +47,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "eTess2.h"
 #include "eFloor.h"
 #include "nConfig.h"
+#include "rPost.h"
 #include "tSysTime.h"
 
 #include <algorithm>
@@ -929,6 +930,7 @@ REAL sg_CleanTrailGlow()
     return sg_glowTrail > 64 ? 64 : sg_glowTrail;
 }
 
+
 // The clean arena draws the corners of every cycle's wall as circles' arcs
 // of this radius, as far as half of each straight beside a corner allows; 0
 // draws them sharp. Drawing only: the walls the game plays with, and every
@@ -1549,6 +1551,56 @@ void sg_TrailGlowPlane( const eCoord &p1, const eCoord &p2,
 }
 }
 
+// Where the top line leaves the mesh cycle's tail, the emission point: a
+// point of light a few pixels across, this many times as bright as the line
+// (RCL_GLOW_TRAIL), into the glow. 0: none.
+static REAL sg_trailPoint = 3;
+static tConfItem< REAL > sg_trailPointConf( "RCL_TRAIL_POINT", sg_trailPoint );
+
+void sg_CleanEmissionPoint( eCoord const & at, REAL height, REAL r, REAL g, REAL b )
+{
+    REAL const strength = sg_trailPoint > 0 ? ( sg_trailPoint < 16 ? sg_trailPoint : 16 ) : 0;
+    if ( !( strength > 0 ) || !rPost::Glows() )
+        return;
+    sg_CleanLightColour( r, g, b );
+    // a hot core: half way to white
+    r += ( 1 - r ) * .5f;
+    g += ( 1 - g ) * .5f;
+    b += ( 1 - b ) * .5f;
+
+    // A few pixels across whatever the distance, facing the eye: from the
+    // high camera it marks where the bike is. The camera's own axes and the
+    // size of a pixel there come from what GL draws with.
+    RenderEnd();
+    GLfloat view[16], projection[16];
+    GLint viewport[4];
+    glGetFloatv( GL_MODELVIEW_MATRIX, view );
+    glGetFloatv( GL_PROJECTION_MATRIX, projection );
+    glGetIntegerv( GL_VIEWPORT, viewport );
+    float const depth = -( view[2] * at.x + view[6] * at.y + view[10] * height + view[14] );
+    if ( !( depth > 1E-3f ) || !( projection[5] > 0 ) || viewport[3] <= 0 )
+        return;
+    float const pixels = std::max( 3.f, viewport[3] / 360.f );
+    float const radius = pixels * depth * 2 / ( projection[5] * viewport[3] );
+    float const right[3] = { view[0] * radius, view[4] * radius, view[8] * radius };
+    float const up[3] = { view[1] * radius, view[5] * radius, view[9] * radius };
+
+    // bright in the middle, gone at the rim
+    rEmissive hot( sg_CleanTrailGlow() * strength );
+    static const int segments = 12;
+    BeginTriangleFan();
+    glColor4f( r, g, b, 1 );
+    glVertex3f( at.x, at.y, height );
+    glColor4f( r, g, b, 0 );
+    for ( int i = 0; i <= segments; ++i )
+    {
+        float const angle = i * 6.2831853f / segments;
+        float const c = cosf( angle ), s = sinf( angle );
+        glVertex3f( at.x + right[0] * c + up[0] * s, at.y + right[1] * c + up[1] * s, height + right[2] * c + up[2] * s );
+    }
+    RenderEnd();
+}
+
 void sg_CleanWallWidthShare( REAL share )
 {
     sg_cleanWidthShare = share > 0 ? ( share < 1 ? share : 1 ) : 0;
@@ -2083,6 +2135,10 @@ void gNetPlayerWall::RenderBegin(const eCoord &p1,const eCoord &pp2,REAL ta,REAL
 
             BeginQuads();
             sg_CleanTip( point, points, r, g, b, a, mode );
+
+            // where the top line leaves the mesh cycle's tail: the emission point
+            if ( ( mode & gWallRenderMode_Top ) && !tip.arrow && cycle_->Alive() && ( 1 - re ) * stretch <= notchBack )
+                sg_CleanEmissionPoint( point[points - 1].at, point[points - 1].height, r, g, b );
         }
         return;
     }
