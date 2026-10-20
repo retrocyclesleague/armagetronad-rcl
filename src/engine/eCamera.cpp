@@ -259,12 +259,12 @@ static tSettingItem<REAL> s_frZ("CAMERA_FREE_START_Z", s_startFreeZ);
 // at every start and sets all of these; the values here are the same ones for
 // a client that runs without it. The server-defined camera below is a
 // separate set and unchanged.
-static REAL s_customBack = 20, s_customRise = 20, s_customBackSpeed = .5, s_customRiseSpeed = .4 , s_customPitch = -.75, s_customZoom = 0.5, s_customTurnSpeed=40, s_customTurnSpeed180 = 2;
+static REAL s_customBack = 20, s_customRise = 20, s_customBackSpeed = .5, s_customRiseSpeed = .4 , s_customPitch = -.75, s_customZoom = 0.5, s_customTurnSpeed=4, s_customTurnSpeed180 = 2;
 static REAL s_glanceBack = 20, s_glanceRise = 20, s_glanceBackSpeed = .5, s_glanceRiseSpeed = .4 , s_glancePitch = -.75;
 // RCL: a glance from where the playing camera is (its distance, height and
 // pitch), only looking the other way, instead of from the glance camera's own
 static bool se_glanceLikePlay = false;
-static tSettingItem< bool > se_glanceLikePlayConf( "RCL_GLANCE_LIKE_PLAY", se_glanceLikePlay );
+static tConfItem< bool > se_glanceLikePlayConf( "RCL_GLANCE_LIKE_PLAY", se_glanceLikePlay );
 static REAL s_serverCustomBack = 30, s_serverCustomRise = 20, s_serverCustomBackSpeed = 0, s_serverCustomRiseSpeed = 0, s_serverCustomPitch = -.7, s_serverCustomTurnSpeed=-1, s_serverCustomTurnSpeed180 = 2;
 static REAL s_serverGlanceBack = 30, s_serverGlanceRise = 20, s_serverGlanceBackSpeed = 0, s_serverGlanceRiseSpeed = 0, s_serverGlancePitch = -.7;
 
@@ -275,7 +275,8 @@ static tSettingItem<REAL> s_iBackSpeed("CAMERA_CUSTOM_BACK_FROMSPEED", s_customB
 static tSettingItem<REAL> s_iRiseSpeed("CAMERA_CUSTOM_RISE_FROMSPEED", s_customRiseSpeed);
 static tSettingItem<REAL> s_iPitch("CAMERA_CUSTOM_PITCH", s_customPitch);
 static tSettingItem<REAL> s_iZoom("CAMERA_CUSTOM_ZOOM", s_customZoom);
-static tSettingItem<REAL> s_iCustomTurnSpeed("CAMERA_CUSTOM_TURN_SPEED", s_customTurnSpeed);
+// kept in user.cfg: the Camera page sets it (4, slow, is the shipped camera's)
+static tConfItem<REAL> s_iCustomTurnSpeed("CAMERA_CUSTOM_TURN_SPEED", s_customTurnSpeed);
 static tSettingItem<REAL> s_iCustomTurnSpeed180("CAMERA_CUSTOM_TURN_SPEED_180", s_customTurnSpeed180);
 
 static tSettingItem<REAL> s_iGBack("CAMERA_GLANCE_BACK", s_glanceBack);
@@ -1961,13 +1962,14 @@ void eCamera::Render(){
 #endif
 
 static bool se_glanceSnap = false;
-static tSettingItem< bool > se_glanceSnapConf( "CAMERA_GLANCE_SNAP", se_glanceSnap );
+// these two are kept in user.cfg too: the Camera page sets them
+static tConfItem< bool > se_glanceSnapConf( "CAMERA_GLANCE_SNAP", se_glanceSnap );
 
 static bool se_glanceSnapForward = true;
 static tSettingItem< bool > se_glanceSnapForwardConf( "CAMERA_GLANCE_FORWARD_SNAP", se_glanceSnapForward );
 
 static bool se_holdGlancing = false;
-static tSettingItem< bool > se_holdGlancingConf( "CAMERA_GLANCE_HOLD", se_holdGlancing );
+static tConfItem< bool > se_holdGlancingConf( "CAMERA_GLANCE_HOLD", se_holdGlancing );
 
 // the settings the Camera page (gMenus.cpp) chooses between
 REAL & se_CameraTurnSpeed(){ return s_customTurnSpeed; }
