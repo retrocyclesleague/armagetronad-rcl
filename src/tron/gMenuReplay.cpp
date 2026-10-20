@@ -678,7 +678,8 @@ namespace
         float rise = 1;
         if (alive && behind < tipStart + tipLength)
             rise = tipLow + (1 - tipLow) * std::max(0.0f, behind - tipStart) / tipLength;
-        return rise * standing;
+        // as tall as the game draws its walls (RCL_TRAIL_HEIGHT)
+        return rise * standing * float(sg_CleanWallHeight());
     }
 
     // Hands a piece of a wall on to draw as the drawing needs it: of a live

@@ -4728,6 +4728,7 @@ gCycleWallsDisplayListManager::gCycleWallsDisplayListManager()
     , glowIntensity_(0)
     , shadowsUnited_(-1)
     , roundedAt_(-1)
+    , wallHeight_(0)
 {
 }
 
@@ -5418,6 +5419,27 @@ REAL sg_CleanWallStart( int model )
 REAL sg_CleanWallStart()
 {
     return sg_CleanWallStart( sg_cycleModel );
+}
+
+// How tall the clean arena draws the cycles' walls. They have always been 1
+// high; the mesh cycle stands .62, and Jamie: "the bike height should be the
+// same height as the trail and be consistent". -1: as tall as the bike while
+// the mesh cycle draws, the game's own height otherwise; 0: always the
+// game's own; more: that height. Drawing only: the walls the game plays with
+// have no height that counts.
+static REAL sg_trailHeight = -1;
+static tConfItem< REAL > sg_trailHeightConf( "RCL_TRAIL_HEIGHT", sg_trailHeight );
+
+REAL sg_CleanWallHeight( int model )
+{
+    if ( sg_trailHeight > 0 )
+        return sg_trailHeight < 16 ? sg_trailHeight : 16;
+    if ( model < 0 )
+        model = sg_cycleModel;
+    if ( sg_trailHeight == 0 || model != 2 || !sg_CycleMeshDraws() )
+        return 1;
+    REAL const top = sg_CycleMeshTop();
+    return top > 0 ? top : 1;
 }
 
 // What every other client shows of a bike. The classic cycle's texture is

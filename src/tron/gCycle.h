@@ -173,6 +173,7 @@ private:
     REAL                            wallsWithDisplayListMinDistance_; //!< minimal distance of the walls with display list
     int                             wallsInDisplayList_;            //!< number of walls in the current display list
     double                          roundedAt_;                     //!< the frame (its time) the walls' round corners were last worked out for (gNetPlayerWall::RoundCorners)
+    REAL                            wallHeight_;                    //!< the height the clean walls in the lists were drawn with (sg_CleanWallHeight)
 };
 #endif
 

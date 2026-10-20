@@ -1098,6 +1098,15 @@ REAL sg_CycleMeshTailGap()
     return ( 1.5f - x ) * .5f;
 }
 
+REAL sg_CycleMeshTop()
+{
+    // its top in the frame, scaled as it is drawn; the frame is the cycle's at half size
+    if ( sg_mesh.lods.empty() )
+        return 0;
+    float const fit = sg_length / ( sg_mesh.hi[0] - sg_mesh.lo[0] );
+    return sg_mesh.hi[2] * fit * .5f;
+}
+
 bool sg_RenderCycleMesh( gCycleMeshPose const & pose, REAL r, REAL g, REAL b, bool farTint )
 {
 #ifndef RGL_EXT_AVAILABLE

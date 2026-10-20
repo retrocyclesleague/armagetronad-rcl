@@ -342,6 +342,11 @@ REAL sg_CleanWallStart();
 //! the same for a cycle drawn as the given RCL_CYCLE_MODEL, whatever the setting is
 REAL sg_CleanWallStart( int model );
 
+//! How tall the clean arena draws a cycle's wall (RCL_TRAIL_HEIGHT): as tall
+//! as the bike while the mesh cycle draws, else the game's own 1. For a
+//! cycle drawn as the given RCL_CYCLE_MODEL, -1 as the setting says.
+REAL sg_CleanWallHeight( int model = -1 );
+
 //! the marking on the floor that stands for the arena's rim, along one edge of it
 void sg_CleanRimMarking( eCoord const & a, eCoord const & b );
 #endif

@@ -386,6 +386,7 @@ namespace
     void DrawTrail( eCoord const & pos, eCoord const & dir, REAL const colour[3], int pass )
     {
         REAL const leaves = sg_CleanWallStart();    // the cycle's notch, or the mesh cycle's tail
+        REAL const full = sg_CleanWallHeight();     // as tall as the game draws its walls
         static const REAL low = .21f, rise = 3.6f, length = 12;
         static const int steps = 6;
         REAL back[ steps + 2 ], height[ steps + 2 ];
@@ -393,10 +394,10 @@ namespace
         {
             REAL const f = REAL( i ) / steps;
             back[i] = leaves + rise * f;
-            height[i] = low + ( 1 - low ) * f * f * ( 3 - 2 * f );
+            height[i] = full * ( low + ( 1 - low ) * f * f * ( 3 - 2 * f ) );
         }
         back[ steps + 1 ] = length;
-        height[ steps + 1 ] = 1;
+        height[ steps + 1 ] = full;
 
         BeginQuads();
         for ( int i = 0; i + 1 < steps + 2; ++i )

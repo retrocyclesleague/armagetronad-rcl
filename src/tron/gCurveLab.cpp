@@ -828,6 +828,8 @@ namespace
         if ( path.size() < 2 )
             return;
         double const end = path.back().along - leaves;
+        // as tall as the bike, as the game draws the walls of the mesh cycle
+        double const full = sg_CleanWallHeight( 2 );
         static const double low = .21, rise = 3.6;
         static const int steps = 6;
 
@@ -863,7 +865,7 @@ namespace
                 {
                     double f = ( end - at[e] ) / rise;
                     f = f < 0 ? 0 : ( f > 1 ? 1 : f );
-                    height[e] = REAL( low + ( 1 - low ) * f * f * ( 3 - 2 * f ) );
+                    height[e] = REAL( full * ( low + ( 1 - low ) * f * f * ( 3 - 2 * f ) ) );
                 }
                 sg_CleanWallPiece( eCoord( REAL( p.x ), REAL( p.y ) ), eCoord( REAL( q.x ), REAL( q.y ) ),
                                    height[0], height[1], colour[0], colour[1], colour[2], 1, pass );

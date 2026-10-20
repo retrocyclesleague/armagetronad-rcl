@@ -1825,7 +1825,8 @@ void gNetPlayerWall::RenderNormal(const eCoord &p1,const eCoord &p2,REAL ta,REAL
             a*=alpha;
         }
     }
-    REAL h=1;
+    // the clean arena's walls as tall as the bike (RCL_TRAIL_HEIGHT)
+    REAL h = ( mode & gWallRenderMode_Clean ) ? sg_CleanWallHeight() : 1;
 
     if ( mode & gWallRenderMode_Clean )
     {
@@ -1977,7 +1978,7 @@ void gNetPlayerWall::RenderBegin(const eCoord &p1,const eCoord &pp2,REAL ta,REAL
         //a*=alpha;
     }
 
-    REAL h=1;
+    REAL h = ( mode & gWallRenderMode_Clean ) ? sg_CleanWallHeight() : 1;
 
     eCoord ppos=cycle_->PredictPosition() - cycle_->dir*REAL(gCYCLE_LEN);
 
@@ -2258,6 +2259,15 @@ void gNetPlayerWall::RoundCorners( gCycle * cycle )
         return;
     lists.roundedAt_ = frame;
 
+    // the walls in the cycle's lists were drawn at one height; at another
+    // (the mesh cycle read, the setting or the model changed) they are drawn anew
+    REAL const height = sr_cleanArena ? sg_CleanWallHeight() : 1;
+    if ( height != lists.wallHeight_ )
+    {
+        lists.wallHeight_ = height;
+        lists.Clear( 0 );
+    }
+
     static std::vector< gRoundWall > walls;
     walls.clear();
     for ( int list = 0; list < 2; ++list )
@@ -2389,6 +2399,7 @@ void gNetPlayerWall::RenderRoundCorner( REAL r, REAL g, REAL b, REAL a, gWallRen
     // as RenderBegin rises out of the cycle
     REAL const notchBack = sg_CleanWallStart();
     static const REAL notchHeight = .21f, riseLength = 3.6f, arrowTint = .30f;
+    REAL const h = sg_CleanWallHeight();
 
     // from where the wall before stops, round the inside of the turn
     eCoord const inside = cross > 0 ? eCoord( -in.y, in.x ) : eCoord( in.y, -in.x );
@@ -2425,7 +2436,7 @@ void gNetPlayerWall::RenderRoundCorner( REAL r, REAL g, REAL b, REAL a, gWallRen
                 if ( rise < 0 ) rise = 0;
             }
             REAL const eased = rise * rise * ( 3 - 2 * rise );
-            p.height = hfrac * ( notchHeight + ( 1 - notchHeight ) * eased );
+            p.height = h * hfrac * ( notchHeight + ( 1 - notchHeight ) * eased );
             p.width = eased;
             p.fresh = arrowTint * ( 1 - rise ) * ( 1 - rise );
             p.line = ( 1 - eased ) * ( 1 - eased );
