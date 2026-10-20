@@ -1067,21 +1067,22 @@ gCleanTone sg_CleanTone()
 }
 
 // One face of a wall: from the floor under two points up to the height the
-// wall has at each of them, in the paint it has there.
-void sg_CleanFace( gCleanTone const & look, REAL light, REAL alpha,
+// wall has at each of them, in the paint it has there, as solid as each end
+// says (the newest stretch out of the mesh cycle fills in).
+void sg_CleanFace( gCleanTone const & look, REAL light, REAL alpha1, REAL alpha2,
                    REAL x1, REAL y1, REAL h1, REAL const * paint1,
                    REAL x2, REAL y2, REAL h2, REAL const * paint2 )
 {
     REAL const low = light * look.foot;
     REAL const m1 = h1 * look.edgeFrom, m2 = h2 * look.edgeFrom;
 
-    glColor4f( paint1[0] * low, paint1[1] * low, paint1[2] * low, alpha );
+    glColor4f( paint1[0] * low, paint1[1] * low, paint1[2] * low, alpha1 );
     glVertex3f( x1, y1, 0 );
-    glColor4f( paint1[0] * light, paint1[1] * light, paint1[2] * light, alpha );
+    glColor4f( paint1[0] * light, paint1[1] * light, paint1[2] * light, alpha1 );
     glVertex3f( x1, y1, m1 );
-    glColor4f( paint2[0] * light, paint2[1] * light, paint2[2] * light, alpha );
+    glColor4f( paint2[0] * light, paint2[1] * light, paint2[2] * light, alpha2 );
     glVertex3f( x2, y2, m2 );
-    glColor4f( paint2[0] * low, paint2[1] * low, paint2[2] * low, alpha );
+    glColor4f( paint2[0] * low, paint2[1] * low, paint2[2] * low, alpha2 );
     glVertex3f( x2, y2, 0 );
 
     if ( !( look.edgeFrom < 1 ) )
@@ -1090,16 +1091,24 @@ void sg_CleanFace( gCleanTone const & look, REAL light, REAL alpha,
     // paler from there to the top, which the shade takes less of than the
     // face under it
     REAL const lit = ( 1 + light ) * REAL( .5 );
-    glColor4f( paint1[0] * light, paint1[1] * light, paint1[2] * light, alpha );
+    glColor4f( paint1[0] * light, paint1[1] * light, paint1[2] * light, alpha1 );
     glVertex3f( x1, y1, m1 );
     glColor4f( ( paint1[0] + ( 1 - paint1[0] ) * look.edge ) * lit, ( paint1[1] + ( 1 - paint1[1] ) * look.edge ) * lit,
-               ( paint1[2] + ( 1 - paint1[2] ) * look.edge ) * lit, alpha );
+               ( paint1[2] + ( 1 - paint1[2] ) * look.edge ) * lit, alpha1 );
     glVertex3f( x1, y1, h1 );
     glColor4f( ( paint2[0] + ( 1 - paint2[0] ) * look.edge ) * lit, ( paint2[1] + ( 1 - paint2[1] ) * look.edge ) * lit,
-               ( paint2[2] + ( 1 - paint2[2] ) * look.edge ) * lit, alpha );
+               ( paint2[2] + ( 1 - paint2[2] ) * look.edge ) * lit, alpha2 );
     glVertex3f( x2, y2, h2 );
-    glColor4f( paint2[0] * light, paint2[1] * light, paint2[2] * light, alpha );
+    glColor4f( paint2[0] * light, paint2[1] * light, paint2[2] * light, alpha2 );
     glVertex3f( x2, y2, m2 );
+}
+
+// the same, as solid all along
+void sg_CleanFace( gCleanTone const & look, REAL light, REAL alpha,
+                   REAL x1, REAL y1, REAL h1, REAL const * paint1,
+                   REAL x2, REAL y2, REAL h2, REAL const * paint2 )
+{
+    sg_CleanFace( look, light, alpha, alpha, x1, y1, h1, paint1, x2, y2, h2, paint2 );
 }
 
 // Soft shadows. A wall's shadow used to be one flat sheet with hard corners,
@@ -1338,16 +1347,16 @@ void sg_CleanTop( const eCoord &p1, const eCoord &p2, REAL h1, REAL h2,
 
 // The last stretch of a wall, behind its cycle: a few points along it, each
 // with the height and the width the wall has there (the width as a share of
-// the full one), how much of the arrow's lighter paint it still has and how
-// much of the arrow's line is left on its top. Straight like the rest of the
-// wall.
+// the full one), how much of the arrow's lighter paint it still has, how
+// much of the arrow's line is left on its top and how solid its faces are.
+// Straight like the rest of the wall.
 struct gCleanTipPoint
 {
     eCoord at;
-    REAL height, width, fresh, line;
+    REAL height, width, fresh, line, fill;
 };
 
-enum { sg_cleanTipPoints = 12 };
+enum { sg_cleanTipPoints = 16 };
 
 // A point of a wall's last stretch, `back` along the trail behind its cycle:
 // how high (of `full`), how wide and how much in the arrow's paint it is
@@ -1364,6 +1373,7 @@ void sg_CleanTipShape( gCleanWallTip const & tip, REAL back, REAL full, gCleanTi
     point.width = tip.narrow + ( 1 - tip.narrow ) * eased;
     point.fresh = tip.arrow ? arrowTint * ( 1 - rise ) * ( 1 - rise ) : 0;
     point.line = tip.arrow ? ( 1 - eased ) * ( 1 - eased ) : 0;
+    point.fill = ::sg_CleanWallFill( tip, back );
 }
 
 void sg_CleanTip( gCleanTipPoint * point, int points, REAL r, REAL g, REAL b, REAL alpha, int mode )
@@ -1406,9 +1416,11 @@ void sg_CleanTip( gCleanTipPoint * point, int points, REAL r, REAL g, REAL b, RE
         {
             gCleanTipPoint const & p = point[i];
             gCleanTipPoint const & q = point[i + 1];
+            // as solid as the wall that throws it
+            REAL const ap = a * p.fill, aq = a * q.fill;
             if ( sg_CleanShadowIsSoft() )
             {
-                sg_CleanSoftShadow( p.at, q.at, p.height, q.height, a, c, false );
+                sg_CleanSoftShadow( p.at, q.at, p.height, q.height, ( ap + aq ) * .5f, c, false );
                 continue;
             }
             eCoord const o1 = toSun * ( -reach * p.height ), o2 = toSun * ( -reach * q.height );
@@ -1416,13 +1428,16 @@ void sg_CleanTip( gCleanTipPoint * point, int points, REAL r, REAL g, REAL b, RE
             eCoord const e1 = p.at + o1, e2 = q.at + o2;
 
             // even over most of its reach, thinning out towards the far edge
-            glColor4f( c[0], c[1], c[2], a );
+            glColor4f( c[0], c[1], c[2], ap );
             glVertex3f( p.at.x, p.at.y, sg_cleanShadowRise );
+            glColor4f( c[0], c[1], c[2], aq );
             glVertex3f( q.at.x, q.at.y, sg_cleanShadowRise );
             glVertex3f( c2.x, c2.y, sg_cleanShadowRise );
+            glColor4f( c[0], c[1], c[2], ap );
             glVertex3f( c1.x, c1.y, sg_cleanShadowRise );
 
             glVertex3f( c1.x, c1.y, sg_cleanShadowRise );
+            glColor4f( c[0], c[1], c[2], aq );
             glVertex3f( c2.x, c2.y, sg_cleanShadowRise );
             glColor4f( c[0], c[1], c[2], 0 );
             glVertex3f( e2.x, e2.y, sg_cleanShadowRise );
@@ -1453,10 +1468,21 @@ void sg_CleanTip( gCleanTipPoint * point, int points, REAL r, REAL g, REAL b, RE
 
     gCleanTone const look = sg_CleanTone();
     REAL const sky = look.sky;
+    // Where the faces are not yet solid they write no depth, so a nearly
+    // clear face never hides what lies behind it (looking along the wall
+    // into the cycle's tail); they still hide behind what is in front.
+    bool clear = false;
     for ( int i = 0; i + 1 < points; ++i )
     {
         gCleanTipPoint const * const end[2] = { &point[i], &point[i + 1] };
         REAL const * const tone[2] = { paint[i], paint[i + 1] };
+        if ( !sheen && ( end[0]->fill < 1 || end[1]->fill < 1 ) != clear )
+        {
+            clear = !clear;
+            RenderEnd();
+            glDepthMask( clear ? GL_FALSE : GL_TRUE );
+            BeginQuads();
+        }
 
         for ( int sign = -1; sign <= 1; sign += 2 )
         {
@@ -1471,7 +1497,7 @@ void sg_CleanTip( gCleanTipPoint * point, int points, REAL r, REAL g, REAL b, RE
                 REAL const low = light * look.foot;
                 for ( int k = 0; k < 2; ++k )
                 {
-                    glColor4f( tone[k][0] * low, tone[k][1] * low, tone[k][2] * low, sg_cleanSheen * alpha );
+                    glColor4f( tone[k][0] * low, tone[k][1] * low, tone[k][2] * low, sg_cleanSheen * alpha * end[k]->fill );
                     glVertex3f( at[k].x, at[k].y, 0 );
                 }
                 for ( int k = 1; k >= 0; --k )
@@ -1482,8 +1508,8 @@ void sg_CleanTip( gCleanTipPoint * point, int points, REAL r, REAL g, REAL b, RE
                 continue;
             }
 
-            sg_CleanFace( look, light, alpha, at[0].x, at[0].y, end[0]->height, tone[0],
-                          at[1].x, at[1].y, end[1]->height, tone[1] );
+            sg_CleanFace( look, light, alpha * end[0]->fill, alpha * end[1]->fill, at[0].x, at[0].y, end[0]->height,
+                          tone[0], at[1].x, at[1].y, end[1]->height, tone[1] );
         }
 
         if ( sheen )
@@ -1492,7 +1518,7 @@ void sg_CleanTip( gCleanTipPoint * point, int points, REAL r, REAL g, REAL b, RE
         for ( int k = 0; k < 2; ++k )
         {
             glColor4f( tone[k][0] + ( 1 - tone[k][0] ) * sky, tone[k][1] + ( 1 - tone[k][1] ) * sky,
-                       tone[k][2] + ( 1 - tone[k][2] ) * sky, alpha );
+                       tone[k][2] + ( 1 - tone[k][2] ) * sky, alpha * end[k]->fill );
             eCoord const o = side * ( ( k ? -1 : 1 ) * end[k]->width );
             glVertex3f( end[k]->at.x + o.x, end[k]->at.y + o.y, end[k]->height );
             glVertex3f( end[k]->at.x - o.x, end[k]->at.y - o.y, end[k]->height );
@@ -1509,8 +1535,21 @@ void sg_CleanTip( gCleanTipPoint * point, int points, REAL r, REAL g, REAL b, RE
         gCleanTipPoint const & p = point[e ? points - 1 : 0];
         REAL const * const tone = paint[e ? points - 1 : 0];
         eCoord const o = side * p.width;
-        sg_CleanFace( look, sg_CleanFaceLight( e ? along : along * REAL( -1 ) ), alpha,
+        if ( ( p.fill < 1 ) != clear )
+        {
+            clear = !clear;
+            RenderEnd();
+            glDepthMask( clear ? GL_FALSE : GL_TRUE );
+            BeginQuads();
+        }
+        sg_CleanFace( look, sg_CleanFaceLight( e ? along : along * REAL( -1 ) ), alpha * p.fill,
                       p.at.x - o.x, p.at.y - o.y, p.height, tone, p.at.x + o.x, p.at.y + o.y, p.height, tone );
+    }
+    if ( clear )
+    {
+        RenderEnd();
+        glDepthMask( GL_TRUE );
+        BeginQuads();
     }
 
     // The pale line down the spine of the arrow the cycle is drawn as runs on
@@ -1599,6 +1638,19 @@ void sg_CleanEmissionPoint( eCoord const & at, REAL height, REAL r, REAL g, REAL
         glVertex3f( at.x + right[0] * c + up[0] * s, at.y + right[1] * c + up[1] * s, height + right[2] * c + up[2] * s );
     }
     RenderEnd();
+}
+
+REAL sg_CleanWallFill( gCleanWallTip const & tip, REAL back )
+{
+    // from nearly clear where it leaves to solid, eased at both ends
+    if ( !( tip.fill > 0 ) )
+        return 1;
+    REAL f = ( back - tip.leaves ) / tip.fill;
+    if ( !( f < 1 ) )
+        return 1;
+    if ( f < 0 )
+        f = 0;
+    return .05f + .95f * f * f * ( 3 - 2 * f );
 }
 
 void sg_CleanWallWidthShare( REAL share )
@@ -2102,7 +2154,9 @@ void gNetPlayerWall::RenderBegin(const eCoord &p1,const eCoord &pp2,REAL ta,REAL
         // top line, mirror image, shadow.
         gCleanWallTip const tip = sg_CleanWallTip();
         REAL const notchBack = tip.leaves;
-        static const int riseSteps = 8;
+        // points over the rise, or over the fill where that is longer
+        static const int riseSteps = 12;
+        REAL const reach = tip.fill > tip.rise ? tip.fill : tip.rise;
 
         // how far behind the cycle, along the trail, the piece begins and ends
         REAL const backBegin = ( 1 - ra ) * stretch;
@@ -2120,7 +2174,7 @@ void gNetPlayerWall::RenderBegin(const eCoord &p1,const eCoord &pp2,REAL ta,REAL
             back[points++] = backBegin;
             for ( int i = riseSteps; i >= 0; --i )
             {
-                REAL const at = notchBack + tip.rise * i / riseSteps;
+                REAL const at = notchBack + reach * i / riseSteps;
                 if ( at < backBegin && at > backEnd )
                     back[points++] = at;
             }

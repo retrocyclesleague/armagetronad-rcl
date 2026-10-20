@@ -5474,6 +5474,13 @@ eCoord gCycle::DrawnDirection()
 static REAL sg_trailHeight = -1;
 static tConfItem< REAL > sg_trailHeightConf( "RCL_TRAIL_HEIGHT", sg_trailHeight );
 
+// Out of the mesh cycle the wall's faces fill in under its top line, from
+// nearly clear at the tail to solid this far behind it (Jamie's pick: the
+// line leaves the tail, the wall fills in beneath it). 0: solid at once. It
+// stays within the stretch the game draws as the wall's newest (5 units).
+static REAL sg_trailFill = 1.6f;
+static tConfItem< REAL > sg_trailFillConf( "RCL_TRAIL_FILL", sg_trailFill );
+
 gCleanWallTip sg_CleanWallTip( int model )
 {
     if ( model < 0 )
@@ -5492,6 +5499,8 @@ gCleanWallTip sg_CleanWallTip( int model )
         tip.narrow = .5f;
         tip.rise = .38f;
         tip.arrow = false;
+        REAL const most = 4.9f - tip.leaves;
+        tip.fill = sg_trailFill > 0 ? ( sg_trailFill < most ? sg_trailFill : most ) : 0;
     }
     else
     {
@@ -5500,6 +5509,7 @@ gCleanWallTip sg_CleanWallTip( int model )
         tip.low = .21f;
         tip.narrow = 0;
         tip.rise = 3.6f;
+        tip.fill = 0;
         tip.arrow = true;
     }
     return tip;
