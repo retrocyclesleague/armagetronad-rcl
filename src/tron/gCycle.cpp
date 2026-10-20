@@ -5430,6 +5430,35 @@ REAL sg_CleanWallStart()
 static REAL sg_trailHeight = -1;
 static tConfItem< REAL > sg_trailHeightConf( "RCL_TRAIL_HEIGHT", sg_trailHeight );
 
+gCleanWallTip sg_CleanWallTip( int model )
+{
+    if ( model < 0 )
+        model = sg_cycleModel;
+    gCleanWallTip tip;
+    tip.leaves = sg_CleanWallStart( model );
+    if ( model == 2 && sg_cycleTailGap != 0 && sg_CycleMeshDraws() )
+    {
+        // The mesh cycle's wall leaves its rear axle square, at its full
+        // height and width: the tyre hides the end. Jamie: "the bike trail
+        // still starts from the bike way too small". Only its last tenth of a
+        // unit is softened a little, so no thin edge shows at the very end.
+        tip.low = .92f;
+        tip.narrow = .7f;
+        tip.rise = .12f;
+        tip.arrow = false;
+    }
+    else
+    {
+        // the arrow's and the light cycle's: out of the notch in the tail,
+        // low and thin, up to the full wall over a few lengths
+        tip.low = .21f;
+        tip.narrow = 0;
+        tip.rise = 3.6f;
+        tip.arrow = true;
+    }
+    return tip;
+}
+
 REAL sg_CleanWallHeight( int model )
 {
     if ( sg_trailHeight > 0 )

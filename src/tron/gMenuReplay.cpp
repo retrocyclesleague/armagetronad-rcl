@@ -68,12 +68,10 @@ namespace
     char const * const replayFile = "replays/menu_fort.rclreplay";
 
     float const wallSink     = .5f;   // seconds a dead cycle's walls take to go down once their time is up
-    // A live cycle's wall leaves the tail of the cycle, low, and rises over a
-    // few lengths behind it, as the game's does (gWall.cpp); the stretch in
-    // front of that is inside the cycle. Where it leaves is the game's too
-    // (sg_CleanWallStart: the arrow's notch, or the mesh cycle's tail).
-    float const tipLow       = .21f;  // how high it is where it leaves
-    float const tipLength    = 3.6f;  // the stretch behind that over which it rises
+    // A live cycle's wall leaves the tail of the cycle as the game's does
+    // (sg_CleanWallTip: low out of the arrow's notch, rising over a few
+    // lengths, or square out of the mesh cycle's rear axle); the stretch in
+    // front of that is inside the cycle.
     float const zoneCollapse = 2;     // seconds a conquered zone takes to close
     float const deathRing    = .7f;   // seconds the ring a cycle leaves behind is seen
     float const roundLeadOut = 1.5f;
@@ -674,10 +672,13 @@ namespace
     // lives, rising out of its tail to full height a few units back.
     float TipHeight(float behind, bool alive, float standing)
     {
-        float const tipStart = float(sg_CleanWallStart());
+        // out of the cycle as the game's walls come (sg_CleanWallTip: low out
+        // of the arrow's notch, square out of the mesh cycle's rear axle)
+        gCleanWallTip const tip = sg_CleanWallTip();
+        float const tipStart = float(tip.leaves), length = float(tip.rise), low = float(tip.low);
         float rise = 1;
-        if (alive && behind < tipStart + tipLength)
-            rise = tipLow + (1 - tipLow) * std::max(0.0f, behind - tipStart) / tipLength;
+        if (alive && behind < tipStart + length)
+            rise = low + (1 - low) * std::max(0.0f, behind - tipStart) / length;
         // as tall as the game draws its walls (RCL_TRAIL_HEIGHT)
         return rise * standing * float(sg_CleanWallHeight());
     }
@@ -699,7 +700,7 @@ namespace
                 b = Mix(b, a, (tipStart - behindB) / (behindA - behindB));
                 behindB = tipStart;
             }
-            float const full = tipStart + tipLength;
+            float const full = tipStart + float(sg_CleanWallTip().rise);
             if (behindB < full && behindA > full)
             {
                 Vec const at = Mix(b, a, (full - behindB) / (behindA - behindB));

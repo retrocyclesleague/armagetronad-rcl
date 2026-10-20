@@ -347,6 +347,18 @@ REAL sg_CleanWallStart( int model );
 //! cycle drawn as the given RCL_CYCLE_MODEL, -1 as the setting says.
 REAL sg_CleanWallHeight( int model = -1 );
 
+//! How a cycle's own wall comes out of it in the clean arena. Where it
+//! leaves (sg_CleanWallStart) it has `low` of its full height and `narrow`
+//! of its width, and it comes up to both over the next `rise` of the trail;
+//! the arrow's paint and spine line ride on that rise where `arrow`. For a
+//! cycle drawn as the given RCL_CYCLE_MODEL, -1 as the setting says.
+struct gCleanWallTip
+{
+    REAL leaves, low, narrow, rise;
+    bool arrow;
+};
+gCleanWallTip sg_CleanWallTip( int model = -1 );
+
 //! the marking on the floor that stands for the arena's rim, along one edge of it
 void sg_CleanRimMarking( eCoord const & a, eCoord const & b );
 #endif

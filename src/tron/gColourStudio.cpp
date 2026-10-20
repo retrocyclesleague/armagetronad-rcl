@@ -385,16 +385,19 @@ namespace
     // game's does (gWall.cpp), and goes on behind it, away out of the picture.
     void DrawTrail( eCoord const & pos, eCoord const & dir, REAL const colour[3], int pass )
     {
-        REAL const leaves = sg_CleanWallStart();    // the cycle's notch, or the mesh cycle's tail
+        // out of the cycle as the game's walls come: low out of the arrow's
+        // notch, square out of the mesh cycle's rear axle (sg_CleanWallTip)
+        gCleanWallTip const tip = sg_CleanWallTip();
+        REAL const leaves = tip.leaves;
         REAL const full = sg_CleanWallHeight();     // as tall as the game draws its walls
-        static const REAL low = .21f, rise = 3.6f, length = 12;
+        static const REAL length = 12;
         static const int steps = 6;
         REAL back[ steps + 2 ], height[ steps + 2 ];
         for ( int i = 0; i <= steps; ++i )
         {
             REAL const f = REAL( i ) / steps;
-            back[i] = leaves + rise * f;
-            height[i] = full * ( low + ( 1 - low ) * f * f * ( 3 - 2 * f ) );
+            back[i] = leaves + tip.rise * f;
+            height[i] = full * ( tip.low + ( 1 - tip.low ) * f * f * ( 3 - 2 * f ) );
         }
         back[ steps + 1 ] = length;
         height[ steps + 1 ] = full;

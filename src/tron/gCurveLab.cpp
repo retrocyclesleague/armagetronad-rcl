@@ -828,9 +828,11 @@ namespace
         if ( path.size() < 2 )
             return;
         double const end = path.back().along - leaves;
-        // as tall as the bike, as the game draws the walls of the mesh cycle
+        // as tall as the bike, and out of it as square, as the game draws the
+        // mesh cycle's walls (sg_CleanWallTip)
         double const full = sg_CleanWallHeight( 2 );
-        static const double low = .21, rise = 3.6;
+        gCleanWallTip const tip = sg_CleanWallTip( 2 );
+        double const low = tip.low, rise = tip.rise;
         static const int steps = 6;
 
         if ( pass != 3 )

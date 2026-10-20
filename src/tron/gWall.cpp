@@ -1344,6 +1344,23 @@ struct gCleanTipPoint
 
 enum { sg_cleanTipPoints = 12 };
 
+// A point of a wall's last stretch, `back` along the trail behind its cycle:
+// how high (of `full`), how wide and how much in the arrow's paint it is
+// there (gCleanWallTip). Eased at both ends of the rise, so it leaves the
+// cycle level and arrives level.
+void sg_CleanTipShape( gCleanWallTip const & tip, REAL back, REAL full, gCleanTipPoint & point )
+{
+    static const REAL arrowTint = .30f;         // the arrow's top, against its paint
+    REAL rise = tip.rise > 0 ? ( back - tip.leaves ) / tip.rise : 1;
+    if ( rise > 1 ) rise = 1;
+    if ( rise < 0 ) rise = 0;
+    REAL const eased = rise * rise * ( 3 - 2 * rise );
+    point.height = full * ( tip.low + ( 1 - tip.low ) * eased );
+    point.width = tip.narrow + ( 1 - tip.narrow ) * eased;
+    point.fresh = tip.arrow ? arrowTint * ( 1 - rise ) * ( 1 - rise ) : 0;
+    point.line = tip.arrow ? ( 1 - eased ) * ( 1 - eased ) : 0;
+}
+
 void sg_CleanTip( gCleanTipPoint * point, int points, REAL r, REAL g, REAL b, REAL alpha, int mode )
 {
     if ( points > sg_cleanTipPoints )
@@ -2019,13 +2036,12 @@ void gNetPlayerWall::RenderBegin(const eCoord &p1,const eCoord &pp2,REAL ta,REAL
         // more settled than it is.
         static const REAL stretch = gBEG_LEN * SEGLEN;  // what ra and re count in
         // where the wall leaves the cycle behind it: the arrow's notch, or
-        // the mesh cycle's tail (sg_CleanWallStart); how high it is there
-        // (see sg_RenderCleanCycle), and the way from there to the full wall.
-        // What lies nearer the cycle along the trail is not drawn, in any of
-        // the passes: wall, top line, mirror image, shadow.
-        REAL const notchBack = sg_CleanWallStart();
-        static const REAL notchHeight = .21f, riseLength = 3.6f;
-        static const REAL arrowTint = .30f;             // the arrow's top, against its paint
+        // the mesh cycle's rear axle (sg_CleanWallTip); how high and wide it
+        // is there, and the way from there to the full wall. What lies nearer
+        // the cycle along the trail is not drawn, in any of the passes: wall,
+        // top line, mirror image, shadow.
+        gCleanWallTip const tip = sg_CleanWallTip();
+        REAL const notchBack = tip.leaves;
         static const int riseSteps = 8;
 
         // how far behind the cycle, along the trail, the piece begins and ends
@@ -2044,7 +2060,7 @@ void gNetPlayerWall::RenderBegin(const eCoord &p1,const eCoord &pp2,REAL ta,REAL
             back[points++] = backBegin;
             for ( int i = riseSteps; i >= 0; --i )
             {
-                REAL const at = notchBack + riseLength * i / riseSteps;
+                REAL const at = notchBack + tip.rise * i / riseSteps;
                 if ( at < backBegin && at > backEnd )
                     back[points++] = at;
             }
@@ -2053,18 +2069,8 @@ void gNetPlayerWall::RenderBegin(const eCoord &p1,const eCoord &pp2,REAL ta,REAL
             gCleanTipPoint point[sg_cleanTipPoints];
             for ( int i = 0; i < points; ++i )
             {
-                // 0 at the notch, 1 where the wall is all there; eased at
-                // both ends, so it leaves the arrow level and arrives level
-                REAL rise = ( back[i] - notchBack ) / riseLength;
-                if ( rise > 1 ) rise = 1;
-                if ( rise < 0 ) rise = 0;
-                REAL const eased = rise * rise * ( 3 - 2 * rise );
-
                 point[i].at = p1 + ( p2 - p1 ) * ( ( backBegin - back[i] ) / span );
-                point[i].height = h * hfrac * ( notchHeight + ( 1 - notchHeight ) * eased );
-                point[i].width = eased;
-                point[i].fresh = arrowTint * ( 1 - rise ) * ( 1 - rise );
-                point[i].line = ( 1 - eased ) * ( 1 - eased );
+                sg_CleanTipShape( tip, back[i], h * hfrac, point[i] );
             }
 
             BeginQuads();
@@ -2396,9 +2402,8 @@ void gNetPlayerWall::RenderRoundCorner( REAL r, REAL g, REAL b, REAL a, gWallRen
     REAL time = cycle_->currentWall ? cycle_->currentWall->EndPos() : cycle_->GetDistance();
     if ( !cycle_->Alive() )
         time += ( se_GameTime() - cycle_->deathTime ) * SEGLEN;
-    // as RenderBegin rises out of the cycle
-    REAL const notchBack = sg_CleanWallStart();
-    static const REAL notchHeight = .21f, riseLength = 3.6f, arrowTint = .30f;
+    // as RenderBegin comes out of the cycle
+    gCleanWallTip const tip = sg_CleanWallTip();
     REAL const h = sg_CleanWallHeight();
 
     // from where the wall before stops, round the inside of the turn
@@ -2427,19 +2432,9 @@ void gNetPlayerWall::RenderRoundCorner( REAL r, REAL g, REAL b, REAL a, gWallRen
             REAL const c = cos( angle ), s = sin( angle );
             gCleanTipPoint & p = point[e];
             p.at = centre + eCoord( spoke.x * c - spoke.y * s, spoke.x * s + spoke.y * c );
-            REAL rise = 1;
-            if ( !sg_simpleTrail )
-            {
-                REAL const back = time - ( corner - cut + 2 * cut * f );
-                rise = ( back - notchBack ) / riseLength;
-                if ( rise > 1 ) rise = 1;
-                if ( rise < 0 ) rise = 0;
-            }
-            REAL const eased = rise * rise * ( 3 - 2 * rise );
-            p.height = h * hfrac * ( notchHeight + ( 1 - notchHeight ) * eased );
-            p.width = eased;
-            p.fresh = arrowTint * ( 1 - rise ) * ( 1 - rise );
-            p.line = ( 1 - eased ) * ( 1 - eased );
+            // a simple trail has no rise: as far back as can be
+            REAL const back = sg_simpleTrail ? 1E30f : time - ( corner - cut + 2 * cut * f );
+            sg_CleanTipShape( tip, back, h * hfrac, p );
         }
         // the line along the top is a strip of its own (sg_CleanTip)
         if ( !( mode & gWallRenderMode_Top ) )
