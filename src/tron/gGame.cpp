@@ -2539,9 +2539,12 @@ public:
         if ( tRecorder::IsPlayingBack() )
             return;
 
-        // date and time, the server's name cleaned for a file name, the round
+        // Date and time, the server's name cleaned for a file name, the round.
+        // The name is the one the server gives itself when it was joined from
+        // a list, without its colour codes; joined by address, the address.
+        tString const plain = tColoredString::RemoveColors( server );
         std::string clean;
-        for ( char const * c = server; c && *c && clean.size() < 40; ++c )
+        for ( char const * c = plain; c && *c && clean.size() < 40; ++c )
         {
             unsigned char const ch = static_cast< unsigned char >( *c );
             if ( isalnum( ch ) )
@@ -2583,7 +2586,7 @@ public:
         alive_ = 0;
 
         std::string line = "{\"type\":\"header\",\"format\":1,\"client\":" + Json( static_cast< char const * >( sn_programVersion ) ) +
-                           ",\"server\":" + Json( static_cast< char const * >( server ) ) + ",\"round\":";
+                           ",\"server\":" + Json( static_cast< char const * >( plain ) ) + ",\"round\":";
         char more[ 120 ];
         snprintf( more, sizeof( more ), "%d,\"started\":%s}\n", round,
                   Json( static_cast< char const * >( st_GetCurrentTime( "%Y-%m-%d %H:%M:%S" ) ) ).c_str() );
