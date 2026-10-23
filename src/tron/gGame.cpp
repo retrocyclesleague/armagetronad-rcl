@@ -86,6 +86,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <fstream>
 #include <ctype.h>
 #include <time.h>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <vector>
 
 #include "gRotation.h"
 #include "gLeague.h"
@@ -2495,6 +2498,466 @@ static const REAL sg_rclLagHitch  = .1f;   //!< a frame of our own this long is 
 static const REAL sg_rclLagLeast  = 1;     //!< seconds of play it takes to say anything about a round
 static const long sg_rclLagLogMax = 512*1024; //!< the log starts over at this size; the one before is kept
 
+// *******************************************************************************
+// *
+// *	round timeline
+// *
+// *******************************************************************************
+//! What happened during an online round, moment by moment, so a death can be
+//! put down to the line, to this machine or to the player afterwards ("was it
+//! lag or me"). gRclLagLog drives it, under the same conditions as its line a
+//! round (online, a local player alive, not playing a recording back). One
+//! JSON Lines file a round in var/rcl-rounds: a header; a sample every 50 ms
+//! (ping, the longest an acknowledgement was waited for, the server's silence,
+//! our frame, rubber, speed); events (turns sent and confirmed, corrections of
+//! our position, other cycles' late syncs, freezes, long frames, rubber used,
+//! death); at the end what the round came to, with a verdict for a death:
+//! "line" (the server silent over 250 ms in the second before, or our last
+//! turn unconfirmed), "pc" (a long frame of ours in the last half second) or
+//! "clean". Write only: nothing in it goes back into the game. Kept in a
+//! buffer and written every few seconds and at the round's end. The folder is
+//! kept under 50 MB and to 30 days. round_timeline.py draws a file.
+// *******************************************************************************
+
+static const REAL   sg_rclTimelineStep  = .05f;         //!< seconds between samples
+static const double sg_rclTimelineWrite = 3;            //!< seconds between writes
+static const REAL   sg_rclTimelineMoved = .05f;         //!< corrections of our position from this far are told
+static const double sg_rclTimelineMost  = 50.*1024*1024; //!< the folder's limit, bytes
+static const double sg_rclTimelineDays  = 30;           //!< and the age its files are kept to
+
+class gRclTimeline
+{
+public:
+    gRclTimeline(): open_( false ){}
+
+    bool Open() const { return open_; }
+
+    //! a round begins: its file is named, the folder kept to its limits
+    void Begin( tString const & server, int round )
+    {
+        open_ = false;
+        if ( tRecorder::IsPlayingBack() )
+            return;
+
+        // date and time, the server's name cleaned for a file name, the round
+        std::string clean;
+        for ( char const * c = server; c && *c && clean.size() < 40; ++c )
+        {
+            unsigned char const ch = static_cast< unsigned char >( *c );
+            if ( isalnum( ch ) )
+                clean += char( tolower( ch ) );
+            else if ( !clean.empty() && clean[ clean.size() - 1 ] != '-' )
+                clean += '-';
+        }
+        while ( !clean.empty() && clean[ clean.size() - 1 ] == '-' )
+            clean.erase( clean.size() - 1 );
+        if ( clean.empty() )
+            clean = "server";
+        char name[ 200 ];
+        snprintf( name, sizeof( name ), "rcl-rounds/%s-%s-r%d.jsonl",
+                  static_cast< char const * >( st_GetCurrentTime( "%Y%m%d-%H%M%S" ) ), clean.c_str(), round );
+        path_ = static_cast< char const * >( tDirectories::Var().GetWritePath( name ) );
+        Tidy();
+
+        open_ = true;
+        start_ = tSysTimeFloat();
+        written_ = start_;
+        nextSample_ = 0;
+        buffer_.clear();
+        window_ = Window();
+        history_.clear();
+        recent_.clear();
+        hitches_.clear();
+        pending_.clear();
+        delays_.clear();
+        moveMax_ = correctionMax_ = 0;
+        corrections_ = turns_ = 0;
+        rubberLast_ = -1;
+        rubberUsing_ = false;
+        rubberFrom_ = rubberBad_ = rubberElse_ = 0;
+        frozenSince_ = -1;
+        lastFrame_ = -1;
+        lastFrameT_ = 0;
+        died_ = false;
+        verdict_.clear();
+        alive_ = 0;
+
+        std::string line = "{\"type\":\"header\",\"format\":1,\"client\":" + Json( static_cast< char const * >( sn_programVersion ) ) +
+                           ",\"server\":" + Json( static_cast< char const * >( server ) ) + ",\"round\":";
+        char more[ 120 ];
+        snprintf( more, sizeof( more ), "%d,\"started\":%s}\n", round,
+                  Json( static_cast< char const * >( st_GetCurrentTime( "%Y-%m-%d %H:%M:%S" ) ) ).c_str() );
+        buffer_ += line + more;
+    }
+
+    //! every frame of the round while a local player is alive, from gRclLagLog::Sample
+    void Frame( double now, REAL dt, REAL ping, REAL ack, REAL silence, bool frozen, gCycle const * cycle )
+    {
+        if ( !open_ )
+            return;
+        REAL const t = se_GameTime();
+        alive_ += dt;
+
+        // where we were, for comparing with where the server has us
+        if ( cycle )
+        {
+            History h = { t, cycle->Position() };
+            if ( history_.empty() || t > history_.back().t )
+                history_.push_back( h );
+            while ( history_.size() > 2 && history_.front().t < t - 3 )
+                history_.erase( history_.begin() );
+        }
+
+        // the window a sample covers
+        if ( dt > window_.frame )
+            window_.frame = dt;
+        if ( ack > window_.ack )
+            window_.ack = ack;
+        if ( frozen )
+            window_.frozen = true;
+        lastFrame_ = now;
+        lastFrameT_ = t;
+        if ( dt > .1f )
+        {
+            Stretch const h = { t - dt, t };
+            hitches_.push_back( h );
+            Event( t, now, "long_frame", Field( "ms", dt * 1000, 0 ) );
+        }
+        if ( frozen && frozenSince_ < 0 )
+        {
+            frozenSince_ = now;
+            Event( t, now, "freeze", "" );
+        }
+        else if ( !frozen && frozenSince_ >= 0 )
+        {
+            Event( t, now, "freeze_end", Field( "ms", ( now - frozenSince_ ) * 1000, 0 ) );
+            frozenSince_ = -1;
+        }
+
+        if ( now < nextSample_ )
+            return;
+        nextSample_ = now + sg_rclTimelineStep;
+
+        REAL rubber = 0, malus = 0, speed = 0;
+        if ( cycle )
+        {
+            rubber = cycle->GetRubber();
+            malus = cycle->GetRubberMalus();
+            speed = cycle->Speed();
+        }
+        bool const spike = window_.ack - ping > std::max( REAL( .1 ), ping * REAL( 1.5 ) );
+        bool const bad = window_.frozen || spike;
+
+        // rubber: when it started and stopped being used, and how much went
+        // while the line was bad against otherwise
+        if ( rubberLast_ >= 0 )
+        {
+            REAL const used = rubber - rubberLast_;
+            if ( used > 1E-4f )
+            {
+                ( bad ? rubberBad_ : rubberElse_ ) += used;
+                if ( !rubberUsing_ )
+                {
+                    rubberUsing_ = true;
+                    rubberFrom_ = rubberLast_;
+                    Event( t, now, "rubber_start", Field( "rubber", rubberLast_, 3 ) );
+                }
+            }
+            else if ( rubberUsing_ )
+            {
+                rubberUsing_ = false;
+                Event( t, now, "rubber_stop", Field( "used", rubber - rubberFrom_, 3 ) + "," + Field( "rubber", rubber, 3 ) );
+            }
+        }
+        rubberLast_ = rubber;
+
+        char line[ 300 ];
+        snprintf( line, sizeof( line ), "{\"type\":\"s\",\"t\":%.3f,\"r\":%.3f,\"ping\":%d,\"ack\":%d,\"silence\":%d,\"frame\":%.1f,"
+                  "\"rubber\":%.3f,\"malus\":%.3f,\"speed\":%.2f%s}\n",
+                  double( t ), now - start_, Ms( ping ), Ms( window_.ack ), Ms( silence ), double( window_.frame * 1000 ),
+                  double( rubber ), double( malus ), double( speed ), bad ? ",\"bad\":1" : "" );
+        buffer_ += line;
+        Recent r = { t, silence };
+        recent_.push_back( r );
+        while ( recent_.size() > 2 && recent_.front().t < t - 1.5f )
+            recent_.erase( recent_.begin() );
+        window_ = Window();
+
+        if ( now - written_ > sg_rclTimelineWrite )
+            Write( now );
+    }
+
+    void Late( REAL ms, char const * cycle )
+    {
+        if ( !open_ )
+            return;
+        Event( se_GameTime(), tSysTimeFloat(), "late", "\"cycle\":" + Json( cycle ? cycle : "" ) + "," + Field( "late_ms", ms, 0 ) );
+    }
+
+    void Turn( int dir, eCoord const & pos, int turns )
+    {
+        if ( !open_ )
+            return;
+        double const now = tSysTimeFloat();
+        Pending p = { turns, now, pos };
+        pending_.push_back( p );
+        ++turns_;
+        Event( se_GameTime(), now, "turn", Field( "dir", dir, 0 ) + "," + Field( "x", pos.x, 2 ) + "," + Field( "y", pos.y, 2 ) + "," + Field( "turns", turns, 0 ) );
+    }
+
+    void OwnSync( REAL time, eCoord const & pos, int turns, eCoord const & lastTurn )
+    {
+        if ( !open_ )
+            return;
+        double const now = tSysTimeFloat();
+        REAL const t = se_GameTime();
+
+        Confirm( t, now, turns, &lastTurn );
+
+        // where the server has us, against where we had ourselves then
+        for ( size_t i = 1; i < history_.size(); ++i )
+        {
+            History const & a = history_[ i - 1 ], & b = history_[i];
+            if ( a.t <= time && time <= b.t )
+            {
+                REAL const f = b.t > a.t ? ( time - a.t ) / ( b.t - a.t ) : 0;
+                eCoord const ours = a.pos + ( b.pos - a.pos ) * f;
+                REAL const by = sqrt( ( pos - ours ).NormSquared() );
+                if ( by >= sg_rclTimelineMoved )
+                {
+                    ++corrections_;
+                    if ( by > correctionMax_ )
+                        correctionMax_ = by;
+                    Event( t, now, "correction", Field( "by", by, 3 ) + "," + Field( "at", time, 3 ) );
+                }
+                break;
+            }
+        }
+    }
+
+    void Death( REAL time, eCoord const & pos, REAL rubber, char const * killer, int turns )
+    {
+        if ( !open_ || died_ )
+            return;
+        died_ = true;
+        double const now = tSysTimeFloat();
+
+        // the turns the death's sync has were the server's
+        Confirm( se_GameTime(), now, turns, 0 );
+
+        // A frame still going on: the network is read at its end, before it
+        // is sampled, and the death stops the sampling. If it was long, it is
+        // one of ours over the death.
+        if ( lastFrame_ >= 0 && now - lastFrame_ > .1 )
+        {
+            REAL const dt = REAL( now - lastFrame_ );
+            Stretch const h = { lastFrameT_, lastFrameT_ + dt };
+            hitches_.push_back( h );
+            Event( lastFrameT_ + dt, now, "long_frame", Field( "ms", dt * 1000, 0 ) );
+        }
+
+        // the server's silence in the second before, our long frames in the half second before
+        REAL silence = 0;
+        for ( size_t i = 0; i < recent_.size(); ++i )
+            if ( recent_[i].t >= time - 1 && recent_[i].t <= time + .05f && recent_[i].silence > silence )
+                silence = recent_[i].silence;
+        bool hitch = false;
+        for ( size_t i = 0; i < hitches_.size(); ++i )
+            if ( hitches_[i].to >= time - .5f && hitches_[i].from <= time + .05f )
+                hitch = true;
+        bool const confirmed = pending_.empty();
+        verdict_ = silence > .25f || !confirmed ? "line" : hitch ? "pc" : "clean";
+
+        std::string what = Field( "x", pos.x, 2 ) + "," + Field( "y", pos.y, 2 ) + "," + Field( "rubber", rubber, 3 ) + "," +
+                           Field( "silence_ms", silence * 1000, 0 ) + ",\"last_turn_confirmed\":" + ( confirmed ? "true" : "false" ) +
+                           ",\"verdict\":" + Json( verdict_.c_str() );
+        if ( killer && *killer )
+            what += ",\"killer\":" + Json( killer );
+        Event( time, now, "death", what );
+    }
+
+    //! the round is over or we left: what it came to, and the file closed
+    void End( bool left )
+    {
+        if ( !open_ )
+            return;
+        std::vector< REAL > sorted( delays_ );
+        std::sort( sorted.begin(), sorted.end() );
+        char line[ 600 ];
+        snprintf( line, sizeof( line ), "{\"type\":\"summary\",\"alive_s\":%.1f,\"turns\":%d,\"turns_confirmed\":%d,"
+                  "\"turn_delay_median_ms\":%d,\"turn_delay_max_ms\":%d,\"turn_move_max\":%.3f,\"corrections\":%d,\"correction_max\":%.3f,"
+                  "\"rubber_bad_line\":%.3f,\"rubber_otherwise\":%.3f,\"death\":%s,\"verdict\":%s,\"end\":\"%s\"}\n",
+                  double( alive_ ), turns_, int( delays_.size() ),
+                  sorted.empty() ? 0 : Ms( sorted[ sorted.size() / 2 ] ), sorted.empty() ? 0 : Ms( sorted.back() ),
+                  double( moveMax_ ), corrections_, double( correctionMax_ ), double( rubberBad_ ), double( rubberElse_ ),
+                  died_ ? "true" : "false", died_ ? Json( verdict_.c_str() ).c_str() : "null", left ? "left" : "over" );
+        buffer_ += line;
+        Write( tSysTimeFloat() );
+        open_ = false;
+    }
+
+private:
+    struct Window
+    {
+        REAL frame, ack;
+        bool frozen;
+        Window(): frame( 0 ), ack( 0 ), frozen( false ){}
+    };
+    struct History { REAL t; eCoord pos; };
+    struct Recent { REAL t, silence; };
+    struct Stretch { REAL from, to; };
+
+    // our turns a sync of the server's has: confirmed, with how long each
+    // took and, for the last of them when the sync says where it was, how far
+    // from ours the server put it
+    void Confirm( REAL t, double now, int turns, eCoord const * lastTurn )
+    {
+        while ( !pending_.empty() && pending_.front().turns <= turns )
+        {
+            Pending const p = pending_.front();
+            pending_.erase( pending_.begin() );
+            REAL const delay = REAL( now - p.sent );
+            delays_.push_back( delay );
+            std::string what = Field( "turns", p.turns, 0 ) + "," + Field( "delay_ms", delay * 1000, 0 );
+            if ( lastTurn && p.turns == turns )
+            {
+                REAL const moved = sqrt( ( *lastTurn - p.pos ).NormSquared() );
+                if ( moved > moveMax_ )
+                    moveMax_ = moved;
+                what += "," + Field( "moved", moved, 3 );
+            }
+            Event( t, now, "turn_ok", what );
+        }
+    }
+    struct Pending { int turns; double sent; eCoord pos; };
+
+    static int Ms( double seconds ){ return int( seconds * 1000 + .5 ); }
+
+    // a string for JSON: quoted, escaped, its Latin-1 as UTF-8
+    static std::string Json( char const * text )
+    {
+        std::string out = "\"";
+        for ( unsigned char const * c = reinterpret_cast< unsigned char const * >( text ); c && *c; ++c )
+        {
+            if ( *c == '"' || *c == '\\' )
+            {
+                out += '\\';
+                out += char( *c );
+            }
+            else if ( *c < 32 )
+            {
+                char code[8];
+                snprintf( code, sizeof( code ), "\\u%04x", *c );
+                out += code;
+            }
+            else if ( *c < 128 )
+                out += char( *c );
+            else
+            {
+                out += char( 0xC0 | ( *c >> 6 ) );
+                out += char( 0x80 | ( *c & 0x3F ) );
+            }
+        }
+        return out + "\"";
+    }
+
+    static std::string Field( char const * name, double value, int decimals )
+    {
+        char text[ 80 ];
+        snprintf( text, sizeof( text ), "\"%s\":%.*f", name, decimals, value );
+        return text;
+    }
+
+    void Event( REAL t, double now, char const * type, std::string const & what )
+    {
+        char head[ 120 ];
+        snprintf( head, sizeof( head ), "{\"type\":\"%s\",\"t\":%.3f,\"r\":%.3f", type, double( t ), now - start_ );
+        buffer_ += head;
+        if ( !what.empty() )
+            buffer_ += "," + what;
+        buffer_ += "}\n";
+    }
+
+    void Write( double now )
+    {
+        written_ = now;
+        if ( buffer_.empty() || tRecorder::IsPlayingBack() )
+            return;
+        std::ofstream out( path_.c_str(), std::ios::app | std::ios::binary );
+        if ( out )
+            out << buffer_;
+        buffer_.clear();
+    }
+
+    // the folder kept to its limits: files past the age go, then the
+    // oldest until the rest are under the size
+    void Tidy() const
+    {
+        std::string folder = path_;
+        std::string::size_type const slash = folder.find_last_of( "/\\" );
+        if ( slash == std::string::npos )
+            return;
+        folder.erase( slash );
+        DIR * dir = opendir( folder.c_str() );
+        if ( !dir )
+            return;
+        struct File { std::string path; time_t when; double size; };
+        std::vector< File > files;
+        while ( dirent * entry = readdir( dir ) )
+        {
+            std::string const name( entry->d_name );
+            if ( name.size() < 7 || name.compare( name.size() - 6, 6, ".jsonl" ) != 0 )
+                continue;
+            File f;
+            f.path = folder + "/" + name;
+            struct stat info;
+            if ( stat( f.path.c_str(), &info ) != 0 )
+                continue;
+            f.when = info.st_mtime;
+            f.size = double( info.st_size );
+            files.push_back( f );
+        }
+        closedir( dir );
+
+        time_t const now = time( NULL );
+        double total = 0;
+        std::vector< File > kept;
+        for ( size_t i = 0; i < files.size(); ++i )
+        {
+            if ( difftime( now, files[i].when ) > sg_rclTimelineDays * 86400 )
+                remove( files[i].path.c_str() );
+            else
+            {
+                kept.push_back( files[i] );
+                total += files[i].size;
+            }
+        }
+        // oldest first
+        for ( size_t i = 1; i < kept.size(); ++i )
+            for ( size_t j = i; j > 0 && kept[ j - 1 ].when > kept[j].when; --j )
+                std::swap( kept[ j - 1 ], kept[j] );
+        for ( size_t i = 0; i < kept.size() && total > sg_rclTimelineMost; ++i )
+        {
+            remove( kept[i].path.c_str() );
+            total -= kept[i].size;
+        }
+    }
+
+    bool open_;
+    std::string path_, buffer_, verdict_;
+    double start_, written_, nextSample_, frozenSince_, lastFrame_;
+    REAL lastFrameT_;                  //!< the game time of the last frame sampled
+    Window window_;
+    std::vector< History > history_;
+    std::vector< Recent > recent_;
+    std::vector< Stretch > hitches_;   //!< our long frames, in game time
+    std::vector< Pending > pending_;   //!< our turns the server has not had yet
+    std::vector< REAL > delays_;       //!< how long each turn took to come back
+    REAL moveMax_, correctionMax_, rubberLast_, rubberFrom_, rubberBad_, rubberElse_, alive_;
+    int corrections_, turns_;
+    bool rubberUsing_, died_;
+};
+
 class gRclLagLog
 {
 public:
@@ -2522,6 +2985,7 @@ public:
             return;
 
         ++round_;
+        timeline_.Begin( server_, round_ );
         lastSample_ = -1;
         nextOthers_ = 0;
         time_ = pingSum_ = lateSum_ = 0;
@@ -2540,7 +3004,7 @@ public:
     }
 
     //! a cycle of another player was synced with data this many seconds old
-    void SyncAge( REAL age, int cycle )
+    void SyncAge( REAL age, int cycle, char const * name )
     {
         if ( !active_ || lastSample_ < 0 )
             return;
@@ -2563,6 +3027,8 @@ public:
         ++lateCount_;
         if ( over > lateMax_ )
             lateMax_ = over;
+        if ( over > sg_rclLagLate )
+            timeline_.Late( over * 1000, name );
     }
 
     //! once a frame, after the network has been read
@@ -2634,6 +3100,9 @@ public:
         if ( !hitch && peak > pingPeak_ )
             pingPeak_ = peak;
 
+        // the round's timeline, frame by frame
+        timeline_.Frame( now, dt, ping.GetPingFast(), hitch ? 0 : peak, silence, frozen_, OwnCycle() );
+
         sent_   += sn_reliableMessages - lastSent_;
         resent_ += sn_resentMessages - lastResent_;
         lastSent_   = sn_reliableMessages;
@@ -2667,6 +3136,7 @@ public:
         if ( !active_ )
             return;
         active_ = false;
+        timeline_.End( left );
 
         if ( time_ < sg_rclLagLeast )
         {
@@ -2738,6 +3208,25 @@ private:
 
     static int Ms( double seconds ){ return int( seconds * 1000 + .5 ); }
 
+    //! the first local player's cycle that is alive, for the timeline
+    static gCycle const * OwnCycle()
+    {
+        for ( int i = 0; i < MAX_PLAYERS; ++i )
+        {
+            ePlayer * p = ePlayer::PlayerConfig( i );
+            ePlayerNetID * np = p ? static_cast< ePlayerNetID * >( p->netPlayer ) : 0;
+            if ( np && np->Object() && np->Object()->Alive() )
+                return dynamic_cast< gCycle const * >( np->Object() );
+        }
+        return 0;
+    }
+
+public:
+    //! the timeline's hooks from gCycle
+    void Turn( int dir, eCoord const & pos, int turns ){ if ( active_ ) timeline_.Turn( dir, pos, turns ); }
+    void OwnSync( REAL time, eCoord const & pos, int turns, eCoord const & lastTurn ){ if ( active_ ) timeline_.OwnSync( time, pos, turns, lastTurn ); }
+    void Death( REAL time, eCoord const & pos, REAL rubber, char const * killer, int turns ){ if ( active_ ) timeline_.Death( time, pos, rubber, killer, turns ); }
+private:
     static bool LocalAlive()
     {
         for ( int i = MAX_PLAYERS-1; i >= 0; --i )
@@ -2856,14 +3345,19 @@ private:
     bool    frozen_;      //!< in a freeze right now
     std::map< unsigned short, gOther > others_; //!< the other players' pings, by network ID
     std::map< int, gLate > lates_;              //!< the freshest sync each cycle has had, by network ID
+    gRclTimeline timeline_;                     //!< the round, moment by moment
 };
 
 static gRclLagLog sg_rclLag;
 
-void sg_RclLagSyncAge( REAL age, int cycle )
+void sg_RclLagSyncAge( REAL age, int cycle, char const * name )
 {
-    sg_rclLag.SyncAge( age, cycle );
+    sg_rclLag.SyncAge( age, cycle, name );
 }
+
+void sg_RclTimelineTurn( int dir, eCoord const & pos, int turns ){ sg_rclLag.Turn( dir, pos, turns ); }
+void sg_RclTimelineOwnSync( REAL time, eCoord const & pos, int turns, eCoord const & lastTurn ){ sg_rclLag.OwnSync( time, pos, turns, lastTurn ); }
+void sg_RclTimelineDeath( REAL time, eCoord const & pos, REAL rubber, char const * killer, int turns ){ sg_rclLag.Death( time, pos, rubber, killer, turns ); }
 
 static bool sg_RclLagSay( tString & line )
 {
@@ -2871,7 +3365,10 @@ static bool sg_RclLagSay( tString & line )
 }
 static bool sg_rclLagSayHooked = ( se_rclLagSay = &sg_RclLagSay, true );
 #else
-void sg_RclLagSyncAge( REAL, int ){}
+void sg_RclLagSyncAge( REAL, int, char const * ){}
+void sg_RclTimelineTurn( int, eCoord const &, int ){}
+void sg_RclTimelineOwnSync( REAL, eCoord const &, int, eCoord const & ){}
+void sg_RclTimelineDeath( REAL, eCoord const &, REAL, char const *, int ){}
 #endif
 
 // return code: false if there was an error or abort

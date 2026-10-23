@@ -294,7 +294,13 @@ void sg_OutputOnlinePlayers();
 void LoadMap(tString mapName);
 
 // (RCL) round lag log: another player's cycle (by network ID) was synced with data this many seconds old
-void sg_RclLagSyncAge( REAL age, int cycle );
+void sg_RclLagSyncAge( REAL age, int cycle, char const * name );
+
+// the round timeline (gGame.cpp, gRclTimeline): what our own cycle did, from gCycle
+class eCoord;
+void sg_RclTimelineTurn( int dir, eCoord const & pos, int turns );                                      //!< we turned
+void sg_RclTimelineOwnSync( REAL time, eCoord const & pos, int turns, eCoord const & lastTurn );        //!< a sync of ours came
+void sg_RclTimelineDeath( REAL time, eCoord const & pos, REAL rubber, char const * killer, int turns ); //!< the server said we died
 
 void LogPlayersCycleTurns(gCycle *cycle, tString msg);
 void LogWinnerCycleTurns(gCycle *winner);

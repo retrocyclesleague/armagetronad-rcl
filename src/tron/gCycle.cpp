@@ -4064,7 +4064,10 @@ bool gCycle::DoTurn(int d)
             skewDot+=4*d;
 
             if (sn_GetNetState() == nCLIENT && Owner() == ::sn_myNetID)
+            {
                 AddDestination();
+                sg_RclTimelineTurn( d, pos, turns );
+            }
 
             if (sn_GetNetState()!=nCLIENT)
             {
@@ -7278,6 +7281,10 @@ void gCycle::ReadSync( nMessage &m )
     }
     lastSyncMessage_ = sync;
 
+    // the round timeline: how the server has us, against how we had ourselves
+    if ( sn_GetNetState() == nCLIENT && Owner() == ::sn_myNetID && sync_alive > 0 )
+        sg_RclTimelineOwnSync( sync.time, sync.pos, sync.turns, sync.lastTurn );
+
     // store last known good position: a bit before the last position confirmed by the server
     lastGoodPosition_ = sync.pos + ( sync.lastTurn - sync.pos ) *.01;
     // offset it a tiny bit by our last driving direction
@@ -7302,6 +7309,15 @@ void gCycle::ReadSync( nMessage &m )
     // killed?
     if (Alive() && sync_alive!=1 && GOID() >= 0 && grid )
     {
+        // the round timeline: our own death, as the server has it
+        if ( sn_GetNetState() == nCLIENT && Owner() == ::sn_myNetID )
+        {
+            ePlayerNetID const * enemy = enemyInfluence.GetEnemy();
+            tString killer;
+            if ( enemy && enemy != Player() )
+                killer = tColoredString::RemoveColors( enemy->GetName() );
+            sg_RclTimelineDeath( lastSyncMessage_.time, lastSyncMessage_.pos, lastSyncMessage_.rubber, killer, lastSyncMessage_.turns );
+        }
         Die( lastSyncMessage_.time );
         MoveSafely( lastSyncMessage_.pos, lastTime, deathTime );
         distance=lastSyncMessage_.distance;
@@ -7715,7 +7731,7 @@ void gCycle::SyncEnemy ( const eCoord& )
         REAL lag = se_GameTime() - lastSyncMessage_.time;
         if ( lag < 0 )
             lag = 0;
-        sg_RclLagSyncAge( lag, ID() );
+        sg_RclLagSyncAge( lag, ID(), Player() ? static_cast< char const * >( tColoredString::RemoveColors( Player()->GetName() ) ) : "" );
 
         // try not to let the lag jump
         REAL maxLag = laggometer * 1.2;
