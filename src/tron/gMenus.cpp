@@ -1499,6 +1499,11 @@ void sg_RclControlsPage()
                              "$player_input_help",
                              &su_InputConfig,0);
 
+    // the keyboard, as /kb in chat opens it: first on the page
+    uMenuItemFunction kb(&menu,"$rcl_keyboard_page_text",
+                         "$rcl_keyboard_page_help",
+                         &sg_KeyboardPage);
+
     menu.Enter();
 
     for(int i=MAX_INSTANT_CHAT-1; i>=0; i--)

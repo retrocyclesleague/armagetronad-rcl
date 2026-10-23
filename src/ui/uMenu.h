@@ -57,7 +57,8 @@ enum uMenuStyle
     uMenuStyle_RclFull,     //!< a table across the window
     uMenuStyle_RclPrompt,   //!< one input row along the bottom
     uMenuStyle_RclHome,     //!< the main menu, with its rail
-    uMenuStyle_RclHero      //!< the main menu: the scene across the window, the menu places its own rows
+    uMenuStyle_RclHero,     //!< the main menu: the scene across the window, the menu places its own rows
+    uMenuStyle_RclOverlay   //!< a page that draws itself over the game, which is held back behind it (/kb)
 };
 
 class uMenu{

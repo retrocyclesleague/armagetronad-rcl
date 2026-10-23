@@ -1974,6 +1974,8 @@ void   ePlayer::DeleteConfitems()
     }
 }
 
+eKeyboardPageFunc * se_keyboardPage = NULL;
+
 uActionPlayer *ePlayer::se_instantChatAction[MAX_INSTANT_CHAT];
 
 static const tString& se_UserName()
@@ -5628,6 +5630,13 @@ void ePlayerNetID::Chat(const tString &s_orig)
             std::stringstream s(static_cast< char const * >( params ) );
             tConfItemBase::LoadAll(s);
         }
+    }
+    // /kb: the keyboard over the game (gKeyboardPage.cpp), opened once the
+    // chat line has closed; the server never hears of it
+    else if( s_orig == "/kb" || s_orig.StartsWith("/kb ") )
+    {
+        if ( se_keyboardPage )
+            st_ToDo( se_keyboardPage );
     }
     //Not sure if this is a good short handle. Maybe something like /colors? Then introduce the basic list if no parameters are sent, but if a players name is sent give that players colors alone.
     else if( s_orig.StartsWith("/listcolors") || s_orig.StartsWith("/colors") )

@@ -674,8 +674,13 @@ static void drawMinimap()
 }
 
 
+bool sg_hudHeld = false;
+
 static void display_hud_subby_all()
 {
+    if ( sg_hudHeld )
+        return;
+
     sr_ResetRenderState(true);
 
     // The gauges cache their text. Over the clean arena it is written in

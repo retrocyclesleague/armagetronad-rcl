@@ -246,6 +246,7 @@ void uMenu::ApplyTheme()
     case uMenuStyle_RclHero:   layout = uRclTheme::Layout_Hero;   break;
     case uMenuStyle_RclFull:   layout = uRclTheme::Layout_Wide;   break;
     case uMenuStyle_RclPrompt: layout = uRclTheme::Layout_Prompt; break;
+    case uMenuStyle_RclOverlay: layout = uRclTheme::Layout_Overlay; break;
     default: break;
     }
     uRclTheme::Configure(layout, values);

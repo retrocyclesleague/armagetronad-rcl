@@ -37,6 +37,9 @@ extern REAL subby_ScoreLocX, subby_ScoreLocY, subby_ScoreSize;
 extern REAL subby_FastestLocX, subby_FastestLocY, subby_FastestSize;
 extern REAL subby_AlivePeopleLocX, subby_AlivePeopleLocY, subby_AlivePeopleSize;
 extern REAL subby_PingLocX, subby_PingLocY, subby_PingSize;
+//! while set, the HUD and the map are not drawn: a page over the game (/kb)
+//! has the screen, and they are drawn after everything else in a frame
+extern bool sg_hudHeld;
 extern bool showTime;
 extern bool show24hour;
 extern bool showPosition;

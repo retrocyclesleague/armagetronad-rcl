@@ -34,6 +34,8 @@ extern void  sg_PlayerMenu(), sg_SpecialMenu(), sg_ConfigMenu();
 //! the short settings pages: what a player sets, and nothing else (the long
 //! ones stay, one level down under Advanced)
 extern void  sg_RclPlayerPage(), sg_RclControlsPage(), sg_RclDisplayPage(), sg_RclCameraPage();
+//! /kb: the keyboard, to see and change binds (gKeyboardPage.cpp)
+extern void  sg_KeyboardPage();
 //! The arena's look (light, dark, classic grid) as a row for a menu. It is on
 //! the Display page and, so nobody has to look for it, first on Settings.
 uMenuItem *  sg_NewArenaLookItem( uMenu * menu );

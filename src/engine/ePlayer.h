@@ -28,6 +28,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #ifndef ArmageTron_PLAYER_H
 #define ArmageTron_PLAYER_H
 
+// what /kb typed in chat opens (gKeyboardPage.cpp sets it); never sent
+typedef void eKeyboardPageFunc();
+extern eKeyboardPageFunc * se_keyboardPage;
+
 #ifndef MAX_INSTANT_CHAT
 #define MAX_INSTANT_CHAT 25
 #endif

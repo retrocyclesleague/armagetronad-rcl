@@ -350,6 +350,11 @@ uSpectatorKeyInfo const & su_SpectatorKeyInfo( uSpectatorKey key );
 int  su_SpectatorKeySym( uSpectatorKey key );           //!< the key or button set now; 0 for none
 void su_SetSpectatorKeySym( uSpectatorKey key, int sym );
 
+//! the bindable actions: 0 the players', 1 the cameras', 2 the global ones (a list, tListItem::Next)
+uAction * su_ActionList( int list );
+//! what a key or mouse button is called, in the numbers binds use
+char const * su_KeyName( int sym );
+
 bool su_SpectatorKeyDown( uSpectatorKey key );          //!< is the key or mouse button set for this held right now?
 char const * su_SpectatorKeyName( uSpectatorKey key ); //!< what that key or button is called
 void su_InputConfigSpectator();                         //!< the menu that sets them

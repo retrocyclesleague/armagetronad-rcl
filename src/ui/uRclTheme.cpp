@@ -609,6 +609,13 @@ namespace uRclTheme
             return;
         }
 
+        if ( layout_ == Layout_Overlay )
+        {
+            // the game, held back; the page draws its own panel over it
+            Rect( -1, 1, 1, -1, canvas, sceneBehind_ ? sceneHold_ * alpha : 1 );
+            return;
+        }
+
         if ( layout_ == Layout_Hero )
         {
             // No rail: the scene is the first screen's page. It is held back
@@ -665,7 +672,7 @@ namespace uRclTheme
     void DrawChrome( tString const & title, tString const & footnote, REAL alpha,
                      tString const & keyHint )
     {
-        if ( layout_ == Layout_Prompt )
+        if ( layout_ == Layout_Prompt || layout_ == Layout_Overlay )
             return;
 
         REAL const left = X( MarginPx() );
@@ -925,7 +932,7 @@ namespace uRclTheme
     void DrawHelp( tString const & help, REAL alpha )
     {
         // a table's footer shows the selected row's details instead
-        if ( layout_ == Layout_Prompt || layout_ == Layout_Wide || help.Len() <= 1 )
+        if ( layout_ == Layout_Prompt || layout_ == Layout_Wide || layout_ == Layout_Overlay || help.Len() <= 1 )
             return;
 
         if ( layout_ == Layout_Hero )

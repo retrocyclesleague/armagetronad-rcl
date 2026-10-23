@@ -748,6 +748,16 @@ bool su_SpectatorKeyDown( uSpectatorKey key )
     return false;
 }
 
+uAction * su_ActionList( int list )
+{
+    return list == 0 ? s_playerActions : list == 1 ? s_cameraActions : list == 2 ? s_globalActions : NULL;
+}
+
+char const * su_KeyName( int sym )
+{
+    return sym > 0 && sym < SDLK_NEWLAST ? keyname( sym ) : "";
+}
+
 uSpectatorKeyInfo const & su_SpectatorKeyInfo( uSpectatorKey key )
 {
     return su_spectatorKeyInfo[ key >= 0 && key < uSpectatorKey_Count ? key : 0 ];

@@ -2644,6 +2644,8 @@ rcl_colour_studio_text         Colour Studio
 rcl_colour_studio_help         Your bike and your trail, set as what they are, with a preview the game draws. Where the trail is at full, the bike can be any colour.
 rcl_controls_menu_text         Controls
 rcl_controls_menu_help         Every key, and what the instant chat keys say.
+rcl_keyboard_page_text         Keyboard
+rcl_keyboard_page_help         Every key on a keyboard: click one or press it, then pick what it does, playing and spectating. /kb in chat opens it too.
 rcl_display_menu_text          Display
 rcl_display_menu_help          Window, resolution, smoothing and the arena's look.
 rcl_camera_menu_text           Camera

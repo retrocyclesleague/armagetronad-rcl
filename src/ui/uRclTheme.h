@@ -56,7 +56,8 @@ namespace uRclTheme
         Layout_Page,    //!< any other menu: a title and rows in a column
         Layout_Wide,    //!< a table across the window (the server browser)
         Layout_Prompt,  //!< one input row along the bottom (chat, console)
-        Layout_Hero     //!< the first screen: the scene across the window; the menu places its rows
+        Layout_Hero,    //!< the first screen: the scene across the window; the menu places its rows
+        Layout_Overlay  //!< a page that draws all of itself over the game held back behind it (/kb)
     };
 
     //! what a row shows next to its label
