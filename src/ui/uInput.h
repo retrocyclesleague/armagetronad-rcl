@@ -301,9 +301,12 @@ void su_InputConfigCamera(int player);
 void su_InputConfigGlobal();
 
 // ---- the watcher's keys ----
-// What flies the free camera of a player without a cycle. They are a table of
-// their own and not binds like the rest: a key holds one bind, and the same
-// key is meant to be free to turn a cycle and to fly this camera.
+// What flies the free camera of a player without a cycle, and goes to and
+// saves their views. They are a table of their own and not binds like the
+// rest: a key holds one bind, and the same key is meant to be free to turn a
+// cycle (or say an instant chat) while playing and to work this camera while
+// watching. Saving a view is Ctrl and that view's key, read from SDL's
+// modifiers here; the binds have no modifiers.
 enum uSpectatorKey
 {
     uSpectatorKey_Forward,
@@ -317,8 +320,36 @@ enum uSpectatorKey
     uSpectatorKey_Fast,
     uSpectatorKey_Look,
     uSpectatorKey_Steer,
-    uSpectatorKey_Count
+    uSpectatorKey_View1,        //!< saved views 1 to 9 (gCamera.cpp); with Ctrl, saves to it
+    uSpectatorKey_View2,
+    uSpectatorKey_View3,
+    uSpectatorKey_View4,
+    uSpectatorKey_View5,
+    uSpectatorKey_View6,
+    uSpectatorKey_View7,
+    uSpectatorKey_View8,
+    uSpectatorKey_View9,
+    uSpectatorKey_ViewNext,     //!< the next saved view that applies here
+    uSpectatorKey_ViewPrev,     //!< the one before; when it is the next key too, with Shift
+    uSpectatorKey_Count,
+    uSpectatorKey_FlightCount = uSpectatorKey_View1 //!< those that fly the camera, held
 };
+
+//! One of the watcher's keys, as other code may list them (a page of all the
+//! keys): its setting in user.cfg, what the menu calls it and says it does,
+//! and the key or mouse button it starts as, in the numbers binds use (0 for
+//! none).
+struct uSpectatorKeyInfo
+{
+    char const * name;
+    char const * label;
+    char const * help;
+    int defaultSym;
+};
+uSpectatorKeyInfo const & su_SpectatorKeyInfo( uSpectatorKey key );
+int  su_SpectatorKeySym( uSpectatorKey key );           //!< the key or button set now; 0 for none
+void su_SetSpectatorKeySym( uSpectatorKey key, int sym );
+
 bool su_SpectatorKeyDown( uSpectatorKey key );          //!< is the key or mouse button set for this held right now?
 char const * su_SpectatorKeyName( uSpectatorKey key ); //!< what that key or button is called
 void su_InputConfigSpectator();                         //!< the menu that sets them

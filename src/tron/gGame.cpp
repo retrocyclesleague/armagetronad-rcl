@@ -7595,6 +7595,10 @@ bool gGame::GameLoop(bool input){
             }
 
 
+            // the watcher's saved views take their keys first (gCamera.cpp)
+            if ( sg_SpectatorViewEvent( grid, tEvent ) )
+                continue;
+
             if (!su_HandleEvent(tEvent, false))
                 switch (tEvent.type){
                 case SDL_MOUSEBUTTONDOWN:

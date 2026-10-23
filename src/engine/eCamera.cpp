@@ -404,6 +404,11 @@ eSpectatorPose se_spectatorPose = { false, eCoord(), eCoord(), eCoord(), eCoord(
 // stands for the rounds after it, until they come back to the free view.
 bool se_spectatorElsewhere = false;
 
+// And if that was a saved view that follows the cycle watched (ApplyView),
+// which one: every round brings a new camera, which takes it up again.
+bool se_viewFollowActive = false;
+eCameraView se_viewFollowView;
+
 // The mouse while its right button turns the view: hidden and held, so a drag
 // goes on past the edge of the screen and the pointer is where it was after.
 bool se_spectatorAimHeld = false;
@@ -487,7 +492,15 @@ void eCamera::SpectatorFly()
         }
         else if ( se_spectatorElsewhere )
         {
-            // they would rather follow the players: the camera stays as it is
+            // they would rather follow the players: the camera stays as it
+            // is, or follows the cycle watched as the saved view they went to
+            if ( se_viewFollowActive )
+            {
+                mode = CAMERA_CUSTOM;
+                viewFollow_ = true;
+                viewFollowData_ = se_viewFollowView;
+                viewFrame_ = CenterDir();
+            }
         }
         else if ( last.valid && last.flown && ( last.low - bounds.GetLow() ).NormSquared() < 1 &&
              ( last.high - bounds.GetHigh() ).NormSquared() < 1 )
@@ -583,9 +596,9 @@ void eCamera::SpectatorFly()
 
     // What is held, as the flight takes it: nothing during the moment after
     // a cycle was lost, and nothing that has been down since.
-    bool held[ uSpectatorKey_Count ];
+    bool held[ uSpectatorKey_FlightCount ];
     bool const locked = now < spectatorLockUntil_;
-    for ( int i = 0; i < uSpectatorKey_Count; ++i )
+    for ( int i = 0; i < uSpectatorKey_FlightCount; ++i )
     {
         unsigned const bit = 1u << i;
         bool const down = su_SpectatorKeyDown( static_cast< uSpectatorKey >( i ) );
@@ -774,7 +787,286 @@ bool eCamera::SpectatorTarget( eCoord & centre, REAL & height ) const
     return true;
 }
 
+// ---- saved views (eCameraView; the watcher's keys for them are in gCamera.cpp) ----
+
+eCameraView::eCameraView()
+        :fixed( true ), pos( 0, 0 ), dir( 1, 0 ), z( 10 ), rise( 0 ),
+        back( 0 ), side( 0 ), up( 0 ), yaw( 0 ), pitch( 0 ), turnSpeed( 0 ), turns( true )
+{
+}
+
+tString eCameraView::Serialise() const
+{
+    char line[ 256 ];
+    if ( fixed )
+        snprintf( line, sizeof( line ), "fixed\t%.4f\t%.4f\t%.4f\t%.6f\t%.6f\t%.6f",
+                  double( pos.x ), double( pos.y ), double( z ), double( dir.x ), double( dir.y ), double( rise ) );
+    else
+        snprintf( line, sizeof( line ), "follow\t%.4f\t%.4f\t%.4f\t%.6f\t%.6f\t%.4f\t%d",
+                  double( back ), double( side ), double( up ), double( yaw ), double( pitch ), double( turnSpeed ), turns ? 1 : 0 );
+    return tString( line );
+}
+
+bool eCameraView::Parse( char const * line )
+{
+    if ( !line )
+        return false;
+    char kind[ 16 ] = "";
+    double a[ 7 ] = { 0, 0, 0, 0, 0, 0, 0 };
+    int const n = sscanf( line, "%15s %lf %lf %lf %lf %lf %lf %lf", kind, &a[0], &a[1], &a[2], &a[3], &a[4], &a[5], &a[6] );
+    for ( int i = 0; i < 7; ++i )
+        if ( !std::isfinite( a[i] ) || fabs( a[i] ) > 1E6 )
+            return false;
+
+    eCameraView view;
+    if ( 0 == strcmp( kind, "fixed" ) && n >= 7 )
+    {
+        view.fixed = true;
+        view.pos = eCoord( REAL( a[0] ), REAL( a[1] ) );
+        view.z = REAL( a[2] );
+        view.dir = eCoord( REAL( a[3] ), REAL( a[4] ) );
+        view.rise = REAL( a[5] );
+        REAL const length = sqrt( view.dir.NormSquared() );
+        if ( !( length > 1E-6 ) )
+            return false;
+        view.dir = view.dir * ( 1 / length );
+    }
+    else if ( 0 == strcmp( kind, "follow" ) && n >= 8 )
+    {
+        view.fixed = false;
+        view.back = REAL( a[0] );
+        view.side = REAL( a[1] );
+        view.up = REAL( a[2] );
+        view.yaw = REAL( a[3] );
+        view.pitch = REAL( a[4] );
+        view.turnSpeed = a[5] > 0 ? REAL( a[5] ) : 0;
+        view.turns = a[6] != 0;
+    }
+    else
+        return false;
+
+    *this = view;
+    return true;
+}
+
+bool eCamera::Spectating() const
+{
+    if ( !cameraMain_ || !localPlayer )
+        return false;
+    return !( bool( netPlayer ) && netPlayer->Object() && netPlayer->Object()->Alive() );
+}
+
+bool eCamera::SaveView( eCameraView & view ) const
+{
+    view = eCameraView();
+
+    // Flying, or nothing to follow: where the eye is.
+    if ( mode == CAMERA_FREE || !InterestingToWatch( Center() ) )
+    {
+        view.fixed = true;
+        view.pos = pos;
+        view.z = z;
+        view.rise = rise;
+        REAL const length = sqrt( dir.NormSquared() );
+        view.dir = length > 0 ? dir * ( 1 / length ) : eCoord( 1, 0 );
+        return true;
+    }
+
+    // Following: where the eye is from the cycle, in the frame each of the
+    // views that follow keeps it in, and how that turns after the cycle.
+    view.fixed = false;
+    eCoord frame = CenterCycleDir();
+    bool turns = true;
+    REAL speed = s_customTurnSpeed;
+    switch ( mode )
+    {
+    case CAMERA_FOLLOW:
+        // it keeps its place in the arena as the cycle moves
+        turns = false;
+        frame = eCoord( 1, 0 );
+        break;
+    case CAMERA_CUSTOM:
+        if ( viewFollow_ )
+        {
+            frame = viewFrame_;
+            turns = viewFollowData_.turns;
+            speed = viewFollowData_.turnSpeed;
+        }
+        else
+            frame = dir;
+        break;
+    case CAMERA_SERVER_CUSTOM:
+        frame = dir;
+        if ( s_serverCustomTurnSpeed >= 0 )
+            speed = s_serverCustomTurnSpeed;
+        break;
+    case CAMERA_IN:
+    case CAMERA_SMART_IN:
+        speed = s_inTurnSpeed;
+        break;
+    default:
+        break;
+    }
+    REAL const length = sqrt( frame.NormSquared() );
+    frame = length > 0 ? frame * ( 1 / length ) : eCoord( 1, 0 );
+
+    eCoord const off = pos - CenterPos();
+    view.back = -eCoord::F( off, frame );
+    view.side = eCoord::F( off, frame.Turn( 0, 1 ) );
+    view.up = z - CenterCamZ();
+    REAL const lookLength = sqrt( dir.NormSquared() );
+    eCoord const look = lookLength > 0 ? dir * ( 1 / lookLength ) : frame;
+    view.yaw = atan2( frame.x * look.y - frame.y * look.x, eCoord::F( frame, look ) );
+    view.pitch = rise;
+    view.turnSpeed = speed > 0 ? speed : 0;
+    view.turns = turns;
+    return true;
+}
+
+void eCamera::ApplyView( eCameraView const & view, REAL glide )
+{
+    // the glide starts from the view drawn now, part way through another one too
+    double const now = tSysTimeFloat();
+    if ( glide > 0 )
+    {
+        eCoord p, d;
+        REAL h, r;
+        GlidePose( now, p, d, h, r );
+        glidePos_ = p;
+        glideDir_ = d;
+        glideZ_ = h;
+        glideRise_ = r;
+        glideStart_ = now;
+        glideTime_ = glide;
+    }
+    else
+        glideTime_ = 0;
+
+    glancingForward = glancingBack = glancingLeft = glancingRight = false;
+    glanceSmooth = glanceSmoothAbs = 0;
+    glanceDir_ = eCoord( 1, 0 );
+    userCameraControl = 0;
+    spectatorFollow_ = false;
+    spectatorWaySet_ = false;
+
+    if ( view.fixed )
+    {
+        // the free camera, at the spot; the watcher flies on from there
+        mode = CAMERA_FREE;
+        viewFollow_ = false;
+        se_viewFollowActive = false;
+        pos = view.pos;
+        z = view.z;
+        rise = view.rise;
+        REAL const length = sqrt( view.dir.NormSquared() );
+        dir = length > 0 ? view.dir * ( 1 / length ) : eCoord( 1, 0 );
+        lastPos = pos;
+        return;
+    }
+
+    // following the cycle watched, its frame along the way that rides now
+    mode = CAMERA_CUSTOM;
+    viewFollow_ = true;
+    viewFollowData_ = view;
+    se_viewFollowActive = true;
+    se_viewFollowView = view;
+    eCoord way = view.turns ? CenterCycleDir() : eCoord( 1, 0 );
+    REAL const length = sqrt( way.NormSquared() );
+    viewFrame_ = length > 0 ? way * ( 1 / length ) : eCoord( 1, 0 );
+    if ( Center() )
+        PlaceFollowView( 0, pos, dir, z, rise );
+}
+
+void eCamera::PlaceFollowView( REAL ts, eCoord & p, eCoord & d, REAL & h, REAL & r )
+{
+    eCameraView const & view = viewFollowData_;
+    eCoord frame( 1, 0 );
+    if ( view.turns )
+    {
+        eCoord way = CenterCycleDir();
+        REAL const length = sqrt( way.NormSquared() );
+        way = length > 0 ? way * ( 1 / length ) : viewFrame_;
+        if ( !( view.turnSpeed > 0 ) )
+            frame = way;
+        else
+        {
+            // after the cycle as the custom camera turns after it
+            frame = viewFrame_ + way * ( view.turnSpeed * ts );
+            REAL const against = -eCoord::F( way, frame );
+            if ( against > 0 && Center() )
+            {
+                // turned right round: by the side it last rode to
+                eCoord last = Center()->LastDirection();
+                REAL const lastAgainst = -eCoord::F( way, last );
+                if ( lastAgainst > 0 )
+                {
+                    last = last + way * ( lastAgainst / way.NormSquared() );
+                    REAL const n = last.NormSquared();
+                    if ( n > 0 )
+                        last = last * ( 1 / sqrt( n ) );
+                }
+                frame = frame + last * ( against * ts * view.turnSpeed * s_customTurnSpeed180 );
+            }
+            REAL const frameLength = sqrt( frame.NormSquared() );
+            frame = frameLength > 0 ? frame * ( 1 / frameLength ) : way;
+        }
+        viewFrame_ = frame;
+    }
+
+    p = CenterPos() - frame * view.back + frame.Turn( 0, 1 ) * view.side;
+    h = CenterCamZ() + view.up;
+    d = frame.Turn( cos( view.yaw ), sin( view.yaw ) );
+    r = view.pitch;
+}
+
+bool eCamera::Gliding( double now ) const
+{
+    return glideTime_ > 0 && now >= glideStart_ && now - glideStart_ < glideTime_;
+}
+
+void eCamera::GlidePose( double now, eCoord & p, eCoord & d, REAL & h, REAL & r ) const
+{
+    eCoord const toPos = pos, toDir = dir;
+    REAL const toZ = z, toRise = rise;
+    if ( !Gliding( now ) )
+    {
+        p = toPos;
+        d = toDir;
+        h = toZ;
+        r = toRise;
+        return;
+    }
+
+    REAL t = REAL( ( now - glideStart_ ) / glideTime_ );
+    t = t < 0 ? 0 : ( t > 1 ? 1 : t );
+    REAL const e = t * t * ( 3 - 2 * t );
+
+    p = glidePos_ + ( toPos - glidePos_ ) * e;
+    h = glideZ_ + ( toZ - glideZ_ ) * e;
+
+    // round the shorter way
+    REAL const from = atan2( glideDir_.y, glideDir_.x ), to = atan2( toDir.y, toDir.x );
+    REAL turn = to - from;
+    while ( turn > REAL( M_PI ) )
+        turn -= REAL( 2 * M_PI );
+    while ( turn < -REAL( M_PI ) )
+        turn += REAL( 2 * M_PI );
+    REAL const angle = from + turn * e;
+    d = eCoord( cos( angle ), sin( angle ) );
+
+    REAL const fromPitch = atan( glideRise_ ), toPitch = atan( toRise );
+    r = tan( fromPitch + ( toPitch - fromPitch ) * e );
+}
+
 void eCamera::MyInit(){
+    viewFollow_ = false;
+    viewFrame_ = eCoord( 1, 0 );
+    glideStart_ = 0;
+    glideTime_ = 0;
+    glidePos_ = eCoord();
+    glideDir_ = eCoord( 1, 0 );
+    glideZ_ = glideRise_ = 0;
+
     spectatorFly_ = false;
     spectatorSince_ = -1;
     spectatorLast_ = 0;
@@ -924,6 +1216,10 @@ eGameObject * eCamera::Center() const{
 
 void eCamera::SwitchView(){
     zNear = 0.01f;
+
+    // the views it goes through are not the saved one
+    viewFollow_ = false;
+    se_viewFollowActive = false;
 
     int count=CAMERA_COUNT * 2;
 
@@ -1800,6 +2096,16 @@ void eCamera::Render(){
     // clock does, and a watcher should not freeze between rounds.
     SpectatorFly();
 
+    // A switch of saved view glides (ApplyView): what is drawn goes from the
+    // view it left to where the camera is now, eased; the camera itself is
+    // put back as it was once the frame is drawn.
+    double const glideNow = tSysTimeFloat();
+    bool const gliding = Gliding( glideNow );
+    eCoord const heldPos = pos, heldDir = dir;
+    REAL const heldZ = z, heldRise = rise;
+    if ( gliding )
+        GlidePose( glideNow, pos, dir, z, rise );
+
     se_cameraRise=rise;
     se_cameraZ=z;
 
@@ -1957,6 +2263,14 @@ void eCamera::Render(){
         CenterCockpitFixedAfter();
     }
     displaying=false;
+
+    if ( gliding )
+    {
+        pos = heldPos;
+        dir = heldDir;
+        z = heldZ;
+        rise = heldRise;
+    }
 }
 
 #endif
@@ -2039,6 +2353,7 @@ void eCamera::Timestep(REAL ts){
                 center = bestCenter;
                 // if ( mode != CAMERA_FREE )
                 mode=localPlayer->startCamera;
+                viewFollow_ = false;
             }
         }
     }
@@ -2259,7 +2574,16 @@ void eCamera::Timestep(REAL ts){
         effectiveMode=CAMERA_FREE;
     }
 
-    switch (effectiveMode){
+    if ( viewFollow_ && effectiveMode == CAMERA_CUSTOM && Spectating() )
+    {
+        // a saved view, following the cycle watched (ApplyView)
+        PlaceFollowView( ts, newpos, newdir, newz, newrise );
+        usernewpos = newpos;
+        usernewdir = newdir;
+        usernewz = newz;
+        usernewrise = newrise;
+    }
+    else switch (effectiveMode){
     case CAMERA_FREE:
         newpos=pos;
         newdir=dir;

@@ -2658,6 +2658,12 @@ rcl_camera_turn_quick_text     Quick
 rcl_camera_turn_quick_help     Comes round almost at once (40).
 rcl_camera_turn_with_text      With the bike
 rcl_camera_turn_with_help      Turns as the bike turns, at once (1000).
+rcl_view_switch_text           Switching views:
+rcl_view_switch_help           How the camera goes to one of your saved spectator views (RCL_SPECTATOR_VIEW_GLIDE).
+rcl_view_switch_glide_text     Glide
+rcl_view_switch_glide_help     Glides there over about a third of a second.
+rcl_view_switch_cut_text       Cut
+rcl_view_switch_cut_help       Is there at once.
 rcl_bike_turn_text             The bike's turn:
 rcl_bike_turn_help             How the bike itself is drawn coming round at a turn; drawing only, the turn itself is the same (RCL_CYCLE_TURN_EASE).
 rcl_bike_turn_smooth_text      Smooth
@@ -4406,6 +4412,24 @@ spectator_key_look_text        Look around
 spectator_key_look_help        Held, the mouse turns the view and the camera keeps the heading it had.
 spectator_key_steer_text       Steer
 spectator_key_steer_help       Held, the mouse turns the view and the heading with it. With the look button held too, the camera flies forward.
+spectator_key_view_1_text      View 1
+spectator_key_view_2_text      View 2
+spectator_key_view_3_text      View 3
+spectator_key_view_4_text      View 4
+spectator_key_view_5_text      View 5
+spectator_key_view_6_text      View 6
+spectator_key_view_7_text      View 7
+spectator_key_view_8_text      View 8
+spectator_key_view_9_text      View 9
+spectator_key_view_help        Watching, puts the camera in this saved view. With Ctrl held, saves the view the camera has now to it: a spot in this arena while flying, or how it follows the cycle watched.
+spectator_key_view_next_text   Next view
+spectator_key_view_next_help   Watching, goes to the next of your views saved for this arena, and the views that follow a cycle.
+spectator_key_view_prev_text   Previous view
+spectator_key_view_prev_help   Watching, goes to the view before. When it is the same key as the next view, hold Shift with it.
+spectator_view_gone            view \1
+spectator_view_saved           view \1 saved
+spectator_view_empty           no view \1 here
+spectator_view_none            no views saved here; Ctrl + \1 saves one
 camera_spectator_free_help     While you have no cycle in the round, give you a free camera flown with the keys and mouse of World of Warcraft: from the view you had when you lost your cycle, or from above the arena if you are spectating. Off keeps the camera behind other players.
 camera_spectator_follow_help   When you come in as a spectator, the free camera looks straight down and keeps the cycles still alive in view, until you fly it yourself.
 camera_spectator_speed_help    How fast the spectator's free camera flies, in arena units a second.

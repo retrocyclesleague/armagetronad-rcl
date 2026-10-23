@@ -595,70 +595,86 @@ void su_InputConfigGlobal(){
 #ifdef DEDICATED
 // The dedicated server has no SDL and no keys; the table's defaults are
 // only numbers there (SDL's), so that it builds.
-enum { SDLK_TAB = 9, SDLK_SPACE = 32, SDLK_1 = 49, SDLK_2, SDLK_3, SDLK_4, SDLK_5, SDLK_6, SDLK_7, SDLK_8, SDLK_9,
+enum { SDLK_SPACE = 32, SDLK_1 = 49, SDLK_2, SDLK_3, SDLK_4, SDLK_5, SDLK_6, SDLK_7, SDLK_8, SDLK_9,
+       SDLK_LEFTBRACKET = 91, SDLK_RIGHTBRACKET = 93,
        SDLK_a = 97, SDLK_d = 100, SDLK_e = 101, SDLK_q = 113, SDLK_s = 115, SDLK_w = 119, SDLK_x = 120, SDLK_LSHIFT = 304 };
 #endif
 
 namespace
 {
-struct uSpectatorKeyEntry
+// One table of them, with the settings' names and the keys they start as.
+// Flying is as in World of Warcraft: W and S, A and D to turn, Q and E to the
+// side, Space and X up and down, the left mouse button to look, the right to
+// steer. Views are the number keys, as control groups are in a strategy game:
+// a number goes to a view, Ctrl and the number saves it; ] and [ go through
+// them. Tab stays the scores (no default bind has the brackets).
+uSpectatorKeyInfo const su_spectatorKeyInfo[ uSpectatorKey_Count ] =
 {
-    char const * label;     // what the menu calls it
-    char const * help;      // and says it does
-    int sym;                // the key or mouse button, in the numbers binds use; 0 for none
+    { "SPECTATOR_KEY_FORWARD",    "$spectator_key_forward_text",    "$spectator_key_forward_help",    SDLK_w },
+    { "SPECTATOR_KEY_BACK",       "$spectator_key_back_text",       "$spectator_key_back_help",       SDLK_s },
+    { "SPECTATOR_KEY_TURN_LEFT",  "$spectator_key_turn_left_text",  "$spectator_key_turn_left_help",  SDLK_a },
+    { "SPECTATOR_KEY_TURN_RIGHT", "$spectator_key_turn_right_text", "$spectator_key_turn_right_help", SDLK_d },
+    { "SPECTATOR_KEY_LEFT",       "$spectator_key_left_text",       "$spectator_key_left_help",       SDLK_q },
+    { "SPECTATOR_KEY_RIGHT",      "$spectator_key_right_text",      "$spectator_key_right_help",      SDLK_e },
+    { "SPECTATOR_KEY_UP",         "$spectator_key_up_text",         "$spectator_key_up_help",         SDLK_SPACE },
+    { "SPECTATOR_KEY_DOWN",       "$spectator_key_down_text",       "$spectator_key_down_help",       SDLK_x },
+    { "SPECTATOR_KEY_FAST",       "$spectator_key_fast_text",       "$spectator_key_fast_help",       SDLK_LSHIFT },
+    { "SPECTATOR_KEY_LOOK",       "$spectator_key_look_text",       "$spectator_key_look_help",       SDLK_MOUSE_BUTTON_1 },
+    { "SPECTATOR_KEY_STEER",      "$spectator_key_steer_text",      "$spectator_key_steer_help",      SDLK_MOUSE_BUTTON_3 },
+    { "SPECTATOR_KEY_VIEW_1",     "$spectator_key_view_1_text",     "$spectator_key_view_help",       SDLK_1 },
+    { "SPECTATOR_KEY_VIEW_2",     "$spectator_key_view_2_text",     "$spectator_key_view_help",       SDLK_2 },
+    { "SPECTATOR_KEY_VIEW_3",     "$spectator_key_view_3_text",     "$spectator_key_view_help",       SDLK_3 },
+    { "SPECTATOR_KEY_VIEW_4",     "$spectator_key_view_4_text",     "$spectator_key_view_help",       SDLK_4 },
+    { "SPECTATOR_KEY_VIEW_5",     "$spectator_key_view_5_text",     "$spectator_key_view_help",       SDLK_5 },
+    { "SPECTATOR_KEY_VIEW_6",     "$spectator_key_view_6_text",     "$spectator_key_view_help",       SDLK_6 },
+    { "SPECTATOR_KEY_VIEW_7",     "$spectator_key_view_7_text",     "$spectator_key_view_help",       SDLK_7 },
+    { "SPECTATOR_KEY_VIEW_8",     "$spectator_key_view_8_text",     "$spectator_key_view_help",       SDLK_8 },
+    { "SPECTATOR_KEY_VIEW_9",     "$spectator_key_view_9_text",     "$spectator_key_view_help",       SDLK_9 },
+    { "SPECTATOR_KEY_VIEW_NEXT",  "$spectator_key_view_next_text",  "$spectator_key_view_next_help",  SDLK_RIGHTBRACKET },
+    { "SPECTATOR_KEY_VIEW_PREV",  "$spectator_key_view_prev_text",  "$spectator_key_view_prev_help",  SDLK_LEFTBRACKET }
 };
 
-// as in World of Warcraft: W and S, A and D to turn, Q and E to the side,
-// Space and X up and down, the left mouse button to look, the right to steer
-uSpectatorKeyEntry su_spectatorKeys[ uSpectatorKey_Count ] =
-{
-    { "$spectator_key_forward_text",    "$spectator_key_forward_help",    SDLK_w },
-    { "$spectator_key_back_text",       "$spectator_key_back_help",       SDLK_s },
-    { "$spectator_key_turn_left_text",  "$spectator_key_turn_left_help",  SDLK_a },
-    { "$spectator_key_turn_right_text", "$spectator_key_turn_right_help", SDLK_d },
-    { "$spectator_key_left_text",       "$spectator_key_left_help",       SDLK_q },
-    { "$spectator_key_right_text",      "$spectator_key_right_help",      SDLK_e },
-    { "$spectator_key_up_text",         "$spectator_key_up_help",         SDLK_SPACE },
-    { "$spectator_key_down_text",       "$spectator_key_down_help",       SDLK_x },
-    { "$spectator_key_fast_text",       "$spectator_key_fast_help",       SDLK_LSHIFT },
-    { "$spectator_key_look_text",       "$spectator_key_look_help",       SDLK_MOUSE_BUTTON_1 },
-    { "$spectator_key_steer_text",      "$spectator_key_steer_help",      SDLK_MOUSE_BUTTON_3 }
-};
+// the keys set now, each a setting of its own in user.cfg
+int su_spectatorKeySym[ uSpectatorKey_Count ];
 
-tConfItem< int > su_spectatorKeyForwardConf( "SPECTATOR_KEY_FORWARD", su_spectatorKeys[ uSpectatorKey_Forward ].sym );
-tConfItem< int > su_spectatorKeyBackConf( "SPECTATOR_KEY_BACK", su_spectatorKeys[ uSpectatorKey_Back ].sym );
-tConfItem< int > su_spectatorKeyTurnLeftConf( "SPECTATOR_KEY_TURN_LEFT", su_spectatorKeys[ uSpectatorKey_TurnLeft ].sym );
-tConfItem< int > su_spectatorKeyTurnRightConf( "SPECTATOR_KEY_TURN_RIGHT", su_spectatorKeys[ uSpectatorKey_TurnRight ].sym );
-tConfItem< int > su_spectatorKeyLeftConf( "SPECTATOR_KEY_LEFT", su_spectatorKeys[ uSpectatorKey_Left ].sym );
-tConfItem< int > su_spectatorKeyRightConf( "SPECTATOR_KEY_RIGHT", su_spectatorKeys[ uSpectatorKey_Right ].sym );
-tConfItem< int > su_spectatorKeyUpConf( "SPECTATOR_KEY_UP", su_spectatorKeys[ uSpectatorKey_Up ].sym );
-tConfItem< int > su_spectatorKeyDownConf( "SPECTATOR_KEY_DOWN", su_spectatorKeys[ uSpectatorKey_Down ].sym );
-tConfItem< int > su_spectatorKeyFastConf( "SPECTATOR_KEY_FAST", su_spectatorKeys[ uSpectatorKey_Fast ].sym );
-tConfItem< int > su_spectatorKeyLookConf( "SPECTATOR_KEY_LOOK", su_spectatorKeys[ uSpectatorKey_Look ].sym );
-tConfItem< int > su_spectatorKeySteerConf( "SPECTATOR_KEY_STEER", su_spectatorKeys[ uSpectatorKey_Steer ].sym );
+struct uSpectatorKeySettings
+{
+    uSpectatorKeySettings()
+    {
+        for ( int i = 0; i < uSpectatorKey_Count; ++i )
+        {
+            su_spectatorKeySym[ i ] = su_spectatorKeyInfo[ i ].defaultSym;
+            // they last as long as the program does
+            new tConfItem< int >( su_spectatorKeyInfo[ i ].name, su_spectatorKeySym[ i ] );
+        }
+    }
+};
+uSpectatorKeySettings su_spectatorKeySettings;
 
 // a row that shows one of them and takes the next key or mouse button for it
 class uMenuItemSpectatorKey: public uMenuItem
 {
-    uSpectatorKeyEntry & entry_;
+    uSpectatorKeyInfo const & info_;
+    int & sym_;
     bool active_;
 public:
-    uMenuItemSpectatorKey( uMenu * menu, uSpectatorKeyEntry & entry )
-            :uMenuItem( menu, tOutput( entry.help ) ), entry_( entry ), active_( false ){
+    uMenuItemSpectatorKey( uMenu * menu, uSpectatorKey key )
+            :uMenuItem( menu, tOutput( su_spectatorKeyInfo[ key ].help ) ), info_( su_spectatorKeyInfo[ key ] ),
+            sym_( su_spectatorKeySym[ key ] ), active_( false ){
     }
 
     virtual ~uMenuItemSpectatorKey(){}
 
     virtual void Render(REAL x,REAL y,REAL alpha=1,bool selected=0){
         tString label;
-        label << tOutput( entry_.label );
+        label << tOutput( info_.label );
         DisplayText(REAL(x-.02),y,label,selected,alpha,1);
 
         tString s;
         if ( active_ )
             s << tOutput("$input_press_any_key");
-        else if ( entry_.sym > 0 && entry_.sym < SDLK_NEWLAST )
-            s << keyname( entry_.sym );
+        else if ( sym_ > 0 && sym_ < SDLK_NEWLAST )
+            s << keyname( sym_ );
         else
             s << tOutput("$input_items_unbound");
         DisplayText(REAL(x+.02),y,s,selected,alpha,-1);
@@ -681,21 +697,21 @@ public:
                 return false;
             active_ = false;
             if ( e.button.button >= 1 && e.button.button <= MOUSE_BUTTONS )
-                entry_.sym = SDLK_MOUSE_BUTTON_1 + e.button.button - 1;
+                sym_ = SDLK_MOUSE_BUTTON_1 + e.button.button - 1;
             return true;
         case SDL_KEYDOWN:
             if ( !active_ )
             {
                 if ( e.key.keysym.sym == SDLK_DELETE || e.key.keysym.sym == SDLK_BACKSPACE )
                 {
-                    entry_.sym = 0;
+                    sym_ = 0;
                     return true;
                 }
                 return false;
             }
             active_ = false;
             if ( e.key.keysym.sym != SDLK_ESCAPE )
-                entry_.sym = e.key.keysym.sym;
+                sym_ = e.key.keysym.sym;
             return true;
         default:
             return false;
@@ -717,7 +733,7 @@ bool su_SpectatorKeyDown( uSpectatorKey key )
 #ifndef DEDICATED
     if ( key < 0 || key >= uSpectatorKey_Count )
         return false;
-    int const sym = su_spectatorKeys[ key ].sym;
+    int const sym = su_spectatorKeySym[ key ];
     if ( sym <= 0 )
         return false;
     if ( sym < SDLK_LAST )
@@ -732,11 +748,27 @@ bool su_SpectatorKeyDown( uSpectatorKey key )
     return false;
 }
 
+uSpectatorKeyInfo const & su_SpectatorKeyInfo( uSpectatorKey key )
+{
+    return su_spectatorKeyInfo[ key >= 0 && key < uSpectatorKey_Count ? key : 0 ];
+}
+
+int su_SpectatorKeySym( uSpectatorKey key )
+{
+    return key >= 0 && key < uSpectatorKey_Count ? su_spectatorKeySym[ key ] : 0;
+}
+
+void su_SetSpectatorKeySym( uSpectatorKey key, int sym )
+{
+    if ( key >= 0 && key < uSpectatorKey_Count )
+        su_spectatorKeySym[ key ] = sym >= 0 && sym < SDLK_NEWLAST ? sym : 0;
+}
+
 char const * su_SpectatorKeyName( uSpectatorKey key )
 {
     if ( key < 0 || key >= uSpectatorKey_Count )
         return "";
-    int const sym = su_spectatorKeys[ key ].sym;
+    int const sym = su_spectatorKeySym[ key ];
     return sym > 0 && sym < SDLK_NEWLAST ? keyname( sym ) : "-";
 }
 
@@ -746,7 +778,7 @@ void su_InputConfigSpectator()
 
     uMenuItemSpectatorKey * items[ uSpectatorKey_Count ];
     for ( int i = 0; i < uSpectatorKey_Count; ++i )
-        items[ i ] = new uMenuItemSpectatorKey( &menu, su_spectatorKeys[ i ] );
+        items[ i ] = new uMenuItemSpectatorKey( &menu, static_cast< uSpectatorKey >( i ) );
 
     menu.ReverseItems();
     menu.Enter();

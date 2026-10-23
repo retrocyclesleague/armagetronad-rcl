@@ -45,4 +45,13 @@ public:
     virtual void Timestep(REAL ts);
 };
 
+// ---- the watcher's saved views (gCamera.cpp) ----
+#include "rSDL.h"
+class eGrid;
+//! a key for the saved views while watching: goes to one, saves one or
+//! goes through them; true if it was one, which is then used up
+bool sg_SpectatorViewEvent( eGrid * grid, SDL_Event const & event );
+//! whether going to a saved view glides there (else it cuts); the Camera page sets it
+bool & sg_SpectatorViewGlide();
+
 #endif

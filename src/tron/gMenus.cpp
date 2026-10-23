@@ -39,6 +39,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "gGame.h"
 #include "gCycle.h"
 #include "eCamera.h"
+#include "gCamera.h"
 #include "gColourStudio.h"
 #include "gHud.h"
 #include "tRecorder.h"
@@ -1513,6 +1514,10 @@ void sg_RclCameraPage()
     uMenu menu("$rcl_camera_menu_text");
 
     // rows are stored bottom first
+    uMenuItemSelection<bool> views( &menu, "$rcl_view_switch_text", "$rcl_view_switch_help", sg_SpectatorViewGlide() );
+    views.NewChoice( "$rcl_view_switch_glide_text", "$rcl_view_switch_glide_help", true );
+    views.NewChoice( "$rcl_view_switch_cut_text", "$rcl_view_switch_cut_help", false );
+
     uMenuItemSelection<bool> likePlay( &menu, "$rcl_glance_view_text", "$rcl_glance_view_help", se_CameraGlanceLikePlay() );
     likePlay.NewChoice( "$rcl_glance_view_own_text", "$rcl_glance_view_own_help", false );
     likePlay.NewChoice( "$rcl_glance_view_play_text", "$rcl_glance_view_play_help", true );

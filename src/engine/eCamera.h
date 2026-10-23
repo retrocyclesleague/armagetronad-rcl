@@ -32,6 +32,7 @@ typedef enum {CAMERA_IN=0, CAMERA_CUSTOM=1, CAMERA_FREE=2, CAMERA_FOLLOW=3,
               CAMERA_SMART=4,  CAMERA_SERVER_CUSTOM=5, CAMERA_SMART_IN=6, CAMERA_COUNT=7 } eCamMode;
 
 #include "eCoord.h"
+#include "tString.h"
 //#include "uInput.h"
 #include "rViewport.h"
 #include "tList.h"
@@ -48,6 +49,27 @@ class uActionTooltip;
 
 //extern REAL se_cameraRise; // how far down does the current camera look?
 //extern REAL se_cameraZ;
+
+//! A view the camera can be put in, as a watcher saves them (gCamera.cpp)
+//! and a played-back match will go through them.
+//!  - fixed: a spot in the arena, where the eye is and where it looks;
+//!  - follow: where the eye is from the cycle watched, whichever it is: in
+//!    the frame of the way that rides, which turns after it at turnSpeed, or
+//!    in the arena's axes, and where it looks from there.
+struct eCameraView
+{
+    bool fixed;
+    eCoord pos, dir;    //!< fixed: the eye over the floor and the way it looks
+    REAL z, rise;       //!< fixed: its height, and how much it looks up per unit ahead
+    REAL back, side, up;        //!< follow: behind the cycle, to its left, above it
+    REAL yaw, pitch;            //!< follow: the look, turned from the frame and up per unit ahead
+    REAL turnSpeed;             //!< follow: how quickly the frame turns after the cycle; 0 at once
+    bool turns;                 //!< follow: the frame turns with the cycle (else the arena's axes)
+
+    eCameraView();
+    tString Serialise() const;                  //!< one line of tab separated words, no line end
+    bool Parse( char const * line );            //!< what Serialise wrote; false if it is not that
+};
 
 // extern List<eCamera> se_cameras;
 
@@ -127,6 +149,20 @@ protected:
     //! what following keeps in view, and how high the camera must be to see it
     bool SpectatorTarget( eCoord & centre, REAL & height ) const;
 
+    // a saved view in use (ApplyView)
+    bool        viewFollow_;    //!< following the cycle watched as viewFollowData_ says
+    eCameraView viewFollowData_;
+    eCoord      viewFrame_;     //!< the way its frame faces, turning after the cycle
+    void PlaceFollowView( REAL ts, eCoord & p, eCoord & d, REAL & h, REAL & r ); //!< where that puts the camera now
+
+    // a switch of view glides from the view drawn then
+    double glideStart_;
+    REAL   glideTime_;          //!< 0: no glide
+    eCoord glidePos_, glideDir_;
+    REAL   glideZ_, glideRise_;
+    bool   Gliding( double now ) const;
+    void   GlidePose( double now, eCoord & p, eCoord & d, REAL & h, REAL & r ) const; //!< the view drawn at that moment
+
     void SpectatorFly();        //!< hands a watcher their own free camera and flies it
 
     void Bound( REAL dt ); //!< make sure the camera is inside the arena and has clear line of sight
@@ -179,6 +215,14 @@ public:
     void SwitchView();
     void SwitchCenter(int d);
     bool Act(uActionCamera *act,REAL x);
+
+    //! the main camera of a local player with no cycle of their own in play
+    bool Spectating() const;
+    //! the view the camera has now, without a glance; false when it follows
+    //! a cycle and there is none to measure from
+    bool SaveView( eCameraView & view ) const;
+    //! puts the camera in the view, gliding there over that many seconds (0: a cut)
+    void ApplyView( eCameraView const & view, REAL glide );
 
 #ifndef DEDICATED
     void Render();
