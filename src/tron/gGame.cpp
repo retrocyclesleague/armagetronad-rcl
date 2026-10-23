@@ -3225,7 +3225,29 @@ public:
     //! the timeline's hooks from gCycle
     void Turn( int dir, eCoord const & pos, int turns ){ if ( active_ ) timeline_.Turn( dir, pos, turns ); }
     void OwnSync( REAL time, eCoord const & pos, int turns, eCoord const & lastTurn ){ if ( active_ ) timeline_.OwnSync( time, pos, turns, lastTurn ); }
-    void Death( REAL time, eCoord const & pos, REAL rubber, char const * killer, int turns ){ if ( active_ ) timeline_.Death( time, pos, rubber, killer, turns ); }
+    void Death( REAL time, eCoord const & pos, REAL rubber, char const * killer, int turns )
+    {
+        if ( !active_ )
+            return;
+
+        // A frame of ours still going on when the death is read: the network
+        // is read before a frame is looked at, and the death ends the looking,
+        // so Sample never sees it. A long one is counted here, once.
+        if ( lastSample_ >= 0 )
+        {
+            double const now = tSysTimeFloat();
+            REAL const dt = REAL( now - lastSample_ );
+            if ( dt > sg_rclLagHitch )
+            {
+                ++hitches_;
+                if ( dt > frame_ )
+                    frame_ = dt;
+                lastSample_ = now;
+            }
+        }
+
+        timeline_.Death( time, pos, rubber, killer, turns );
+    }
 private:
     static bool LocalAlive()
     {
