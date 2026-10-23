@@ -592,6 +592,13 @@ void su_InputConfigGlobal(){
 }
 
 // ---- the watcher's keys (see uInput.h) ----
+#ifdef DEDICATED
+// The dedicated server has no SDL and no keys; the table's defaults are
+// only numbers there (SDL's), so that it builds.
+enum { SDLK_TAB = 9, SDLK_SPACE = 32, SDLK_1 = 49, SDLK_2, SDLK_3, SDLK_4, SDLK_5, SDLK_6, SDLK_7, SDLK_8, SDLK_9,
+       SDLK_a = 97, SDLK_d = 100, SDLK_e = 101, SDLK_q = 113, SDLK_s = 115, SDLK_w = 119, SDLK_x = 120, SDLK_LSHIFT = 304 };
+#endif
+
 namespace
 {
 struct uSpectatorKeyEntry

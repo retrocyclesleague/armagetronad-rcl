@@ -415,7 +415,8 @@ void rConsole::DisplayAtNewline(){
 }
 
 
-#ifdef HAVE_UNISTD_H
+// scripts are run with pipe() and fork(), which Windows has not
+#if defined( HAVE_UNISTD_H ) && !defined( WIN32 )
 
 #define READ 0
 #define WRITE 1

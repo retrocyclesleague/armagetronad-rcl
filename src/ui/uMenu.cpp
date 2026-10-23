@@ -380,7 +380,9 @@ void uMenu::SetSoundFunc( SoundFunc * func )
 
 void uMenu::MenuSound( Sound sound )
 {
-    su_MenuSound( sound );
+    // the dedicated server has neither su_MenuSound's declaration nor sounds
+    if ( su_menuSoundFunc )
+        (*su_menuSoundFunc)( sound );
 }
 
 static void su_MenuSound( uMenu::Sound sound )
