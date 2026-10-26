@@ -334,6 +334,11 @@ if test -z "`echo $CXXFLAGS | grep "\-std="`"; then
   fi
 fi
 
+dnl no fused multiply-add: contracting a*b+c changes the rounding, and the grid's geometric
+dnl predicates then disagree between machines (aarch64 GCC contracts by default, clang
+dnl within expressions), which shows as cycles teleporting on Apple Silicon.
+AX_CXXFLAGS_GCC_OPTION(-ffp-contract=off)
+
 dnl
 dnl	dnl maybe it is the future and c++11 is deprecated? C++14 should work, too
 dnl	AX_CXXFLAGS_GCC_OPTION(-std=c++14z,[],[],[
